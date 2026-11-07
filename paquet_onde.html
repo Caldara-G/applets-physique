@@ -1,0 +1,1108 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Propagation d'un paquet d'ondes — MP* Malherbe</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px; color: #222; background: #eef0f3;
+}
+#app { display: flex; height: 100vh; }
+#principal { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0;
+  padding: 8px; gap: 8px; }
+.ligne-zones { display: flex; gap: 8px; min-height: 0; }
+.zone { position: relative; flex: 1; min-height: 0; min-width: 0; background: #fff;
+  border: 1px solid #d5d9df; border-radius: 6px; overflow: hidden; }
+.zone canvas { position: absolute; left: 0; top: 0; touch-action: none; }
+#panneau { width: 340px; flex: none; overflow-y: auto; background: #fff;
+  border-left: 1px solid #d5d9df; padding: 10px 14px 20px; }
+#panneau h1 { font-size: 16px; margin: 4px 0 2px; }
+.retour { font-size: 12px; color: #4a6fa5; text-decoration: none; }
+.retour:hover { text-decoration: underline; }
+.section { margin: 8px 0; padding-bottom: 8px; border-bottom: 1px solid #eceef1; }
+.section:last-child { border-bottom: none; }
+.titre { font-weight: 600; margin-bottom: 4px; color: #333; }
+.choix { display: flex; align-items: center; gap: 6px; padding: 1px 0; cursor: pointer;
+  user-select: none; }
+.choix input { margin: 0 2px 0 0; }
+.choix.off { color: #aaa; cursor: default; }
+.curseur { margin: 7px 0; }
+.curseur .tete { display: flex; justify-content: space-between; align-items: center;
+  gap: 6px; }
+.curseur .valeur { display: flex; align-items: center; gap: 2px; flex: none; }
+.saisie { width: 66px; text-align: right; font: inherit; padding: 1px 4px;
+  border: 1px solid #c9cdd3; border-radius: 3px; }
+.pm { width: 20px; height: 20px; padding: 0; border: 1px solid #c9cdd3;
+  background: #f5f6f8; border-radius: 3px; cursor: pointer; line-height: 1; }
+.pm:hover { background: #e6e9ee; }
+input[type=range] { width: 100%; margin: 3px 0 0; accent-color: #3b6fb6; }
+.boutons { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+button.b { padding: 5px 10px; border: 1px solid #b8bec8; background: #f3f4f6;
+  border-radius: 4px; cursor: pointer; font: inherit; }
+button.b:hover { background: #e4e7ec; }
+button.b.actif { background: #dce7f7; border-color: #7f9fcf; }
+.info { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 4px;
+  padding: 6px 8px; line-height: 1.5; }
+.note { font-size: 11.5px; color: #666; font-style: italic; line-height: 1.4; }
+.dialogue { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: none;
+  align-items: center; justify-content: center; z-index: 10; }
+.dialogue .boite { background: #fff; border-radius: 8px; padding: 16px 20px;
+  min-width: 340px; box-shadow: 0 6px 30px rgba(0,0,0,0.25); }
+.dialogue table td { padding: 3px 6px; }
+.dialogue input[type=text] { width: 80px; font: inherit; padding: 2px 4px; }
+.erreur { color: #c62828; }
+@media (max-width: 900px) {
+  #app { flex-direction: column; height: auto; }
+  #principal { height: 75vh; }
+  #panneau { width: 100%; border-left: none; border-top: 1px solid #d5d9df; }
+}
+.haut { display: flex; justify-content: space-between; align-items: center; }
+.etiquette { font-size: 11.5px; font-weight: 600; color: #fff; background: #3b5f96;
+  border-radius: 10px; padding: 2px 9px; letter-spacing: 0.02em; }
+.filigrane { position: absolute; right: 16px; bottom: 14px; z-index: 5; pointer-events: none;
+  font-size: 13px; font-weight: 700; color: #3b5f96; background: rgba(255,255,255,0.82);
+  border: 1px solid rgba(59,95,150,0.35); border-radius: 12px; padding: 3px 11px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="principal">
+    <div class="zone" id="z_onde" data-mt-nom="Onde" style="flex: 1.25"></div>
+    <div class="zone" id="z_disp" data-mt-nom="Dispersion"></div>
+  </div>
+  <div id="panneau"></div>
+</div>
+<script>
+"use strict";
+/* ======================================================================
+   Bibliothèque commune aux applets (aucune dépendance externe)
+   - interface: sections, curseurs (−/+, saisie, molette), boutons radio,
+     cases à cocher, boutons
+   - canvas: adaptation à la taille et à la résolution de l'écran,
+     repères gradués, courbes, flèches, légendes
+   - 3D: projection en perspective, rotation à la souris, tri en profondeur
+   ====================================================================== */
+
+// ---------------------------------------------------------------- DOM
+function el(tag, attrs, parent) {
+  const e = document.createElement(tag);
+  if (attrs) {
+    for (const k in attrs) {
+      const v = attrs[k];
+      if (k === "text") e.textContent = v;
+      else if (k === "html") e.innerHTML = v;
+      else if (k === "class") e.className = v;
+      else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v);
+    }
+  }
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+/** Nombre écrit avec une virgule décimale. */
+function fmt(v, d) {
+  if (v === Infinity) return "∞";
+  if (v === -Infinity) return "−∞";
+  if (!isFinite(v)) return "—";
+  let s = v.toFixed(d);
+  if (/^-0(\.0*)?$/.test(s)) s = s.slice(1);
+  return s.replace(".", ",").replace("-", "−");
+}
+
+function section(parent, titre) {
+  const s = el("div", { class: "section" }, parent);
+  if (titre) el("div", { class: "titre", html: titre }, s);
+  return s;
+}
+
+/** Curseur avec boutons −/+, saisie au clavier et molette.
+    o = {label, min, max, val, pas, dec, onchange} */
+function curseur(parent, o) {
+  const ligne = el("div", { class: "curseur" }, parent);
+  const tete = el("div", { class: "tete" }, ligne);
+  el("span", { html: o.label }, tete);
+  const zone = el("span", { class: "valeur" }, tete);
+  const moins = el("button", { class: "pm", text: "−", title: "diminuer" }, zone);
+  const saisie = el("input", { type: "text", class: "saisie" }, zone);
+  const plus = el("button", { class: "pm", text: "+", title: "augmenter" }, zone);
+  const r = el("input", { type: "range", min: o.min, max: o.max, step: "any" }, ligne);
+  const dec = o.dec !== undefined ? o.dec
+    : Math.max(0, -Math.floor(Math.log10(o.pas) + 1e-9));
+  let v = o.val;
+  function borne(x) {
+    x = Math.min(Math.max(x, o.min), o.max);
+    return +(o.min + Math.round((x - o.min) / o.pas) * o.pas).toFixed(10);
+  }
+  function afficher() { r.value = v; saisie.value = fmt(v, dec); }
+  function regler(x, silencieux) {
+    x = borne(x);
+    const change = Math.abs(x - v) > 1e-12;
+    v = x;
+    afficher();
+    if (change && !silencieux && o.onchange) o.onchange(v);
+  }
+  r.addEventListener("input", () => regler(parseFloat(r.value)));
+  saisie.addEventListener("change", () => {
+    const x = parseFloat(saisie.value.replace(",", ".").replace("−", "-"));
+    if (isFinite(x)) regler(x); else afficher();
+  });
+  saisie.addEventListener("keydown", (e) => { if (e.key === "Enter") saisie.blur(); });
+  moins.addEventListener("click", () => regler(v - o.pas));
+  plus.addEventListener("click", () => regler(v + o.pas));
+  r.addEventListener("keydown", (e) => {
+    const sauts = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1,
+                    PageUp: 10, PageDown: -10 };
+    if (e.key in sauts) { e.preventDefault(); regler(v + sauts[e.key] * o.pas); }
+  });
+  ligne.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    regler(v + (e.deltaY < 0 ? 1 : -1) * o.pas * (e.shiftKey ? 10 : 1));
+  }, { passive: false });
+  afficher();
+  return {
+    get: () => v,
+    set: (x, silencieux) => regler(x, silencieux),
+    ligne,
+    montrer: (b) => { ligne.style.display = b ? "" : "none"; },
+  };
+}
+
+/** Groupe de boutons radio. onchange(valeur, indice). */
+function radios(parent, titre, options, actif, onchange) {
+  const s = section(parent, titre);
+  const nom = "r" + Math.random().toString(36).slice(2);
+  const items = options.map((opt, i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "radio", name: nom }, lab);
+    el("span", { html: opt }, lab);
+    if (i === actif) inp.checked = true;
+    inp.addEventListener("change", () => {
+      if (inp.checked && onchange) onchange(opt, i);
+    });
+    return { inp, lab };
+  });
+  return {
+    indice: () => items.findIndex((o) => o.inp.checked),
+    valeur: () => options[items.findIndex((o) => o.inp.checked)],
+    set: (i, silencieux) => {
+      items[i].inp.checked = true;
+      if (!silencieux && onchange) onchange(options[i], i);
+    },
+    desactiver: (i, b) => {
+      items[i].inp.disabled = b;
+      items[i].lab.classList.toggle("off", b);
+    },
+    section: s,
+  };
+}
+
+/** Cases à cocher. options = [[libellé, coché], ...]. onchange(indice, état). */
+function cases(parent, titre, options, onchange) {
+  const s = section(parent, titre);
+  const items = options.map(([texte, coche], i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "checkbox" }, lab);
+    inp.checked = coche;
+    el("span", { html: texte }, lab);
+    inp.addEventListener("change", () => onchange && onchange(i, inp.checked));
+    return inp;
+  });
+  return {
+    get: (i) => items[i].checked,
+    set: (i, b, silencieux) => {
+      items[i].checked = b;
+      if (!silencieux && onchange) onchange(i, b);
+    },
+    section: s,
+  };
+}
+
+function boutons(parent) { return el("div", { class: "boutons" }, parent); }
+function bouton(parent, texte, onclick) {
+  return el("button", { class: "b", html: texte, onclick }, parent);
+}
+
+/** En-tête du panneau de commandes. */
+function entete(panneau, titre) {
+  const haut = el("div", { class: "haut" }, panneau);
+  el("a", { class: "retour", href: "index.html", text: "← Sommaire" }, haut);
+  el("span", { class: "etiquette", text: "MP* Malherbe" }, haut);
+  // filigrane visible en permanence sur la zone de simulation
+  const principal = document.getElementById("principal");
+  if (principal) el("div", { class: "filigrane", text: "MP* Malherbe" }, principal);
+  el("h1", { html: titre }, panneau);
+}
+
+// ---------------------------------------------------------------- canvas
+/** Canvas qui remplit son conteneur et se redessine quand il change de taille. */
+function canevas(conteneur, dessiner) {
+  const cv = el("canvas", null, conteneur);
+  const ctx = cv.getContext("2d");
+  const obj = { cv, ctx, w: 1, h: 1, dessiner };
+  function taille() {
+    const r = conteneur.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    obj.w = Math.max(10, Math.floor(r.width));
+    obj.h = Math.max(10, Math.floor(r.height));
+    cv.width = Math.round(obj.w * dpr);
+    cv.height = Math.round(obj.h * dpr);
+    cv.style.width = obj.w + "px";
+    cv.style.height = obj.h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (obj.dessiner) obj.dessiner(obj);
+  }
+  obj.effacer = (fond) => {
+    ctx.fillStyle = fond || "#fff";
+    ctx.fillRect(0, 0, obj.w, obj.h);
+  };
+  new ResizeObserver(taille).observe(conteneur);
+  taille();
+  return obj;
+}
+
+/** Graduations « rondes » entre a et b (environ n intervalles). */
+function graduations(a, b, n) {
+  const brut = Math.abs(b - a) / Math.max(n, 1);
+  const mag = Math.pow(10, Math.floor(Math.log10(brut)));
+  const r = brut / mag;
+  const pas = (r < 1.5 ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10) * mag;
+  const dec = Math.max(0, -Math.floor(Math.log10(pas) + 1e-9));
+  const vals = [];
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  for (let v = Math.ceil(lo / pas - 1e-9) * pas; v <= hi + pas * 1e-9; v += pas) {
+    vals.push(Math.abs(v) < pas * 1e-9 ? 0 : v);
+  }
+  return { vals, dec, pas };
+}
+
+/** Dessine un repère gradué dans le cadre {x, y, w, h} et renvoie les
+    fonctions de passage X(u), Y(v) (et inverses). */
+function repere(ctx, cadre, xmin, xmax, ymin, ymax, o) {
+  o = o || {};
+  const { x, y, w, h } = cadre;
+  const R = {
+    cadre, xmin, xmax, ymin, ymax,
+    X: (u) => x + (u - xmin) / (xmax - xmin) * w,
+    Y: (v) => y + h - (v - ymin) / (ymax - ymin) * h,
+    invX: (px) => xmin + (px - x) / w * (xmax - xmin),
+    invY: (py) => ymin + (y + h - py) / h * (ymax - ymin),
+  };
+  ctx.save();
+  ctx.fillStyle = o.fond || "#fff";
+  ctx.fillRect(x, y, w, h);
+  const gx = graduations(xmin, xmax, o.nx || Math.max(2, w / 85));
+  const gy = graduations(ymin, ymax, o.ny || Math.max(2, h / 45));
+  ctx.lineWidth = 1;
+  if (o.grille !== false) {
+    ctx.strokeStyle = "#e6e8eb";
+    ctx.beginPath();
+    for (const v of gx.vals) { const p = Math.round(R.X(v)) + 0.5; ctx.moveTo(p, y); ctx.lineTo(p, y + h); }
+    for (const v of gy.vals) { const p = Math.round(R.Y(v)) + 0.5; ctx.moveTo(x, p); ctx.lineTo(x + w, p); }
+    ctx.stroke();
+  }
+  if (o.zero && ymin < 0 && ymax > 0) {
+    ctx.strokeStyle = "#999";
+    ctx.beginPath(); ctx.moveTo(x, R.Y(0)); ctx.lineTo(x + w, R.Y(0)); ctx.stroke();
+  }
+  ctx.strokeStyle = "#666";
+  ctx.strokeRect(x + 0.5, y + 0.5, w, h);
+  ctx.fillStyle = "#333";
+  ctx.font = "11px system-ui, sans-serif";
+  if (o.etiquettesX !== false) {
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (const v of gx.vals) ctx.fillText(fmt(v, gx.dec), R.X(v), y + h + 3);
+  }
+  if (o.etiquettesY !== false) {
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (const v of gy.vals) ctx.fillText(fmt(v, gy.dec), x - 4, R.Y(v));
+  }
+  ctx.font = "12px system-ui, sans-serif";
+  if (o.xlabel) {
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.fillText(o.xlabel, x + w / 2, y + h + 18);
+  }
+  if (o.ylabel) {
+    ctx.save();
+    ctx.translate(x - (o.decY || 38), y + h / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.fillText(o.ylabel, 0, 0);
+    ctx.restore();
+  }
+  if (o.titre) {
+    ctx.font = "bold 12.5px system-ui, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.fillText(o.titre, x + w / 2, y - 5);
+  }
+  ctx.restore();
+  return R;
+}
+
+/** Restreint le dessin au cadre du repère. */
+function clipper(ctx, R) {
+  const c = R.cadre;
+  ctx.beginPath();
+  ctx.rect(c.x, c.y, c.w, c.h);
+  ctx.clip();
+}
+
+/** Courbe y(x); les valeurs non finies interrompent le tracé. */
+function courbe(ctx, R, xs, ys, couleur, lw, tirets) {
+  ctx.save();
+  clipper(ctx, R);
+  ctx.strokeStyle = couleur;
+  ctx.lineWidth = lw || 1.5;
+  ctx.lineJoin = "round";
+  if (tirets) ctx.setLineDash(tirets);
+  ctx.beginPath();
+  let leve = true;
+  for (let i = 0; i < xs.length; i++) {
+    const yv = ys[i];
+    if (!isFinite(yv) || !isFinite(xs[i])) { leve = true; continue; }
+    const px = R.X(xs[i]), py = Math.max(-1e5, Math.min(1e5, R.Y(yv)));
+    if (leve) { ctx.moveTo(px, py); leve = false; } else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Flèche entre deux points (coordonnées écran). */
+function fleche(ctx, x0, y0, x1, y1, couleur, lw, tete) {
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy);
+  ctx.save();
+  ctx.strokeStyle = couleur; ctx.fillStyle = couleur;
+  ctx.lineWidth = lw || 2; ctx.lineCap = "round";
+  if (L < 0.5) { ctx.restore(); return; }
+  const t = Math.min(tete || 10, 0.45 * L);
+  const ux = dx / L, uy = dy / L;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1 - ux * t * 0.8, y1 - uy * t * 0.8);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - ux * t - uy * t * 0.45, y1 - uy * t + ux * t * 0.45);
+  ctx.lineTo(x1 - ux * t + uy * t * 0.45, y1 - uy * t - ux * t * 0.45);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/** Légende: items = [[texte, couleur, tirets|"point"|"bande"], ...]. */
+function legende(ctx, x, y, items, o) {
+  o = o || {};
+  ctx.save();
+  ctx.font = (o.taille || 11.5) + "px system-ui, sans-serif";
+  const larg = Math.max(...items.map((it) => ctx.measureText(it[0]).width)) + 36;
+  const h = items.length * 17 + 8;
+  if (o.droite) x -= larg;
+  ctx.fillStyle = "rgba(255,255,255,0.88)";
+  ctx.strokeStyle = "#ccc";
+  ctx.fillRect(x, y, larg, h);
+  ctx.strokeRect(x + 0.5, y + 0.5, larg, h);
+  items.forEach(([texte, couleur, style], i) => {
+    const yy = y + 12 + 17 * i;
+    ctx.strokeStyle = couleur; ctx.fillStyle = couleur;
+    ctx.lineWidth = 2;
+    if (style === "point") {
+      ctx.beginPath(); ctx.arc(x + 17, yy, 4, 0, 2 * Math.PI); ctx.fill();
+    } else if (style === "bande") {
+      ctx.globalAlpha = 0.35; ctx.fillRect(x + 6, yy - 5, 22, 10); ctx.globalAlpha = 1;
+    } else {
+      ctx.setLineDash(style || []);
+      ctx.beginPath(); ctx.moveTo(x + 6, yy); ctx.lineTo(x + 28, yy); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.fillStyle = "#222";
+    ctx.textBaseline = "middle";
+    ctx.fillText(texte, x + 33, yy);
+  });
+  ctx.restore();
+}
+
+function texte(ctx, s, x, y, o) {
+  o = o || {};
+  ctx.save();
+  ctx.font = (o.gras ? "bold " : "") + (o.taille || 12) + "px system-ui, sans-serif";
+  ctx.fillStyle = o.couleur || "#222";
+  ctx.textAlign = o.align || "left";
+  ctx.textBaseline = o.base || "alphabetic";
+  ctx.fillText(s, x, y);
+  ctx.restore();
+}
+
+/** Teinte HSV (h dans [0,1[) -> "rgb(...)" ; utilisée pour la phase. */
+function couleurPhase(h) {
+  h = ((h % 1) + 1) % 1;
+  const i = Math.floor(h * 6), f = h * 6 - i;
+  const q = 1 - f, t = f;
+  const [r, g, b] = [[1, t, 0], [q, 1, 0], [0, 1, t], [0, q, 1], [t, 0, 1], [1, 0, q]][i % 6];
+  return [Math.round(255 * r), Math.round(255 * g), Math.round(255 * b)];
+}
+
+/** Couleur RVB (0..1) associée à une longueur d'onde en nm (D. Bruton). */
+function lambdaVersRGB(lam) {
+  let r = 0, g = 0, b = 0;
+  if (lam >= 380 && lam < 440) { r = -(lam - 440) / 60; b = 1; }
+  else if (lam < 490) { g = (lam - 440) / 50; b = 1; }
+  else if (lam < 510) { g = 1; b = -(lam - 510) / 20; }
+  else if (lam < 580) { r = (lam - 510) / 70; g = 1; }
+  else if (lam < 645) { r = 1; g = -(lam - 645) / 65; }
+  else if (lam <= 780) { r = 1; }
+  let f = 1;
+  if (lam >= 380 && lam < 420) f = 0.3 + 0.7 * (lam - 380) / 40;
+  else if (lam > 700 && lam <= 780) f = 0.3 + 0.7 * (780 - lam) / 80;
+  if (lam < 380 || lam > 780) f = 0;
+  return [r * f, g * f, b * f];
+}
+
+// ---------------------------------------------------------------- 3D
+/** Rotation de la vue à la souris (glisser) et zoom (molette).
+    v = {azim, elev, zoom} en degrés. */
+function vue3D(cv, v, redessiner) {
+  let prec = null;
+  cv.style.cursor = "grab";
+  cv.addEventListener("pointerdown", (e) => {
+    prec = [e.clientX, e.clientY];
+    cv.setPointerCapture(e.pointerId);
+    cv.style.cursor = "grabbing";
+  });
+  cv.addEventListener("pointermove", (e) => {
+    if (!prec) return;
+    v.azim -= (e.clientX - prec[0]) * 0.4;
+    v.elev = Math.max(-89, Math.min(89, v.elev + (e.clientY - prec[1]) * 0.4));
+    prec = [e.clientX, e.clientY];
+    redessiner();
+  });
+  const fin = () => { prec = null; cv.style.cursor = "grab"; };
+  cv.addEventListener("pointerup", fin);
+  cv.addEventListener("pointercancel", fin);
+  cv.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    v.zoom = Math.max(0.3, Math.min(5, v.zoom * Math.exp(-e.deltaY * 0.001)));
+    redessiner();
+  }, { passive: false });
+}
+
+/** Projection perspective. Repère direct (X, Y, Z), Z vers le haut.
+    Renvoie p -> [xécran, yécran, profondeur] (profondeur > 0 : vers l'œil). */
+function projection3D(v, w, h, centre, echelle) {
+  const a = v.azim * Math.PI / 180, e = v.elev * Math.PI / 180;
+  const ca = Math.cos(a), sa = Math.sin(a), ce = Math.cos(e), se = Math.sin(e);
+  const u = [ce * ca, ce * sa, se];          // vers l'observateur
+  const r = [-sa, ca, 0];                     // droite de l'écran
+  const hz = [-se * ca, -se * sa, ce];        // haut de l'écran
+  const s = echelle * v.zoom;
+  const dist = 9 * echelle;                   // distance de l'œil (pixels)
+  return function (p) {
+    const x = p[0] - centre[0], y = p[1] - centre[1], z = p[2] - centre[2];
+    const sx = (x * r[0] + y * r[1]) * s;
+    const sy = (x * hz[0] + y * hz[1] + z * hz[2]) * s;
+    const d = (x * u[0] + y * u[1] + z * u[2]) * s;
+    const f = dist / (dist - d);
+    return [w / 2 + sx * f, h / 2 - sy * f, d];
+  };
+}
+
+/** Rendu d'une liste de primitives triées de l'arrière vers l'avant.
+    {type: "ligne"|"poly"|"texte"|"point", pts, prof, couleur, lw, alpha, ...} */
+function rendre(ctx, prims) {
+  prims.sort((p, q) => p.prof - q.prof);
+  for (const p of prims) {
+    ctx.save();
+    ctx.globalAlpha = p.alpha === undefined ? 1 : p.alpha;
+    if (p.type === "ligne") {
+      ctx.strokeStyle = p.couleur; ctx.lineWidth = p.lw || 1;
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+      if (p.tirets) ctx.setLineDash(p.tirets);
+      ctx.beginPath();
+      ctx.moveTo(p.pts[0][0], p.pts[0][1]);
+      for (let i = 1; i < p.pts.length; i++) ctx.lineTo(p.pts[i][0], p.pts[i][1]);
+      ctx.stroke();
+    } else if (p.type === "fleche") {
+      fleche(ctx, p.pts[0][0], p.pts[0][1], p.pts[1][0], p.pts[1][1], p.couleur,
+             p.lw || 2, p.tete || 9);
+    } else if (p.type === "poly") {
+      ctx.fillStyle = p.couleur;
+      ctx.beginPath();
+      ctx.moveTo(p.pts[0][0], p.pts[0][1]);
+      for (let i = 1; i < p.pts.length; i++) ctx.lineTo(p.pts[i][0], p.pts[i][1]);
+      ctx.closePath();
+      ctx.fill();
+      if (p.bord) { ctx.globalAlpha = 0.7; ctx.strokeStyle = p.bord; ctx.lineWidth = 1; ctx.stroke(); }
+    } else if (p.type === "texte") {
+      ctx.fillStyle = p.couleur || "#222";
+      ctx.font = (p.gras ? "bold " : "") + (p.taille || 13) + "px system-ui, sans-serif";
+      ctx.textAlign = p.align || "center"; ctx.textBaseline = "middle";
+      ctx.fillText(p.texte, p.pts[0][0], p.pts[0][1]);
+    } else if (p.type === "point") {
+      ctx.fillStyle = p.couleur;
+      ctx.beginPath(); ctx.arc(p.pts[0][0], p.pts[0][1], p.r || 3, 0, 2 * Math.PI); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+// ---------------------------------------------------------------- animation
+/** Boucle d'animation: pas(dt en s) appelée à chaque image. */
+function boucle(pas) {
+  let t0 = null;
+  function image(t) {
+    const dt = t0 === null ? 0 : Math.min(0.1, (t - t0) / 1000);
+    t0 = t;
+    pas(dt);
+    requestAnimationFrame(image);
+  }
+  requestAnimationFrame(image);
+}
+
+// ---------------------------------------------------------------- outils numériques
+/** Un pas de Runge-Kutta 4 pour dy/dt = f(t, y) (y: tableau). */
+function rk4(f, t, y, h) {
+  const n = y.length;
+  const k1 = f(t, y);
+  const y2 = y.map((v, i) => v + 0.5 * h * k1[i]);
+  const k2 = f(t + 0.5 * h, y2);
+  const y3 = y.map((v, i) => v + 0.5 * h * k2[i]);
+  const k3 = f(t + 0.5 * h, y3);
+  const y4 = y.map((v, i) => v + h * k3[i]);
+  const k4 = f(t + h, y4);
+  const r = new Array(n);
+  for (let i = 0; i < n; i++) r[i] = y[i] + h * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]) / 6;
+  return r;
+}
+
+/** Intégrales elliptiques complètes K(k) et E(k) (moyenne arithmético-géométrique). */
+function elliptiques(k) {
+  let a = 1, b = Math.sqrt(Math.max(0, 1 - k * k)), c = k, somme = 0.5 * c * c, p = 1;
+  for (let i = 0; i < 40 && Math.abs(c) > 1e-15; i++) {
+    const an = 0.5 * (a + b);
+    c = 0.5 * (a - b);
+    b = Math.sqrt(a * b);
+    a = an;
+    p *= 2;
+    somme += 0.5 * p * c * c;
+  }
+  const K = Math.PI / (2 * a);
+  return [K, K * (1 - somme)];
+}
+
+/** Lignes de niveau (carrés marchants) d'une grille V (nx × ny, ligne j = j-ième y).
+    Niveaux k·pas (|k·pas| ≤ vmax). Renvoie une liste de {k, seg} avec seg =
+    [i1, j1, i2, j2, ...] en coordonnées de grille (réelles). */
+function isolignes(V, nx, ny, pas, vmax) {
+  const parNiveau = new Map();
+  for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+    const a = V[j * nx + i], b = V[j * nx + i + 1], c = V[(j + 1) * nx + i + 1], d = V[(j + 1) * nx + i];
+    if (!(isFinite(a) && isFinite(b) && isFinite(c) && isFinite(d))) continue;
+    const mn = Math.max(Math.min(a, b, c, d), -vmax), mx = Math.min(Math.max(a, b, c, d), vmax);
+    const k0 = Math.ceil(mn / pas), k1 = Math.floor(mx / pas);
+    for (let k = k0; k <= k1; k++) {
+      const L = k * pas;
+      const idx = (a > L ? 1 : 0) | (b > L ? 2 : 0) | (c > L ? 4 : 0) | (d > L ? 8 : 0);
+      if (idx === 0 || idx === 15) continue;
+      let seg = parNiveau.get(k);
+      if (!seg) { seg = []; parNiveau.set(k, seg); }
+      const t = (u, v) => (L - u) / (v - u);
+      const bas = () => [i + t(a, b), j], droite = () => [i + 1, j + t(b, c)];
+      const haut = () => [i + t(d, c), j + 1], gauche = () => [i, j + t(a, d)];
+      const aj = (p, q) => seg.push(p[0], p[1], q[0], q[1]);
+      switch (idx) {
+        case 1: case 14: aj(bas(), gauche()); break;
+        case 2: case 13: aj(bas(), droite()); break;
+        case 3: case 12: aj(gauche(), droite()); break;
+        case 4: case 11: aj(droite(), haut()); break;
+        case 6: case 9: aj(bas(), haut()); break;
+        case 7: case 8: aj(gauche(), haut()); break;
+        case 5: case 10: {
+          const centre = (a + b + c + d) / 4 > L;
+          if ((idx === 5) === centre) { aj(bas(), droite()); aj(gauche(), haut()); }
+          else { aj(bas(), gauche()); aj(droite(), haut()); }
+        }
+      }
+    }
+  }
+  return [...parNiveau.entries()].map(([k, seg]) => ({ k, seg }));
+}
+
+/** Trace une grille de valeurs comme image: couleur(v) -> [r, g, b, a] (0..255).
+    La grille (nx × ny) couvre le rectangle écran (x, y, w, h), ligne j = 0 en bas. */
+function carteCouleur(ctx, V, nx, ny, couleur, x, y, w, h) {
+  const off = document.createElement("canvas");
+  off.width = nx; off.height = ny;
+  const oc = off.getContext("2d"), img = oc.createImageData(nx, ny);
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const c = couleur(V[j * nx + i]), d = ((ny - 1 - j) * nx + i) * 4;
+    img.data[d] = c[0]; img.data[d + 1] = c[1]; img.data[d + 2] = c[2]; img.data[d + 3] = c[3] === undefined ? 255 : c[3];
+  }
+  oc.putImageData(img, 0, 0);
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(off, x, y, w, h);
+  ctx.restore();
+}
+
+/** Palette divergente bleu-blanc-rouge pour u dans [−1, 1]. */
+function divergente(u) {
+  u = Math.max(-1, Math.min(1, u));
+  if (u >= 0) return [255, Math.round(255 * (1 - 0.8 * u)), Math.round(255 * (1 - 0.85 * u))];
+  return [Math.round(255 * (1 + 0.85 * u)), Math.round(255 * (1 + 0.6 * u)), 255];
+}
+/** Palette séquentielle (noir -> jaune clair) pour u dans [0, 1]. */
+function sequentielle(u) {
+  u = Math.max(0, Math.min(1, u));
+  return [Math.round(255 * Math.min(1, 1.6 * u)), Math.round(255 * Math.max(0, Math.min(1, 1.8 * u - 0.45))),
+          Math.round(255 * Math.max(0, 2.2 * u - 1.2) * 0.9 + 40 * (1 - u))];
+}
+</script>
+<script>
+/* ======================================================================
+   Propagation et dispersion d'un paquet d'ondes
+   Deux présentations:
+   - « source en x = 0 »: une source émet un signal de spectre gaussien en ω,
+       s(x,t) = Re Σ A(ω) exp(i(ω(t − t0) − k(ω) x)), Im k ≤ 0;
+   - « paquet initial »: on se donne s(x,0), enveloppe gaussienne de largeur σ0
+     centrée en xc, porteuse k0; chaque composante évolue avec ω(k):
+       s(x,t) = Re Σ A(k) exp(i(k(x − xc) − ω(k) t)), Im ω ≤ 0.
+   Milieux électromagnétiques et chaîne: unités réduites avec c = 1.
+   Particule libre: unités réduites propres avec ħ/2m = 1 (aucun rapport avec c).
+   ====================================================================== */
+const C = 1, WP = 3, D = 1, WC = 10, A_RES = 2 * C / WC, ALPHA = 1;
+const L = 60, NX_MAX = 2600, NW_MAX = 1500;
+
+// k(ω) -> [Re k, Im k]  (mode source)
+function k_vide(w) { return [w / C, 0]; }
+function k_plasma(w) {
+  return w >= WP ? [Math.sqrt(w * w - WP * WP) / C, 0]
+                 : [0, -Math.sqrt(WP * WP - w * w) / C];
+}
+function k_conducteur(w) { const s = Math.sqrt(w / (2 * D)); return [s, -s]; }
+function k_chaine(w) {
+  const u = w / WC;
+  if (u <= 1) return [(2 / A_RES) * Math.asin(u), 0];
+  return [Math.PI / A_RES, -(2 / A_RES) * Math.acosh(u)];
+}
+function k_schrodinger(w) { return w >= 0 ? [Math.sqrt(w / ALPHA), 0] : [0, -Math.sqrt(-w / ALPHA)]; }
+
+// ω(k) -> [Re ω, Im ω]  (mode paquet initial)
+function w_vide(k) { return [C * k, 0]; }
+function w_plasma(k) { return [Math.sqrt(WP * WP + C * C * k * k), 0]; }
+function w_conducteur(k) { return [0, -D * k * k]; }            // diffusion: pas de propagation
+function w_chaine(k) { return [WC * Math.abs(Math.sin(k * A_RES / 2)), 0]; }
+function w_schrodinger(k) { return [ALPHA * k * k, 0]; }
+
+const MILIEUX = [
+  { nom: "Vide", k: k_vide, w: w_vide, em: true,
+    titre: "Vide: k = ω/c", html: "k = ω/c",
+    src: [6, 0.5], ini: [6, 1] },
+  { nom: "Plasma", k: k_plasma, w: w_plasma, em: true,
+    titre: "Plasma: k² = (ω² − ωp²)/c², ωp = " + WP,
+    html: "k² = (ω² − ω<sub>p</sub>²)/c², ω<sub>p</sub> = " + WP,
+    src: [4.5, 0.7], ini: [2, 1] },
+  { nom: "Conducteur ohmique", k: k_conducteur, w: w_conducteur, em: true,
+    titre: "Conducteur ohmique: k² = −iμ0σω, 1/(μ0σ) = " + D,
+    html: "k² = −iμ<sub>0</sub>σω, 1/(μ<sub>0</sub>σ) = " + D,
+    src: [3, 0.5], ini: [2, 1.5] },
+  { nom: "Chaîne d'atomes", k: k_chaine, w: w_chaine, em: false,
+    titre: "Chaîne d'atomes: ω = ωc|sin(ka/2)|, ωc = " + WC + ", a = " + A_RES,
+    html: "ω = ω<sub>c</sub>|sin(ka/2)|, ω<sub>c</sub> = " + WC,
+    src: [8, 0.6], ini: [8, 0.7] },
+  { nom: "Particule libre (Schrödinger)", k: k_schrodinger, w: w_schrodinger, em: false, quantique: true,
+    titre: "Particule libre: ω = ħk²/2m (unités réduites, ħ/2m = 1)",
+    html: "ω = ħk²/2m, non relativiste<br>unités réduites: ħ/2m = 1",
+    src: [4, 1.5], ini: [5, 1] },
+];
+
+const etat = { milieu: 1, mode: 0, w0: 4.5, dw: 0.7, k0: 2, s0: 1,
+               vitesse: 1, t: 0, pause: false, sansDisp: true, vide: false };
+const calc = {};
+
+/** Grandeurs au centre du spectre. */
+function vitessesSource(fk, w0) {
+  const k0 = fk(w0);
+  const h = 1e-4 * Math.max(w0, 1);
+  const dk = (fk(w0 + h)[0] - fk(w0 - h)[0]) / (2 * h);
+  const propag = k0[0] > 0 && Math.abs(k0[1]) < 1e-9 * Math.hypot(k0[0], k0[1]);
+  return { k0, w0c: w0, propag, vphi: k0[0] > 0 ? w0 / k0[0] : Infinity, vg: dk > 0 ? 1 / dk : 0 };
+}
+function vitessesInitial(fw, k0) {
+  const w = fw(k0), h = 1e-4 * Math.max(k0, 1);
+  const vg = (fw(k0 + h)[0] - fw(k0 - h)[0]) / (2 * h);
+  const propag = Math.abs(w[1]) < 1e-12;
+  return { k0: [k0, 0], w0c: w[0], wc: w, propag, vphi: propag ? w[0] / k0 : 0, vg: propag ? vg : 0 };
+}
+
+/** Matrice M_ij = A_i exp(i φ_i(x_j)) remplie par récurrence le long de x,
+    avec exp(i φ_i(x + dx)) = exp(i φ_i(x)) exp(i (p_i + i q_i) dx). */
+function remplir(nw, nx, dx, A, somme, pr_, qi_, x0) {
+  const Mr = new Float32Array(nw * nx), Mi = new Float32Array(nw * nx);
+  for (let i = 0; i < nw; i++) {
+    const att = Math.exp(-qi_[i] * dx);
+    const pr = att * Math.cos(pr_[i] * dx), pi = att * Math.sin(pr_[i] * dx);
+    // valeur en x = 0: exp(i p (0 − x0)) e^{q x0}
+    const a0 = Math.exp(qi_[i] * x0) * A[i] / somme;
+    let ar = a0 * Math.cos(-pr_[i] * x0), ai = a0 * Math.sin(-pr_[i] * x0);
+    const base = i * nx;
+    for (let j = 0; j < nx; j++) {
+      Mr[base + j] = ar; Mi[base + j] = ai;
+      const nr = ar * pr - ai * pi;
+      ai = ar * pi + ai * pr; ar = nr;
+    }
+  }
+  return [Mr, Mi];
+}
+
+function precalculer() {
+  const m = MILIEUX[etat.milieu];
+  calc.comp = [];
+  if (etat.mode === 0) precalculerSource(m); else precalculerInitial(m);
+  calc.zr = new Float64Array(calc.nx); calc.zi = new Float64Array(calc.nx);
+  for (const c of calc.comp) { c.zr = new Float64Array(calc.nx); c.zi = new Float64Array(calc.nx); }
+  if (etat.t > calc.tmax) etat.t = 0;
+}
+
+function grilleX(kmax) {
+  const nx = Math.round(Math.min(NX_MAX, Math.max(1000, 9 * L * kmax / (2 * Math.PI))));
+  const dx = L / (nx - 1), x = new Float64Array(nx);
+  for (let j = 0; j < nx; j++) x[j] = j * dx;
+  return { nx, dx, x };
+}
+
+// ---------------------------------------------- mode source (spectre en ω)
+function precalculerSource(m) {
+  const fk = m.k, { w0, dw } = etat;
+  const v = vitessesSource(fk, w0);
+  const t0 = 5 / dw;
+  const tmax = (v.propag && v.vg > 0) ? t0 + Math.min(1.15 * L / v.vg, 6 * L) + 5 / dw : 2 * t0 + 30;
+  const wmin = Math.max(w0 - 5 * dw, 1e-3), wmax = w0 + 5 * dw;
+  const nw = Math.round(Math.min(NW_MAX, Math.max(600, 1.5 * tmax * (wmax - wmin) / (2 * Math.PI))));
+  const w = new Float64Array(nw), A = new Float64Array(nw), kr = new Float64Array(nw), ki = new Float64Array(nw);
+  let somme = 0, kmax = 1;
+  for (let i = 0; i < nw; i++) {
+    w[i] = wmin + (wmax - wmin) * i / (nw - 1);
+    A[i] = Math.exp(-((w[i] - w0) ** 2) / (2 * dw * dw));
+    somme += A[i];
+    [kr[i], ki[i]] = fk(w[i]);
+    kmax = Math.max(kmax, Math.abs(kr[i]));
+  }
+  // paquets de comparaison: même spectre, k(ω) linéarisé (même v_g) ou k = ω/c
+  const klin = w.map((wi) => v.k0[0] + (wi - w0) / v.vg);
+  const kvide = w.map((wi) => wi / C);
+  if (v.propag && v.vg > 0) for (const x of klin) kmax = Math.max(kmax, Math.abs(x));
+  if (m.em) kmax = Math.max(kmax, wmax / C);
+  const { nx, dx, x } = grilleX(kmax);
+  // exp(−i k x): phase −k x, amortissement Im k ≤ 0 -> exp(Im k · x)
+  const neg = (a) => a.map((z) => -z);
+  const [Mr, Mi] = remplir(nw, nx, dx, A, somme, neg(kr), neg(ki), 0);
+  // facteur temporel exp(+iω τ), τ = t − t0
+  const phase = w, amort = new Float64Array(nw);
+  Object.assign(calc, { x, nx, nw, Mr, Mi, phase, amort, t0, tmax, xc: 0, ...v });
+  if (etat.sansDisp && v.propag && v.vg > 0) {
+    const [r, i] = remplir(nw, nx, dx, A, somme, neg(klin), new Float64Array(nw), 0);
+    calc.comp.push({ nom: "même paquet sans dispersion (même v_g)", couleur: "#9e9e9e", Mr: r, Mi: i, phase, amort });
+  }
+  if (etat.vide && m.em && etat.milieu !== 0) {
+    const [r, i] = remplir(nw, nx, dx, A, somme, neg(kvide), new Float64Array(nw), 0);
+    calc.comp.push({ nom: "même paquet dans le vide", couleur: "#f0a868", Mr: r, Mi: i, phase, amort });
+  }
+}
+
+// ---------------------------------------------- mode paquet initial (spectre en k)
+function precalculerInitial(m) {
+  const fw = m.w, { k0, s0 } = etat;
+  const v = vitessesInitial(fw, k0);
+  const xc = v.propag ? 10 : L / 2;
+  const dk = 1 / (2 * s0);                                   // écart-type de |A(k)|²
+  const kmin = Math.max(k0 - 9 * dk, 1e-4), kmaxs = k0 + 9 * dk;
+  const pasK = 2 * Math.PI / (3.2 * L);                       // pas en k: répliques à 3,2 L
+  const nw = Math.round(Math.min(NW_MAX, Math.max(200, (kmaxs - kmin) / pasK)));
+  const k = new Float64Array(nw), A = new Float64Array(nw), wr = new Float64Array(nw), wi = new Float64Array(nw);
+  let somme = 0;
+  for (let i = 0; i < nw; i++) {
+    k[i] = kmin + (kmaxs - kmin) * i / (nw - 1);
+    A[i] = Math.exp(-s0 * s0 * (k[i] - k0) ** 2);
+    somme += A[i];
+    [wr[i], wi[i]] = fw(k[i]);
+  }
+  let tmax;
+  if (v.propag && v.vg > 0) {
+    // durée: on s'arrête quand le bord avant du paquet étalé (centre + 2,5 σ) atteint x = L,
+    // avec σ(t) = σ0 √(1 + (ω'' t / 2σ0²)²) (ω'' estimé numériquement)
+    const h = 1e-3 * Math.max(k0, 1);
+    const w2 = (fw(k0 + h)[0] - 2 * fw(k0)[0] + fw(k0 - h)[0]) / (h * h);
+    const sig = (t) => s0 * Math.sqrt(1 + (w2 * t / (2 * s0 * s0)) ** 2);
+    let ta = 0, tb = (L - xc) / v.vg;
+    for (let it = 0; it < 60; it++) {
+      const tm = (ta + tb) / 2;
+      if (xc + v.vg * tm + 2.5 * sig(tm) < L) ta = tm; else tb = tm;
+    }
+    tmax = Math.min(Math.max(ta, 0.3 * (L - xc) / v.vg), 400);
+  } else {
+    tmax = 2 / (D * (k0 * k0 + dk * dk));                    // amortissement en e^{−2}
+  }
+  const { nx, dx, x } = grilleX(kmaxs);
+  const [Mr, Mi] = remplir(nw, nx, dx, A, somme, k, new Float64Array(nw), xc);
+  // facteur temporel exp(−iω t) = exp(Im ω · t) exp(−i Re ω · t)
+  const phase = wr.map((z) => -z), amort = wi;
+  Object.assign(calc, { x, nx, nw, Mr, Mi, phase, amort, t0: 0, tmax, xc, dk, ...v });
+  if (etat.sansDisp && v.propag) {
+    const wl = k.map((ki) => -(v.w0c + v.vg * (ki - k0)));
+    calc.comp.push({ nom: "même paquet sans dispersion (même v_g)", couleur: "#9e9e9e", Mr, Mi, phase: wl, amort: new Float64Array(nw) });
+  }
+  if (etat.vide && m.em && etat.milieu !== 0) {
+    const wv = k.map((ki) => -C * ki);
+    calc.comp.push({ nom: "même paquet dans le vide", couleur: "#f0a868", Mr, Mi, phase: wv, amort: new Float64Array(nw) });
+  }
+}
+
+/** z(x) = Σ_i M_i(x) exp(amort_i τ) exp(i phase_i τ) */
+function sommer(Mr, Mi, phase, amort, zr, zi, tau) {
+  const { nw, nx } = calc;
+  zr.fill(0); zi.fill(0);
+  for (let i = 0; i < nw; i++) {
+    const g = Math.exp(amort[i] * tau);
+    if (g < 1e-7) continue;
+    const cr = g * Math.cos(phase[i] * tau), ci = g * Math.sin(phase[i] * tau);
+    const base = i * nx;
+    for (let j = 0; j < nx; j++) {
+      const mr = Mr[base + j], mi = Mi[base + j];
+      zr[j] += cr * mr - ci * mi;
+      zi[j] += cr * mi + ci * mr;
+    }
+  }
+}
+
+/** Largeur quadratique moyenne de |z|² (et position moyenne). */
+function largeur(x, zr, zi) {
+  let s0 = 0, s1 = 0, s2 = 0;
+  for (let j = 0; j < x.length; j++) {
+    const p = zr[j] * zr[j] + zi[j] * zi[j];
+    s0 += p; s1 += p * x[j]; s2 += p * x[j] * x[j];
+  }
+  if (s0 < 1e-12) return null;
+  const m = s1 / s0;
+  return { moy: m, sig: Math.sqrt(Math.max(0, s2 / s0 - m * m)) };
+}
+
+// ------------------------------------------------------------- tracés
+function dessinerOnde(o) {
+  const ctx = o.ctx;
+  o.effacer();
+  if (!calc.x) return;
+  const m = MILIEUX[etat.milieu];
+  const R = repere(ctx, { x: 55, y: 28, w: o.w - 75, h: o.h - 72 }, 0, L, -1.2, 1.2,
+    { xlabel: m.quantique ? "x (unités réduites, ħ/2m = 1)" : "x (unités réduites, c = 1)",
+      ylabel: m.quantique ? "Re ψ(x, t)" : "s(x, t)", titre: m.titre, zero: true });
+  const tau = etat.t - calc.t0;
+  const { x, zr, zi, nx } = calc;
+  for (const c of calc.comp) {
+    sommer(c.Mr, c.Mi, c.phase, c.amort, c.zr, c.zi, tau);
+    const e = new Float64Array(nx), em = new Float64Array(nx);
+    for (let j = 0; j < nx; j++) { e[j] = Math.hypot(c.zr[j], c.zi[j]); em[j] = -e[j]; }
+    courbe(ctx, R, x, c.zr, c.couleur, 1);
+    courbe(ctx, R, x, e, c.couleur, 1, [5, 4]);
+    courbe(ctx, R, x, em, c.couleur, 1, [5, 4]);
+  }
+  sommer(calc.Mr, calc.Mi, calc.phase, calc.amort, zr, zi, tau);
+  const env = new Float64Array(nx), envm = new Float64Array(nx);
+  for (let j = 0; j < nx; j++) { env[j] = Math.hypot(zr[j], zi[j]); envm[j] = -env[j]; }
+  courbe(ctx, R, x, zr, "#1f5fbf", 1.3);
+  courbe(ctx, R, x, env, "#222", 1.2, [5, 4]);
+  courbe(ctx, R, x, envm, "#222", 1.2, [5, 4]);
+
+  // centre (v_g) et crête (v_φ)
+  if (calc.propag && calc.vg > 0) {
+    const xg = calc.xc + calc.vg * tau;
+    if (xg >= 0 && xg <= L) {
+      ctx.save(); clipper(ctx, R);
+      ctx.strokeStyle = "#2e9d3a"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(R.X(xg), R.cadre.y); ctx.lineTo(R.X(xg), R.cadre.y + R.cadre.h);
+      ctx.stroke();
+      const lam = 2 * Math.PI / calc.k0[0];
+      const xcr = calc.xc + calc.vphi * tau;
+      const xp = xcr - Math.round((xcr - xg) / lam) * lam;
+      const jj = Math.min(nx - 1, Math.max(0, Math.round(xp / (L / (nx - 1)))));
+      ctx.fillStyle = "#d32f2f";
+      ctx.beginPath(); ctx.arc(R.X(xp), R.Y(zr[jj]), 5.5, 0, 2 * Math.PI); ctx.fill();
+      ctx.restore();
+    }
+  }
+  // largeurs
+  const lg = largeur(x, zr, zi);
+  let txt = "t = " + fmt(tau, 1);
+  if (lg && lg.moy - 2 * lg.sig > 0 && lg.moy + 2 * lg.sig < L) {
+    txt += "    largeur σ = " + fmt(lg.sig, 2);
+    const cmp = calc.comp.find((c) => c.couleur === "#9e9e9e");
+    if (cmp) { const l2 = largeur(x, cmp.zr, cmp.zi); if (l2) txt += " (sans dispersion: " + fmt(l2.sig, 2) + ")"; }
+  }
+  texte(ctx, txt, R.cadre.x + 8, R.cadre.y + 18, { taille: 13 });
+  const items = [[m.quantique ? "Re ψ" : "s(x, t)", "#1f5fbf"], ["enveloppe", "#222", [5, 4]]];
+  if (calc.propag && calc.vg > 0) items.push(["centre (v_g)", "#2e9d3a"], ["crête (v_φ)", "#d32f2f", "point"]);
+  for (const c of calc.comp) items.unshift([c.nom, c.couleur]);
+  legende(ctx, R.cadre.x + R.cadre.w - 6, R.cadre.y + 6, items, { droite: true });
+}
+
+function dessinerDispersion(o) {
+  const ctx = o.ctx;
+  o.effacer();
+  if (!calc.x) return;
+  const m = MILIEUX[etat.milieu];
+  const fk = m.k;
+  let wtop, kx;
+  if (etat.mode === 0) {
+    wtop = Math.max(m.quantique ? 1.6 * (etat.w0 + 4 * etat.dw) : 16, etat.w0 + 4 * etat.dw);
+  } else {
+    const kh = etat.k0 + 4 * calc.dk;
+    wtop = Math.max(...[0.5, 1, 1.3].map((f) => Math.abs(m.w(f * kh)[0])), m.em ? 6 : 1) * 1.05;
+    if (etat.milieu === 2) wtop = 16;
+  }
+  const n = 1500, wg = [], kre = [], kim = [], vide = [];
+  let kmax = 0;
+  for (let i = 0; i < n; i++) {
+    const w = 1e-3 + (wtop - 1e-3) * i / (n - 1);
+    const k = fk(w);
+    wg.push(w); kre.push(k[0]); kim.push(-k[1]); vide.push(w / C);
+    kmax = Math.max(kmax, k[0], -k[1]);
+  }
+  kx = etat.mode === 0 ? Math.min(1.05 * kmax, 30) : Math.min(Math.max(1.3 * (etat.k0 + 4 * calc.dk), 1), 1.05 * kmax);
+  const R = repere(ctx, { x: 55, y: 28, w: o.w - 75, h: o.h - 72 }, 0, kx, 0, wtop,
+    { xlabel: "k (Re k et |Im k|)", ylabel: "ω", titre: "Relation de dispersion" });
+  ctx.save(); clipper(ctx, R);
+  ctx.fillStyle = "rgba(255,152,0,0.25)";
+  if (etat.mode === 0) {
+    const yb = R.Y(Math.max(etat.w0 - etat.dw, 0)), yh = R.Y(etat.w0 + etat.dw);
+    ctx.fillRect(R.cadre.x, yh, R.cadre.w, yb - yh);
+  } else {
+    const xa = R.X(Math.max(etat.k0 - calc.dk, 0)), xb = R.X(etat.k0 + calc.dk);
+    ctx.fillRect(xa, R.cadre.y, xb - xa, R.cadre.h);
+  }
+  ctx.restore();
+  if (m.em) courbe(ctx, R, vide, wg, "#9e9e9e", 1);
+  const aIm = kim.some((v) => Math.abs(v) > 1e-9);
+  if (aIm) courbe(ctx, R, kim, wg, "#d32f2f", 1.6, [6, 4]);
+  courbe(ctx, R, kre, wg, "#1f5fbf", 2.2);
+  const items = [["Re k", "#1f5fbf"]];
+  if (aIm) items.push(["|Im k|", "#d32f2f", [6, 4]]);
+  if (m.em) items.push(["vide (ω = ck)", "#9e9e9e"]);
+  items.push([etat.mode === 0 ? "spectre ω0 ± Δω" : "spectre k0 ± Δk", "#ff9800", "bande"]);
+  if (calc.propag) {
+    const k0 = calc.k0[0], w0 = calc.w0c;
+    courbe(ctx, R, [0, kx], [0, calc.vphi * kx], "#9c27b0", 1.5, [2, 3]);
+    items.push(["pente v_φ (corde)", "#9c27b0", [2, 3]]);
+    if (calc.vg > 0) {
+      courbe(ctx, R, [0, kx], [w0 - calc.vg * k0, w0 + calc.vg * (kx - k0)], "#2e9d3a", 1.5, [8, 3, 2, 3]);
+      items.push(["pente v_g (tangente)", "#2e9d3a", [8, 3, 2, 3]]);
+    }
+    ctx.fillStyle = "#000";
+    ctx.beginPath(); ctx.arc(R.X(k0), R.Y(w0), 4.5, 0, 2 * Math.PI); ctx.fill();
+  }
+  legende(ctx, R.cadre.x + R.cadre.w - 6, R.cadre.y + R.cadre.h - 8 - items.length * 17 - 8,
+          items, { droite: true });
+}
+
+// ------------------------------------------------------------- interface
+const panneau = document.getElementById("panneau");
+entete(panneau, "Propagation d'un paquet d'ondes");
+const cvOnde = canevas(document.getElementById("z_onde"), dessinerOnde);
+const cvDisp = canevas(document.getElementById("z_disp"), dessinerDispersion);
+
+const rMilieu = radios(panneau, "Milieu", MILIEUX.map((m) => m.nom + "<br><small style='color:#666'>" + m.html + "</small>"),
+  etat.milieu, (_, i) => { etat.milieu = i; etat.t = 0; reglagesParDefaut(); changement(); });
+const rMode = radios(panneau, "Situation", [
+  "source en x = 0 qui émet une impulsion<br><small style='color:#666'>spectre gaussien en ω (ω<sub>0</sub>, Δω)</small>",
+  "paquet initial localisé à t = 0<br><small style='color:#666'>enveloppe gaussienne de largeur σ<sub>0</sub>, porteuse k<sub>0</sub></small>"],
+  etat.mode, (_, i) => { etat.mode = i; etat.t = 0; reglagesParDefaut(); changement(); });
+const sec = section(panneau, "Paquet d'ondes");
+const cW0 = curseur(sec, { label: "pulsation centrale ω<sub>0</sub>", min: 0.5, max: 15, val: etat.w0,
+  pas: 0.05, onchange: (v) => { etat.w0 = v; changement(); } });
+const cDw = curseur(sec, { label: "largeur spectrale Δω", min: 0.1, max: 2.5, val: etat.dw,
+  pas: 0.02, onchange: (v) => { etat.dw = v; changement(); } });
+const cK0 = curseur(sec, { label: "nombre d'onde central k<sub>0</sub>", min: 0.5, max: 14, val: etat.k0,
+  pas: 0.05, onchange: (v) => { etat.k0 = v; changement(); } });
+const cS0 = curseur(sec, { label: "largeur initiale σ<sub>0</sub>", min: 0.4, max: 5, val: etat.s0,
+  pas: 0.05, onchange: (v) => { etat.s0 = v; changement(); } });
+const bDef = boutons(sec);
+bouton(bDef, "Réglages conseillés", () => { reglagesParDefaut(); changement(); });
+const sec2 = section(panneau, "Animation");
+curseur(sec2, { label: "vitesse", min: 0.1, max: 3, val: 1, pas: 0.1,
+  onchange: (v) => { etat.vitesse = v; } });
+const bb = boutons(sec2);
+const bPause = bouton(bb, "Pause", () => {
+  etat.pause = !etat.pause; bPause.textContent = etat.pause ? "Reprendre" : "Pause";
+});
+bouton(bb, "t = 0", () => { etat.t = 0; dessinerOnde(cvOnde); });
+const cAff = cases(panneau, "Comparaison", [
+  ["même paquet sans dispersion (même v<sub>g</sub>)", etat.sansDisp],
+  ["même paquet dans le vide (ondes électromagnétiques)", etat.vide]],
+  (i, b) => { if (i === 0) etat.sansDisp = b; else etat.vide = b; changement(); });
+const sInfo = section(panneau, "Grandeurs au centre du spectre");
+const info = el("div", { class: "info" }, sInfo);
+const note = el("p", { class: "note" }, panneau);
+
+function reglagesParDefaut() {
+  const m = MILIEUX[etat.milieu];
+  [etat.w0, etat.dw] = m.src; [etat.k0, etat.s0] = m.ini;
+  cW0.set(etat.w0, true); cDw.set(etat.dw, true); cK0.set(etat.k0, true); cS0.set(etat.s0, true);
+}
+
+function majInterface() {
+  const src = etat.mode === 0;
+  cW0.montrer(src); cDw.montrer(src); cK0.montrer(!src); cS0.montrer(!src);
+  note.innerHTML = (src
+    ? "Une source placée en x = 0 émet une impulsion. "
+    : "Le paquet est donné à t = 0 (enveloppe gaussienne de largeur σ<sub>0</sub>); chaque composante de nombre d'onde k évolue avec la pulsation ω(k). ") +
+    "Le trait vert avance à la vitesse de groupe, le point rouge suit une crête qui avance à la vitesse de phase. " +
+    "Le paquet gris, de même vitesse de groupe mais sans dispersion, garde sa forme: l'écart entre les deux enveloppes montre l'étalement." +
+    (MILIEUX[etat.milieu].quantique
+      ? "<br>Particule libre: unités réduites propres (ħ/2m = 1), sans rapport avec la vitesse de la lumière. Le paquet représente Re ψ; |ψ|² est le carré de l'enveloppe."
+      : "") +
+    (etat.milieu === 2 ? "<br>Dans un conducteur ohmique, il n'y a pas de propagation: " + (src ? "l'onde est amortie sur l'épaisseur de peau." : "le paquet diffuse et s'amortit sur place.") : "");
+}
+
+function majInfo() {
+  const m = MILIEUX[etat.milieu];
+  const u = m.quantique ? "" : " c";
+  const k0 = calc.k0;
+  if (calc.propag) {
+    let s = (etat.mode === 0 ? `ω<sub>0</sub> = ${fmt(etat.w0, 3)}, k<sub>0</sub> = ${fmt(k0[0], 3)}`
+                             : `k<sub>0</sub> = ${fmt(k0[0], 3)}, ω<sub>0</sub> = ${fmt(calc.w0c, 3)}`) +
+      `<br>v<sub>φ</sub> = ${fmt(calc.vphi, 3)}${u}<br>v<sub>g</sub> = ${fmt(calc.vg, 3)}${u}`;
+    if (m.quantique) s += "<br>(v<sub>g</sub> = 2 v<sub>φ</sub> = ħk<sub>0</sub>/m: vitesse de la particule)";
+    if (etat.mode === 1) s += `<br>Δk = 1/(2σ<sub>0</sub>) = ${fmt(calc.dk, 3)}`;
+    info.innerHTML = s;
+  } else if (etat.mode === 1) {
+    info.innerHTML = `k<sub>0</sub> = ${fmt(k0[0], 3)}<br>ω = −i D k² : pas de propagation<br>` +
+      `amortissement de la porteuse en e<sup>−Dk<sub>0</sub>²t</sup>, τ = ${fmt(1 / (D * k0[0] * k0[0]), 3)}`;
+  } else {
+    let s = `k<sub>0</sub> = ${fmt(k0[0], 3)} ${k0[1] < 0 ? "−" : "+"} ${fmt(Math.abs(k0[1]), 3)} i<br>` +
+      `onde atténuée<br>δ = 1/|k''| = ${fmt(1 / Math.abs(k0[1]), 3)}`;
+    info.innerHTML = s;
+  }
+}
+
+function changement() {
+  precalculer();
+  majInterface();
+  majInfo();
+  dessinerDispersion(cvDisp);
+  dessinerOnde(cvOnde);
+}
+
+reglagesParDefaut();
+changement();
+boucle((dt) => {
+  if (!etat.pause) {
+    etat.t += etat.vitesse * calc.tmax / 15 * dt;
+    if (etat.t > calc.tmax) etat.t = 0;
+  }
+  dessinerOnde(cvOnde);
+});
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

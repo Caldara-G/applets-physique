@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Applets de physique — MP* Malherbe</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif; color: #222; background: #eef0f3; }
+main { max-width: 1150px; margin: 0 auto; padding: 28px 20px 40px; }
+h1 { font-size: 24px; margin: 0 0 4px; }
+.sous { color: #555; margin: 0 0 24px; }
+h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em; color: #4a6fa5; margin: 26px 0 10px; }
+.grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 14px; }
+a.carte { display: block; background: #fff; border: 1px solid #d5d9df; border-radius: 8px; padding: 14px 16px;
+  text-decoration: none; color: inherit; transition: box-shadow 0.15s, border-color 0.15s; }
+a.carte:hover { border-color: #7f9fcf; box-shadow: 0 3px 14px rgba(40, 70, 120, 0.15); }
+.carte b { display: block; font-size: 15.5px; margin-bottom: 5px; color: #1f3f73; }
+.carte span { font-size: 13px; color: #555; line-height: 1.45; }
+footer { margin-top: 32px; font-size: 12px; color: #777; line-height: 1.5; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Applets de physique <span style="color:#3b5f96">— MP* Malherbe</span></h1>
+  <p class="sous">Simulations interactives: elles s'ouvrent dans le navigateur, sans installation ni connexion internet.</p>
+
+  <h2>Révision du cours</h2>
+  <div class="grille">
+    <a class="carte" href="qcm.html"><b>QCM de révision du cours de physique-chimie MP</b>
+      <span>Plus de 640 questions de cours de physique et de chimie (MP et révisions de première année), tirées au hasard chapitre par chapitre, avec correction expliquée et suivi des questions ratées.</span></a>
+  </div>
+
+  <h2>Traitement de données expérimentales</h2>
+  <div class="grille">
+    <a class="carte" href="latispresque.html"><b>LaboAnalyse (latispresque)</b>
+      <span>Le traitement de Latis-Pro sans la carte d'acquisition: import CSV, Excel ou Regressi, générateur de courbes, feuille de calcul, modélisation, Fourier (amplitude et phase), filtres numériques, échantillonnage, diagramme de Bode; pointage vidéo à la main ou automatique, repère incliné, vecteurs vitesse et accélération.</span></a>
+  </div>
+
+  <h2>Programmation</h2>
+  <div class="grille">
+    <a class="carte" href="python.html"><b>Python en ligne</b>
+      <span>Un éditeur et une console comme Spyder, dans le navigateur: numpy, scipy, matplotlib, sympy, pandas; figures dans des fenêtres séparées, fichiers de données, exemples du programme (solve_ivp, Euler, FFT, régression et incertitudes…). Connexion internet nécessaire.</span></a>
+  </div>
+
+  <h2>Mesures et incertitudes</h2>
+  <div class="grille">
+    <a class="carte" href="incertitudes.html"><b>Calcul d'incertitudes</b>
+      <span>Types A et B, somme ou produit, formule quelconque par Monte-Carlo, régression linéaire avec validation; écart normalisé et code Python.</span></a>
+  </div>
+
+  <h2>Signal et électronique</h2>
+  <div class="grille">
+    <a class="carte" href="oscilloscope.html"><b>Oscilloscope et GBF</b>
+      <span>Oscilloscope numérique 2 voies et générateur de fonctions, reliés par un filtre RC, RL ou RLC: calibres, déclenchement, mesures, curseurs, XY, FFT.</span></a>
+    <a class="carte" href="echantillonnage.html"><b>Échantillonnage et repliement</b>
+      <span>Signal échantillonné, spectre et images, critère de Shannon, fréquence apparente, reconstruction.</span></a>
+    <a class="carte" href="filtres.html"><b>Filtrage d'un signal périodique</b>
+      <span>Diagramme de Bode, harmoniques de l'entrée, sortie en régime permanent; intégrateur, dérivateur, passe-bande.</span></a>
+    <a class="carte" href="fourier.html"><b>Synthèse de Fourier</b>
+      <span>Sommes partielles de signaux usuels, spectre, phénomène de Gibbs, moyenne de Fejér.</span></a>
+  </div>
+
+  <h2>Mécanique</h2>
+  <div class="grille">
+    <a class="carte" href="pendule.html"><b>Pendule simple non linéaire</b>
+      <span>Portrait de phase et séparatrice, comparaison au pendule linéarisé, période en fonction de l'amplitude.</span></a>
+    <a class="carte" href="oscillateur.html"><b>Oscillateur amorti et forcé</b>
+      <span>Régimes libres, résonance en élongation et en vitesse, déphasage, facteur de qualité.</span></a>
+    <a class="carte" href="force_centrale.html"><b>Mouvement à force centrale</b>
+      <span>Orbites képlériennes, énergie potentielle effective, loi des aires, 3e loi de Kepler, diffusion de Rutherford.</span></a>
+    <a class="carte" href="foucault.html"><b>Pendule de Foucault</b>
+      <span>Globe 3D, pendule placé n'importe où sur la Terre, référentiel terrestre ou sol tournant, force de Coriolis, période 2π/(Ω sin λ) mesurée.</span></a>
+    <a class="carte" href="oscillateurs_couples.html"><b>Oscillateurs couplés</b>
+      <span>Modes propres, battements, transfert d'énergie entre deux oscillateurs.</span></a>
+  </div>
+
+  <h2>Ondes</h2>
+  <div class="grille">
+    <a class="carte" href="paquet_onde.html"><b>Propagation d'un paquet d'ondes</b>
+      <span>Dispersion et étalement dans le vide, un plasma, un conducteur ohmique, une chaîne d'atomes et pour une particule libre; impulsion émise par une source ou paquet initial localisé.</span></a>
+    <a class="carte" href="cuve_ondes.html"><b>Cuve à ondes</b>
+      <span>Interférences de plusieurs sources, figure d'intensité, effet Doppler et cône de Mach.</span></a>
+    <a class="carte" href="interface_ondes.html"><b>Réflexion et transmission</b>
+      <span>Onde sur deux cordes d'impédances différentes, extrémité fixe ou libre, bilan de puissance, ondes stationnaires.</span></a>
+    <a class="carte" href="onde_em_polarisee.html"><b>Onde électromagnétique polarisée</b>
+      <span>Champs E et B en 3D (vue orientable), polarisation rectiligne, circulaire ou elliptique.</span></a>
+    <a class="carte" href="polariseur_lames.html"><b>Polariseur et lames à retard</b>
+      <span>Lumière polarisée ou naturelle, polariseur puis lame λ/2 ou λ/4, loi de Malus.</span></a>
+  </div>
+
+  <h2>Électromagnétisme</h2>
+  <div class="grille">
+    <a class="carte" href="carte_champ.html"><b>Carte de champ électrostatique</b>
+      <span>Charges placées à la souris: lignes de champ, équipotentielles, potentiel, sonde.</span></a>
+    <a class="carte" href="champ_magnetique.html"><b>Carte de champ magnétique</b>
+      <span>Fils rectilignes ou spires coaxiales: lignes de champ, Helmholtz, solénoïde, sonde.</span></a>
+    <a class="carte" href="particule_chargee.html"><b>Particule chargée dans E et B</b>
+      <span>Mouvement cyclotron, hélice, dérive E ∧ B, filtre de Wien, vue 3D.</span></a>
+  </div>
+
+  <h2>Optique ondulatoire</h2>
+  <div class="grille">
+    <a class="carte" href="michelson.html"><b>Interféromètre de Michelson</b>
+      <span>Lame d'air et coin d'air, lumière blanche ou doublet du sodium, chariotage motorisé et enregistrement.</span></a>
+    <a class="carte" href="young_trous_fentes.html"><b>Fentes et trous d'Young</b>
+      <span>Interférences et diffraction, lumière blanche, cohérence spatiale, anneaux d'Airy.</span></a>
+    <a class="carte" href="reseau.html"><b>Réseau de diffraction</b>
+      <span>Ordres, spectres de lampes, pouvoir de résolution (doublet du sodium), incidence oblique.</span></a>
+  </div>
+
+  <h2>Diffusion et chimie</h2>
+  <div class="grille">
+    <a class="carte" href="diffusion.html"><b>Diffusion thermique 1D</b>
+      <span>Crank-Nicolson, conditions aux limites (température, flux nul, Biot), ailette, carte espace-temps.</span></a>
+    <a class="carte" href="titrage.html"><b>Titrage pH-métrique</b>
+      <span>Acides et bases forts ou faibles, polyacides, distribution des espèces, indicateurs colorés.</span></a>
+  </div>
+
+  <h2>Physique quantique</h2>
+  <div class="grille">
+    <a class="carte" href="effet_tunnel.html"><b>Effet tunnel et paquets d'ondes</b>
+      <span>Marche, barrière, double barrière; onde plane ou paquet, coefficients R et T, mesure quantique.</span></a>
+    <a class="carte" href="etats_lies.html"><b>États quantiques liés</b>
+      <span>Puits carré, harmonique, Coulomb; deux puits et bandes; superpositions et évolution temporelle.</span></a>
+  </div>
+
+  <footer>Testé avec Chrome. Utiliser le bouton « retour » du navigateur pour revenir à cette page.</footer>
+</main>
+</body>
+</html>

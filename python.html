@@ -1,0 +1,1151 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Python en ligne — MP* Malherbe</title>
+<style>
+:root{
+  --bg:#eef0f3; --panel:#f7f8fa; --white:#fff; --line:#d5d9df; --fg:#1f2730; --muted:#5b6672;
+  --accent:#3b6fb6; --accent-weak:#dfe9f7; --bleu:#3b5f96; --ok:#16803c; --err:#c0392b;
+  --ed-bg:#fbfbfc; --ed-fg:#1f2730; --gut:#f0f2f5; --gut-fg:#9aa3ad; --sel:#cfe0f7;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,"DejaVu Sans Mono",monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font:13px/1.4 system-ui,"Segoe UI",Roboto,Arial,sans-serif}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none!important}
+#app{display:grid;grid-template-rows:auto auto 1fr 24px;height:100vh}
+/* en-tête */
+header{display:flex;align-items:center;gap:12px;padding:6px 12px;background:var(--white);border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0;color:#1f3f73}
+header .tag{font-size:11.5px;font-weight:600;color:#fff;background:var(--bleu);border-radius:10px;padding:2px 10px}
+header .sp{flex:1}
+header a{font-size:12.5px;color:#4a6fa5;text-decoration:none}
+header a:hover{text-decoration:underline}
+/* barre d'outils */
+#tb{display:flex;align-items:center;gap:4px;padding:4px 8px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.b{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 9px;border:1px solid var(--line);border-radius:5px;background:var(--white);white-space:nowrap}
+.b:hover{border-color:#8eabd6;background:#f3f7fd}
+.b:disabled{opacity:.45;cursor:default}
+.b.run{background:#1a8f4c;border-color:#157a40;color:#fff;font-weight:600}
+.b.run:hover{background:#157a40}
+.b.stop{background:#c0392b;border-color:#a93226;color:#fff}
+.b svg{width:15px;height:15px;flex:none}
+.sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+.dd{position:relative}
+.dd .menu{position:absolute;top:100%;left:0;z-index:60;min-width:270px;background:var(--white);border:1px solid var(--line);border-radius:5px;box-shadow:0 8px 22px rgba(0,0,0,.18);padding:4px 0;display:none}
+.dd.open .menu{display:block}
+.menu div{padding:5px 14px;cursor:default;white-space:nowrap}
+.menu div:hover{background:var(--accent);color:#fff}
+.menu small{display:block;opacity:.7;font-size:11px}
+/* zone principale */
+#main{display:grid;grid-template-columns:var(--wl,55%) 6px 1fr;min-height:0}
+.split-v{cursor:col-resize;background:var(--bg)}
+.split-v:hover,.split-h:hover{background:#c6d4ea}
+.split-h{cursor:row-resize;background:var(--bg);height:6px}
+#left{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--white);border-right:1px solid var(--line)}
+#right{display:grid;grid-template-rows:var(--ht,55%) 6px 1fr;min-width:0;min-height:0}
+/* onglets */
+.tabs{display:flex;gap:2px;padding:4px 6px 0;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto;flex:none}
+.tab{padding:4px 10px;border:1px solid var(--line);border-bottom:none;border-radius:5px 5px 0 0;background:#e9edf2;cursor:pointer;white-space:nowrap;display:flex;gap:6px;align-items:center;font-size:12.5px}
+.tab.act{background:var(--white);font-weight:600;position:relative;top:1px}
+.tab .x{opacity:.45;padding:0 2px}
+.tab .x:hover{opacity:1;color:var(--err)}
+.tab.add{background:transparent;border:none;font-weight:700;color:var(--accent)}
+/* éditeur */
+#edwrap{flex:1;display:flex;min-height:0;position:relative;background:var(--ed-bg)}
+#gutter{flex:none;width:46px;overflow:hidden;background:var(--gut);color:var(--gut-fg);border-right:1px solid var(--line);font:13.5px/20px var(--mono);text-align:right;padding:6px 6px 6px 0;user-select:none}
+#gutter div{height:20px}
+#gutter .errl{background:#f7d3cf;color:var(--err);font-weight:700}
+#gutter .cell{box-shadow:inset 0 2px 0 #9bb5dc}
+#edbox{position:relative;flex:1;min-width:0}
+#hl,#ed{position:absolute;inset:0;margin:0;padding:6px 10px;font:13.5px/20px var(--mono);tab-size:4;white-space:pre;overflow:auto;border:0;letter-spacing:0}
+#hl{pointer-events:none;color:var(--ed-fg);overflow:hidden}
+#ed{background:transparent;color:transparent;caret-color:#111;resize:none;outline:none;z-index:1}
+#ed::selection{background:var(--sel)}
+.k{color:#0033b3;font-weight:600}.bi{color:#7a3e9d}.s{color:#067d17}.c{color:#8c8c8c;font-style:italic}.n{color:#1750eb}.d{color:#9e880d}.f{color:#00627a;font-weight:600}.cn{color:#0033b3}
+.cellsep{display:inline-block;width:100%;border-top:1px dashed #9bb5dc}
+/* panneaux de droite */
+#pane{display:flex;flex-direction:column;min-height:0;background:var(--white)}
+#panebody{flex:1;min-height:0;position:relative}
+.pv{position:absolute;inset:0;overflow:auto;display:none}
+.pv.act{display:block}
+#pv-fig.act{display:grid;grid-template-columns:1fr 112px}
+#figmain{position:relative;overflow:auto;display:flex;flex-direction:column;min-width:0}
+#figbar{display:flex;gap:4px;padding:4px 6px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center;background:var(--panel)}
+#figbar .b{height:24px;padding:0 7px;font-size:12px}
+#figview{flex:1;min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;padding:8px;position:relative}
+#figview img{max-width:100%;max-height:100%;object-fit:contain;box-shadow:0 1px 6px rgba(0,0,0,.15);background:#fff}
+#figview .tagfig{position:absolute;right:10px;bottom:6px;font-size:11px;font-weight:600;color:#fff;background:rgba(59,95,150,.85);padding:1px 8px;border-radius:9px}
+#thumbs{border-left:1px solid var(--line);overflow-y:auto;background:var(--panel);padding:4px}
+#thumbs img{display:block;width:100%;margin-bottom:5px;border:2px solid transparent;border-radius:3px;background:#fff;cursor:pointer}
+#thumbs img.sel{border-color:var(--accent)}
+.empty{color:var(--muted);padding:20px;text-align:center}
+table.vars{border-collapse:collapse;width:100%;font-size:12.5px}
+table.vars th,table.vars td{border-bottom:1px solid #e3e7ec;padding:3px 8px;text-align:left;vertical-align:top}
+table.vars th{position:sticky;top:0;background:var(--panel);font-weight:600}
+table.vars td.v{font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-all;max-width:420px}
+table.vars td.nm{font-family:var(--mono);font-weight:600}
+#pv-files .bar,#pv-vars .bar{display:flex;gap:6px;padding:6px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;align-items:center;flex-wrap:wrap}
+#pv-aide{padding:10px 16px;font-size:13px;line-height:1.5}
+#pv-aide code,#pv-aide kbd{font-family:var(--mono);background:#eef2f8;padding:0 4px;border-radius:3px;font-size:12px}
+#pv-aide h3{font-size:13.5px;margin:12px 0 4px;color:#1f3f73}
+/* console */
+#cons{display:flex;flex-direction:column;min-height:0;background:var(--white);border-top:1px solid var(--line)}
+#conshead{display:flex;align-items:center;gap:8px;padding:3px 8px;background:var(--panel);border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+#conshead b{color:var(--fg)}
+#conshead .b{height:22px;font-size:11.5px;padding:0 7px}
+#out{flex:1;overflow:auto;padding:6px 10px;font:12.5px/1.45 var(--mono);white-space:pre-wrap;word-break:break-word}
+#out .err{color:var(--err)}
+#out .in{color:#0b5394}
+#out .info{color:var(--muted);font-style:italic}
+#out .okm{color:var(--ok)}
+#prompt{display:flex;align-items:center;border-top:1px solid var(--line);font:12.5px var(--mono)}
+#prompt span{padding:0 6px 0 10px;color:#0b5394;font-weight:700}
+#cin{flex:1;border:0;outline:none;padding:6px 6px 6px 0;font:12.5px var(--mono);background:transparent}
+/* barre d'état */
+#status{display:flex;align-items:center;gap:14px;padding:0 10px;font-size:12px;color:var(--muted);background:var(--white);border-top:1px solid var(--line)}
+#status .led{display:inline-block;width:9px;height:9px;border-radius:50%;background:#aaa;margin-right:5px;vertical-align:-1px}
+#status .led.busy{background:#e0a800}#status .led.ok{background:var(--ok)}#status .led.err{background:var(--err)}
+/* fenêtres de figures flottantes */
+.fwin{position:fixed;z-index:80;background:#fff;border:1px solid #9aa6b5;border-radius:6px;box-shadow:0 10px 32px rgba(0,0,0,.3);display:flex;flex-direction:column;resize:both;overflow:hidden;min-width:220px;min-height:160px}
+.fwin .hd{display:flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;background:#e8edf4;border-bottom:1px solid var(--line);cursor:move;user-select:none;font-size:12.5px}
+.fwin .hd b{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fwin .hd button{border:1px solid var(--line);background:#fff;border-radius:4px;padding:1px 7px;font-size:12px}
+.fwin .bd{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#fff;position:relative}
+.fwin img{max-width:100%;max-height:100%;object-fit:contain}
+.fwin .tagfig{position:absolute;right:6px;bottom:4px;font-size:10.5px;font-weight:600;color:#fff;background:rgba(59,95,150,.85);padding:0 7px;border-radius:9px}
+/* modale */
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:#fff;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.35);min-width:340px;max-width:min(760px,94vw);max-height:90vh;display:flex;flex-direction:column}
+.modal h2{margin:0;padding:12px 16px;font-size:15px;border-bottom:1px solid var(--line)}
+.modal .mb{padding:12px 16px;overflow:auto}
+.modal .mf{padding:10px 16px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+.modal .b.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+.modal input[type=text]{width:100%;padding:4px 6px;border:1px solid var(--line);border-radius:4px}
+@media (max-width:800px){#main{grid-template-columns:1fr;grid-template-rows:50% 0 50%}.split-v{display:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Python en ligne</h1>
+    <span class="tag">MP* Malherbe</span>
+    <span class="sp"></span>
+    <span style="font-size:12px;color:var(--muted)">numpy · scipy · matplotlib · sympy · pandas</span>
+    <a href="index.html">← Sommaire</a>
+  </header>
+  <div id="tb">
+    <button class="b" data-c="nouveau" title="Nouveau script (Ctrl+N)"><svg viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6z M14 2v4h4" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>Nouveau</button>
+    <button class="b" data-c="ouvrir" title="Ouvrir un fichier .py (Ctrl+O)"><svg viewBox="0 0 24 24"><path d="M3 6h6l2 2h10v11H3z" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>Ouvrir</button>
+    <button class="b" data-c="enregistrer" title="Enregistrer le script (Ctrl+S)"><svg viewBox="0 0 24 24"><path d="M4 4h13l3 3v13H4z M8 4v5h8V4 M7 20v-6h10v6" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>Enregistrer</button>
+    <div class="dd" id="ddEx"><button class="b" data-c="exemples">Exemples ▾</button><div class="menu" id="exMenu"></div></div>
+    <span class="sep"></span>
+    <button class="b run" id="bRun" data-c="executer" title="Exécuter le script (F5)"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg>Exécuter (F5)</button>
+    <button class="b" data-c="cellule" title="Exécuter la cellule courante, délimitée par # %% (Ctrl+Entrée)">Cellule (Ctrl+Entrée)</button>
+    <button class="b" data-c="selection" title="Exécuter la sélection ou la ligne courante (F9)">Sélection (F9)</button>
+    <button class="b" id="bStop" data-c="arreter" title="Arrêter le programme en cours (redémarre Python)" disabled><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" fill="currentColor"/></svg>Arrêter</button>
+    <button class="b" data-c="redemarrer" title="Redémarrer Python: efface toutes les variables">Redémarrer</button>
+    <span class="sep"></span>
+    <button class="b" data-c="donnees" title="Envoyer un fichier de données (CSV, TXT…) dans le dossier de travail de Python">Fichier de données…</button>
+  </div>
+  <div id="main">
+    <section id="left">
+      <div class="tabs" id="edtabs"></div>
+      <div id="edwrap"><div id="gutter"></div><div id="edbox"><pre id="hl" aria-hidden="true"></pre><textarea id="ed" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"></textarea></div></div>
+    </section>
+    <div class="split-v" id="sv"></div>
+    <section id="right">
+      <div id="pane">
+        <div class="tabs" id="panetabs">
+          <div class="tab act" data-p="fig">Figures</div><div class="tab" data-p="vars">Variables</div><div class="tab" data-p="files">Fichiers</div><div class="tab" data-p="aide">Aide</div>
+        </div>
+        <div id="panebody">
+          <div class="pv act" id="pv-fig">
+            <div id="figmain">
+              <div id="figbar">
+                <button class="b" data-f="flot" title="Ouvrir la figure dans une fenêtre flottante, déplaçable et redimensionnable">Fenêtre flottante</button>
+                <button class="b" data-f="win" title="Ouvrir la figure dans une nouvelle fenêtre du navigateur">Nouvelle fenêtre</button>
+                <button class="b" data-f="png">Enregistrer PNG</button>
+                <button class="b" data-f="copy">Copier</button>
+                <button class="b" data-f="del">Supprimer</button>
+                <button class="b" data-f="clear">Tout effacer</button>
+                <label style="font-size:12px;margin-left:auto" title="Chaque nouvelle figure s'ouvre aussi dans une fenêtre flottante, comme les fenêtres de matplotlib"><input type="checkbox" id="autoFloat"> nouvelles figures en fenêtres</label>
+              </div>
+              <div id="figview"><div class="empty">Les figures de matplotlib (<code>plt.show()</code>) s'affichent ici.</div></div>
+            </div>
+            <div id="thumbs"></div>
+          </div>
+          <div class="pv" id="pv-vars"><div class="bar"><button class="b" id="bVars">Actualiser</button><label style="font-size:12px"><input type="checkbox" id="varsFn"> afficher aussi fonctions et modules</label></div><div id="varsbody"><div class="empty">Exécutez un programme pour voir ses variables.</div></div></div>
+          <div class="pv" id="pv-files"><div class="bar"><button class="b" data-c="donnees">Envoyer un fichier…</button><button class="b" id="bFiles">Actualiser</button><span style="font-size:12px;color:var(--muted)">Dossier de travail de Python: les fichiers créés par <code>open()</code>, <code>np.savetxt()</code>… apparaissent ici.</span></div><div id="filesbody"></div></div>
+          <div class="pv" id="pv-aide"></div>
+        </div>
+      </div>
+      <div class="split-h" id="sh"></div>
+      <div id="cons">
+        <div id="conshead"><b>Console</b><span id="consinfo"></span><span style="flex:1"></span><button class="b" id="bClear">Effacer</button></div>
+        <div id="out"></div>
+        <div id="prompt"><span>&gt;&gt;&gt;</span><input id="cin" spellcheck="false" autocomplete="off" placeholder="Instruction Python (Entrée pour exécuter, ↑ ↓: historique)"></div>
+      </div>
+    </section>
+  </div>
+  <footer id="status"><span><span class="led busy" id="led"></span><span id="st">Démarrage…</span></span><span id="pos"></span><span style="flex:1"></span><span><b style="color:#3b5f96">MP* Malherbe</b> · Python (Pyodide)</span></footer>
+</div>
+<input type="file" id="fin" hidden>
+<script>
+'use strict';
+const PYO_BASE = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/';
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) { } } };
+
+// ======================================================================
+// Code Python exécuté dans un « worker » (Python tourne à part: la page reste réactive)
+// ======================================================================
+function workerMain(self, loadScript) {
+
+let py = null, mplReady = false;
+const post = (o, tr) => self.postMessage(o, tr || []);
+const dec = new TextDecoder();
+const SETUP = `
+import sys, os, io, ast, json, types, traceback, base64
+os.makedirs('/home/pyodide', exist_ok=True); os.chdir('/home/pyodide')
+os.environ['MPLBACKEND'] = 'Agg'
+import warnings
+warnings.filterwarnings('ignore', message='.*[Pp]yarrow.*')
+warnings.filterwarnings('ignore', category=DeprecationWarning, module='pandas')
+_ns = {'__name__': '__main__', '__builtins__': __builtins__}
+def _mpm_input(*a, **k):
+    raise RuntimeError("input() n'est pas disponible ici: donnez directement les valeurs dans le programme")
+_ns['input'] = _mpm_input
+def _mpm_run(src, filename, mode):
+    try:
+        tree = ast.parse(src, filename)
+        if mode == 'repl' and tree.body and isinstance(tree.body[-1], ast.Expr):
+            last = ast.Expression(tree.body.pop().value)
+            exec(compile(tree, filename, 'exec'), _ns)
+            v = eval(compile(last, filename, 'eval'), _ns)
+            if v is not None:
+                print(repr(v)); _ns['_'] = v
+        else:
+            exec(compile(tree, filename, 'exec'), _ns)
+        return 0
+    except SystemExit:
+        return 0
+    except BaseException as e:
+        tb = e.__traceback__
+        lines = traceback.format_exception(type(e), e, tb.tb_next if tb is not None else None)
+        sys.stderr.write(''.join(lines))
+        ln = 0
+        for fr in traceback.extract_tb(tb):
+            if fr.filename == filename: ln = fr.lineno
+        if isinstance(e, SyntaxError) and e.filename == filename and e.lineno: ln = e.lineno
+        return ln
+    finally:
+        sys.stdout.flush(); sys.stderr.flush()
+def _mpm_setup_mpl():
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    def _show(*a, **k):
+        _mpm_flush()
+    plt.show = _show
+def _mpm_flush():
+    if 'matplotlib.pyplot' not in sys.modules: return
+    import matplotlib.pyplot as plt, mpm
+    for n in plt.get_fignums():
+        f = plt.figure(n)
+        b = io.BytesIO()
+        f.savefig(b, format='png', dpi=110, bbox_inches='tight', facecolor='white')
+        lab = f.get_label() or ('Figure ' + str(n))
+        mpm.fig(lab, base64.b64encode(b.getvalue()).decode('ascii'))
+    plt.close('all')
+def _mpm_vars(allv):
+    out = []
+    for k, v in list(_ns.items()):
+        if k.startswith('_') or k == 'input': continue
+        if not allv and isinstance(v, (types.ModuleType, types.FunctionType, types.BuiltinFunctionType, type)): continue
+        t = type(v).__name__
+        size = ''
+        try:
+            if hasattr(v, 'shape') and not isinstance(v, type): size = str(tuple(v.shape))
+            elif hasattr(v, '__len__') and not isinstance(v, (types.ModuleType, type)): size = str(len(v))
+        except Exception: pass
+        try:
+            r = repr(v)
+        except Exception as e:
+            r = '<repr impossible>'
+        if len(r) > 400: r = r[:400] + ' …'
+        out.append([k, t, size, r])
+    return json.dumps(out)
+def _mpm_files():
+    out = []
+    for f in sorted(os.listdir('.')):
+        if f.startswith('.'): continue
+        p = os.path.join('.', f)
+        out.append([f, os.path.getsize(p) if os.path.isfile(p) else -1])
+    return json.dumps(out)
+`;
+function bytesOut(kind) {
+  let buf = '';
+  return { write(u8) { post({ t: kind, s: dec.decode(u8, { stream: true }) }); return u8.length; } };
+}
+async function ensureMpl(code) {
+  if (!mplReady && /(^|\n)\s*(import|from)\s+(matplotlib|pylab|pandas)/.test(code)) { py.runPython('_mpm_setup_mpl()'); mplReady = true; }
+}
+async function loadFor(code) {
+  await py.loadPackagesFromImports(code, { messageCallback: m => post({ t: 'status', s: m }), errorCallback: m => post({ t: 'status', s: m }) });
+}
+self.onmessage = async e => {
+  const m = e.data;
+  try {
+    if (m.t === 'init') {
+      post({ t: 'stage', s: 'téléchargement de pyodide.js' });
+      await loadScript(m.base + 'pyodide.js');
+      post({ t: 'stage', s: 'démarrage de l\'interpréteur (téléchargement de Python, environ 10 Mo)' });
+      try { const r = await fetch(m.base + 'pyodide-lock.json', { cache: 'no-store' }); post({ t: 'stage', s: 'accès aux fichiers de Python : ' + (r.ok ? 'autorisé' : 'refusé (code ' + r.status + ')') }); }
+      catch (err) { post({ t: 'stage', s: 'accès aux fichiers de Python BLOQUÉ (' + (err.message || err) + ')' }); throw new Error('téléchargement des fichiers de Python bloqué (' + (err.message || err) + ')'); }
+      py = await loadPyodide({ indexURL: m.base, stderr: s => post({ t: 'stage', s: 'message de Python : ' + s }) });
+      post({ t: 'stage', s: 'interpréteur chargé' });
+      py.setStdout(bytesOut('out')); py.setStderr(bytesOut('err'));
+      py.registerJsModule('mpm', { fig: (title, b64) => post({ t: 'fig', title, b64 }) });
+      py.runPython(SETUP);
+      post({ t: 'ready', version: py.runPython('import sys; sys.version.split()[0]') });
+      // préchargement des bibliothèques les plus courantes
+      await py.loadPackage(['numpy', 'matplotlib'], { messageCallback: () => { }, errorCallback: () => { } });
+      py.runPython('_mpm_setup_mpl()'); mplReady = true;
+      py.runPython('import numpy, matplotlib.pyplot');
+      post({ t: 'libs' });
+    } else if (m.t === 'run') {
+      await loadFor(m.code); await ensureMpl(m.code);
+      const t0 = performance.now();
+      const ln = py.globals.get('_mpm_run')(m.code, m.file, m.mode);
+      py.runPython('_mpm_flush()');
+      post({ t: 'done', id: m.id, line: ln, ms: performance.now() - t0 });
+    } else if (m.t === 'vars') {
+      post({ t: 'vars', data: py.globals.get('_mpm_vars')(!!m.all) });
+    } else if (m.t === 'files') {
+      post({ t: 'files', data: py.globals.get('_mpm_files')() });
+    } else if (m.t === 'put') {
+      py.FS.writeFile('/home/pyodide/' + m.name, new Uint8Array(m.data));
+      post({ t: 'put', name: m.name, size: m.data.byteLength });
+    } else if (m.t === 'get') {
+      const d = py.FS.readFile('/home/pyodide/' + m.name);
+      post({ t: 'get', name: m.name, data: d.buffer }, [d.buffer]);
+    } else if (m.t === 'rm') {
+      py.FS.unlink('/home/pyodide/' + m.name); post({ t: 'rm', name: m.name });
+    }
+  } catch (err) {
+    post({ t: m.t === 'init' ? 'initfail' : 'fatal', s: String(err && err.message || err), id: m.id });
+  }
+};
+}
+
+// ======================================================================
+// Communication avec Python
+// ======================================================================
+const Py = {
+  w: null, ready: false, busy: false, libs: false, runId: 0, waiters: {}, queue: [],
+  mode: 'worker', watchdog: null, lastMsg: 0,
+  start(mode) {
+    this.mode = mode || this.mode;
+    this.ready = false; this.libs = false; this.busy = false; this.lastMsg = Date.now(); this.gotAny = false;
+    const base = window.PYO_BASE_OVERRIDE || PYO_BASE;
+    if (this.mode === 'worker') {
+      try {
+        const url = URL.createObjectURL(new Blob([`(${workerMain.toString()})(self, async u => { importScripts(u); });`], { type: 'text/javascript' }));
+        this.w = new Worker(url);
+        this.w.onmessage = e => this.onmsg(e.data);
+        this.w.onerror = e => { e.preventDefault && e.preventDefault(); this.fallback('erreur du worker : ' + (e.message || 'inconnue')); };
+      } catch (err) { this.fallback('worker refusé par le navigateur (' + (err.message || err) + ')'); return; }
+    } else {
+      const fake = { postMessage: o => setTimeout(() => this.onmsg(o), 0), onmessage: null };
+      const loadScript = u => new Promise((res, rej) => { if (window.loadPyodide) { res(); return; } const sc = document.createElement('script'); sc.src = u; sc.onload = () => res(); sc.onerror = () => rej(new Error('le navigateur a refusé de charger ' + u)); document.head.appendChild(sc); });
+      workerMain(fake, loadScript);
+      this.w = { postMessage: m => setTimeout(() => fake.onmessage({ data: m }), 0), terminate() { } };
+    }
+    this.w.postMessage({ t: 'init', base });
+    status('Chargement de Python… (première fois : quelques dizaines de Mo, ensuite en cache)', 'busy');
+    Cons.write(`Démarrage de Python (${this.mode === 'worker' ? 'processus séparé' : 'dans la page'})…\n`, 'info');
+    clearInterval(this.watchdog);
+    this.watchdog = setInterval(() => {
+      if (this.ready) { clearInterval(this.watchdog); return; }
+      const dt = (Date.now() - this.lastMsg) / 1000;
+      if (dt > 20) this.diagnose();
+      if (this.mode === 'worker' && !this.gotAny && dt > 15) this.fallback('aucune réponse du processus séparé');
+      else if (this.mode === 'worker' && dt > 120) this.fallback('plus de réponse du processus séparé depuis 2 min');
+      else if (this.mode === 'page' && dt > 180) { clearInterval(this.watchdog); this.failed('aucune réponse depuis 3 min'); }
+    }, 2000);
+    updateRunButtons();
+  },
+  async diagnose() {
+    if (this.diagDone) return; this.diagDone = true;
+    const base = window.PYO_BASE_OVERRIDE || PYO_BASE, r = [];
+    try { const x = await fetch(base + 'pyodide-lock.json', { cache: 'no-store' }); r.push('téléchargement depuis cdn.jsdelivr.net : ' + (x.ok ? 'autorisé' : 'refusé (code ' + x.status + ')')); }
+    catch (e) { r.push('téléchargement depuis cdn.jsdelivr.net : BLOQUÉ (' + (e.message || e) + ')'); }
+    try { await WebAssembly.compile(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0])); r.push('WebAssembly : autorisé'); }
+    catch (e) { r.push('WebAssembly : BLOQUÉ (' + (e.message || e) + ')'); }
+    try { const x = await fetch('index.html', { cache: 'no-store' }); r.push('lecture des fichiers de la page : ' + (x.ok ? 'autorisée' : 'refusée')); }
+    catch (e) { r.push('lecture des fichiers de la page : BLOQUÉE'); }
+    Cons.write('\nDIAGNOSTIC (à recopier si Python ne démarre pas) :\n  ' + r.join('\n  ') + '\n  navigateur : ' + navigator.userAgent + '\n', 'err');
+  },
+  fallback(why) {
+    if (this.mode !== 'worker' || this.ready) return;
+    Cons.write(`Démarrage dans un processus séparé impossible (${why}) : nouvel essai avec Python dans la page. Remarque : dans ce mode, une boucle infinie bloque la page.\n`, 'err');
+    try { this.w && this.w.terminate(); } catch (e) { }
+    this.start('page');
+  },
+  failed(why) {
+    clearInterval(this.watchdog); this.diagnose();
+    if (window.claude) {
+      Cons.write(`\nLa page claude.ai qui affiche cette applet interdit de télécharger Python : utilisez la version de l'applet hébergée hors de claude.ai (par exemple sur GitHub Pages), qui fonctionne dans Chrome, Edge et Firefox.\n`, 'err');
+      status('Python ne peut pas démarrer dans claude.ai : utiliser la version GitHub Pages', 'err'); return;
+    }
+    Cons.write(`\nPython n'a pas pu démarrer : ${why}.\nCauses possibles : pas de connexion internet, ou le réseau (ou la page qui affiche l'applet) bloque cdn.jsdelivr.net. Essayez de recharger la page, ou d'ouvrir l'applet depuis un autre réseau.\n`, 'err');
+    status('Python n\'a pas pu démarrer', 'err');
+  },
+  onmsg(m) {
+    this.lastMsg = Date.now(); this.gotAny = true;
+    switch (m.t) {
+      case 'out': Cons.write(m.s); break;
+      case 'err': Cons.write(m.s, 'err'); break;
+      case 'stage': Cons.write('  … ' + m.s + '\n', 'info'); break;
+      case 'initfail': if (this.mode === 'worker' && !/bloqué/.test(m.s)) this.fallback(m.s); else this.failed(m.s); break;
+      case 'status': if (m.s) status(m.s.replace(/^Loading /, 'Chargement de ').replace(/^Loaded /, 'Chargé: '), 'busy'); break;
+      case 'ready': this.ready = true; Cons.write(`Python ${m.version} prêt (Pyodide). Chargement de numpy et matplotlib en arrière-plan…\n`, 'info'); status('Python prêt', 'ok'); this.flushQueue(); updateRunButtons(); break;
+      case 'libs': this.libs = true; Cons.write('numpy et matplotlib chargés. scipy, sympy, pandas sont chargés automatiquement à leur premier import.\n', 'info'); if (!this.busy) status('Python prêt', 'ok'); break;
+      case 'fig': Figs.add(m.title, m.b64); break;
+      case 'done': { this.busy = false; updateRunButtons(); const cb = this.waiters[m.id]; delete this.waiters[m.id]; if (cb) cb(m); this.flushQueue(); break; }
+      case 'fatal': { Cons.write(m.s + '\n', 'err'); this.busy = false; updateRunButtons(); status('Erreur', 'err'); const cb = this.waiters[m.id]; delete this.waiters[m.id]; if (cb) cb({ line: 0, fatal: true }); break; }
+      case 'vars': Vars.render(JSON.parse(m.data)); break;
+      case 'files': Files.render(JSON.parse(m.data)); break;
+      case 'put': Cons.write(`Fichier « ${m.name} » (${fmtSize(m.size)}) placé dans le dossier de travail: np.loadtxt("${m.name}") ou open("${m.name}")\n`, 'okm'); Files.refresh(); break;
+      case 'get': saveFile(m.name, new Blob([m.data])); break;
+      case 'rm': Files.refresh(); break;
+    }
+  },
+  flushQueue() { while (this.ready && !this.busy && this.queue.length) { const f = this.queue.shift(); f(); } },
+  run(code, file, mode) {
+    return new Promise(res => {
+      const go = () => {
+        const id = ++this.runId; this.waiters[id] = res; this.busy = true; updateRunButtons();
+        status('Exécution…', 'busy');
+        this.w.postMessage({ t: 'run', id, code, file, mode });
+      };
+      if (this.ready && !this.busy) go(); else { this.queue.push(go); if (!this.ready) Cons.write('(en attente du démarrage de Python…)\n', 'info'); }
+    });
+  },
+  send(m) { if (this.ready && !this.busy) this.w.postMessage(m); else this.queue.push(() => this.w.postMessage(m)); },
+  restart(msg) {
+    if (this.w) this.w.terminate();
+    for (const k in this.waiters) { this.waiters[k]({ line: 0, killed: true }); delete this.waiters[k]; }
+    this.queue = [];
+    Cons.write(msg || '\n— Python redémarré: toutes les variables sont effacées —\n', 'info');
+    Vars.render([]); this.start(this.mode);
+  },
+};
+function status(s, cls) { $('#st').textContent = s; $('#led').className = 'led ' + (cls || ''); }
+function updateRunButtons() { $('#bStop').disabled = !Py.busy; $('#bStop').classList.toggle('stop', Py.busy); }
+function fmtSize(n) { return n < 0 ? 'dossier' : n < 1024 ? n + ' o' : n < 1048576 ? (n / 1024).toFixed(1).replace('.', ',') + ' ko' : (n / 1048576).toFixed(1).replace('.', ',') + ' Mo'; }
+
+// ======================================================================
+// Console
+// ======================================================================
+const Cons = {
+  el: null, hist: [], hpos: 0, pend: null,
+  write(s, cls) {
+    const o = this.el; const atEnd = o.scrollHeight - o.scrollTop - o.clientHeight < 40;
+    const last = o.lastChild;
+    if (last && last.dataset.cls === (cls || '') && last.nodeName === 'SPAN') last.textContent += s;
+    else { const sp = document.createElement('span'); sp.dataset.cls = cls || ''; if (cls) sp.className = cls; sp.textContent = s; o.appendChild(sp); }
+    // limite la taille de la console
+    if (o.textContent.length > 400000) while (o.textContent.length > 300000 && o.firstChild) o.firstChild.remove();
+    if (atEnd) o.scrollTop = o.scrollHeight;
+  },
+  async exec(src) {
+    if (!src.trim()) return;
+    this.hist.push(src); if (this.hist.length > 200) this.hist.shift(); this.hpos = this.hist.length;
+    this.write('>>> ' + src.replace(/\n/g, '\n... ') + '\n', 'in');
+    const r = await Py.run(src, '<console>', 'repl');
+    afterRun(r, null);
+  },
+};
+
+// ======================================================================
+// Éditeur (zone de texte + coloration syntaxique)
+// ======================================================================
+const KW = 'False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield match case'.split(' ');
+const BI = 'abs all any bin bool bytes callable chr complex dict dir divmod enumerate eval exec filter float format frozenset getattr globals hasattr hash help hex id input int isinstance issubclass iter len list locals map max min next object oct open ord pow print property range repr reversed round set setattr slice sorted staticmethod str sum super tuple type vars zip self'.split(' ');
+const KWS = new Set(KW), BIS = new Set(BI);
+const TOK = /(#[^\n]*)|([rRbBfFuU]{0,2}(?:"""[\s\S]*?(?:"""|$(?![\s\S]))|'''[\s\S]*?(?:'''|$(?![\s\S]))|"(?:\\.|[^"\\\n])*"?|'(?:\\.|[^'\\\n])*'?))|(\b\d[\d_]*\.?[\d_]*(?:[eE][+-]?\d+)?j?|\.\d+(?:[eE][+-]?\d+)?j?)|(@[A-Za-z_][\w.]*)|([A-Za-z_]\w*)/g;
+function highlight(src) {
+  let out = '', last = 0, m, prevDef = false;
+  TOK.lastIndex = 0;
+  while ((m = TOK.exec(src))) {
+    if (m[0] === '') { TOK.lastIndex++; continue; }
+    out += esc(src.slice(last, m.index)); last = TOK.lastIndex;
+    const t = esc(m[0]);
+    if (m[1]) { prevDef = false; out += /^#\s*%%/.test(m[1]) ? `<span class="c" style="font-weight:700;color:#3b6fb6">${t}</span>` : `<span class="c">${t}</span>`; }
+    else if (m[2]) { prevDef = false; out += `<span class="s">${t}</span>`; }
+    else if (m[3]) { prevDef = false; out += `<span class="n">${t}</span>`; }
+    else if (m[4]) { prevDef = false; out += `<span class="d">${t}</span>`; }
+    else {
+      const w = m[5];
+      if (prevDef) { out += `<span class="f">${t}</span>`; prevDef = false; }
+      else if (w === 'True' || w === 'False' || w === 'None') out += `<span class="cn">${t}</span>`;
+      else if (KWS.has(w)) { out += `<span class="k">${t}</span>`; prevDef = (w === 'def' || w === 'class'); }
+      else if (BIS.has(w)) out += `<span class="bi">${t}</span>`;
+      else out += t;
+    }
+  }
+  return out + esc(src.slice(last)) + '\n ';
+}
+const Ed = {
+  files: [], cur: 0, errLine: 0, saveT: null,
+  init() {
+    this.ta = $('#ed'); this.hl = $('#hl'); this.gut = $('#gutter');
+    let saved = null; try { saved = JSON.parse(store.get('mpm-python-v1') || 'null'); } catch (e) { }
+    if (saved && saved.files && saved.files.length) { this.files = saved.files; this.cur = Math.min(saved.cur || 0, this.files.length - 1); }
+    else this.files = [{ name: 'script.py', code: EXAMPLES[0].code }];
+    this.ta.value = this.files[this.cur].code;
+    this.ta.addEventListener('input', () => this.changed());
+    this.ta.addEventListener('scroll', () => this.sync());
+    this.ta.addEventListener('keydown', e => this.key(e));
+    ['keyup', 'click', 'select'].forEach(ev => this.ta.addEventListener(ev, () => this.pos()));
+    this.render(); this.renderTabs();
+  },
+  get code() { return this.ta.value; },
+  set code(v) { this.ta.value = v; this.changed(); },
+  changed() { this.files[this.cur].code = this.ta.value; this.errLine = 0; this.render(); clearTimeout(this.saveT); this.saveT = setTimeout(() => this.persist(), 400); },
+  persist() { store.set('mpm-python-v1', JSON.stringify({ files: this.files, cur: this.cur })); },
+  render() {
+    const v = this.ta.value; this.hl.innerHTML = highlight(v);
+    const n = v.split('\n').length, lines = v.split('\n');
+    let h = ''; for (let i = 1; i <= n; i++) h += `<div class="${i === this.errLine ? 'errl' : ''}${/^#\s*%%/.test(lines[i - 1]) ? ' cell' : ''}">${i}</div>`;
+    this.gut.innerHTML = h; this.sync(); this.pos();
+  },
+  sync() { this.hl.scrollTop = this.ta.scrollTop; this.hl.scrollLeft = this.ta.scrollLeft; this.gut.scrollTop = this.ta.scrollTop; },
+  pos() { const s = this.ta.selectionStart, before = this.ta.value.slice(0, s), l = before.split('\n'); $('#pos').textContent = `Ligne ${l.length}, colonne ${l[l.length - 1].length + 1}`; },
+  lineBounds(a, b) { const v = this.ta.value; const s = v.lastIndexOf('\n', a - 1) + 1; let e = v.indexOf('\n', b > a && v[b - 1] === '\n' ? b - 1 : b); if (e < 0) e = v.length; return [s, e]; },
+  replaceRange(s, e, txt, selS, selE) { this.ta.setSelectionRange(s, e); if (!document.execCommand('insertText', false, txt)) { this.ta.setRangeText(txt, s, e, 'end'); this.changed(); } if (selS !== undefined) this.ta.setSelectionRange(selS, selE); },
+  key(e) {
+    const ta = this.ta, a = ta.selectionStart, b = ta.selectionEnd, v = ta.value;
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      if (a === b && !e.shiftKey) { document.execCommand('insertText', false, '    ') || ta.setRangeText('    ', a, b, 'end'); return; }
+      const [s, en] = this.lineBounds(a, b), block = v.slice(s, en);
+      const nb = e.shiftKey ? block.replace(/^( {1,4}|\t)/gm, '') : block.replace(/^/gm, '    ');
+      this.replaceRange(s, en, nb, s, s + nb.length); return;
+    }
+    if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+      e.preventDefault();
+      const s = v.lastIndexOf('\n', a - 1) + 1, line = v.slice(s, a), ind = (/^[ \t]*/.exec(line) || [''])[0];
+      let extra = /:\s*(#.*)?$/.test(line) ? '    ' : '';
+      if (/^\s*(return|pass|break|continue|raise)\b/.test(line) && ind.length >= 4) { document.execCommand('insertText', false, '\n' + ind.slice(4)); return; }
+      document.execCommand('insertText', false, '\n' + ind + extra) || ta.setRangeText('\n' + ind + extra, a, b, 'end');
+      return;
+    }
+    if (e.key === 'Backspace' && a === b && a > 0) { // efface une indentation complète
+      const s = v.lastIndexOf('\n', a - 1) + 1, before = v.slice(s, a);
+      if (before.length && /^ +$/.test(before)) { e.preventDefault(); const k = before.length % 4 || 4; this.replaceRange(a - k, a, '', a - k, a - k); return; }
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === '/' || e.key === '1' || e.key === ':')) { // commenter / décommenter
+      e.preventDefault();
+      const [s, en] = this.lineBounds(a, b), block = v.slice(s, en), ls = block.split('\n');
+      const all = ls.filter(l => l.trim()).every(l => /^\s*#/.test(l));
+      const nb = ls.map(l => (all ? l.replace(/^(\s*)# ?/, '$1') : (l.trim() ? l.replace(/^(\s*)/, '$1# ') : l))).join('\n');
+      this.replaceRange(s, en, nb, s, s + nb.length); return;
+    }
+    const pairs = { '(': ')', '[': ']', '{': '}' };
+    if (pairs[e.key] && a !== b) { e.preventDefault(); const sel = v.slice(a, b); this.replaceRange(a, b, e.key + sel + pairs[e.key], a + 1, b + 1); }
+  },
+  selectionOrLine() {
+    const a = this.ta.selectionStart, b = this.ta.selectionEnd, v = this.ta.value;
+    if (a !== b) return { code: dedent(v.slice(a, b)), first: v.slice(0, a).split('\n').length };
+    const [s, e] = this.lineBounds(a, a); return { code: v.slice(s, e).trim(), first: v.slice(0, s).split('\n').length, end: e };
+  },
+  currentCell() {
+    const v = this.ta.value, lines = v.split('\n'), cur = v.slice(0, this.ta.selectionStart).split('\n').length - 1;
+    let s = cur; while (s > 0 && !/^#\s*%%/.test(lines[s])) s--;
+    let e = cur + 1; while (e < lines.length && !/^#\s*%%/.test(lines[e])) e++;
+    return { code: lines.slice(s, e).join('\n'), first: s + 1, nextLine: e };
+  },
+  gotoLine(n) {
+    const lines = this.ta.value.split('\n'); n = Math.max(1, Math.min(lines.length, n));
+    let p = 0; for (let i = 0; i < n - 1; i++) p += lines[i].length + 1;
+    this.ta.focus(); this.ta.setSelectionRange(p, p + lines[n - 1].length);
+    this.ta.scrollTop = Math.max(0, (n - 5) * 20); this.sync();
+  },
+  markError(n) { this.errLine = n; this.render(); },
+  renderTabs() {
+    const t = $('#edtabs'); t.innerHTML = '';
+    this.files.forEach((f, i) => {
+      const e = document.createElement('div'); e.className = 'tab' + (i === this.cur ? ' act' : '');
+      e.innerHTML = `<span>${esc(f.name)}</span>${this.files.length > 1 ? '<span class="x" title="Fermer">×</span>' : ''}`;
+      e.title = 'Double-clic: renommer';
+      e.onclick = async ev => { if (ev.target.classList.contains('x')) { if (f.code.trim() && !(await ask('Fermer « ' + f.name + ' » ?', '<p>Le code de cet onglet sera perdu s\'il n\'a pas été enregistré.</p>', 'Fermer'))) return; this.files.splice(i, 1); this.select(Math.min(this.cur, this.files.length - 1), true); return; } this.select(i); };
+      e.ondblclick = async () => { const n = await promptBox('Nom du fichier', f.name); if (n) { f.name = /\.py$/i.test(n) ? n : n + '.py'; this.renderTabs(); this.persist(); } };
+      t.appendChild(e);
+    });
+    const add = document.createElement('div'); add.className = 'tab add'; add.textContent = '+'; add.title = 'Nouveau script'; add.onclick = () => Cmd.nouveau(); t.appendChild(add);
+  },
+  select(i, force) { if (!force) this.files[this.cur].code = this.ta.value; this.cur = i; this.ta.value = this.files[i].code; this.errLine = 0; this.ta.scrollTop = 0; this.render(); this.renderTabs(); this.persist(); },
+  add(name, code) { this.files[this.cur].code = this.ta.value; let nm = name, k = 2; while (this.files.some(f => f.name === nm)) nm = name.replace(/(\.py)?$/, '_' + (k++) + '.py'); this.files.push({ name: nm, code }); this.select(this.files.length - 1, true); },
+};
+function dedent(s) { const ls = s.split('\n'); const ind = Math.min(...ls.filter(l => l.trim()).map(l => /^ */.exec(l)[0].length)); return isFinite(ind) ? ls.map(l => l.slice(ind)).join('\n') : s; }
+
+// ======================================================================
+// Exécution
+// ======================================================================
+async function runCode(code, first, label) {
+  if (!code.trim()) return;
+  Ed.errLine = 0; Ed.render();
+  Cons.write(`>>> ${label}\n`, 'in');
+  const r = await Py.run(code, Ed.files[Ed.cur].name, 'file');
+  afterRun(r, first);
+}
+function afterRun(r, first) {
+  if (r.killed) return;
+  if (r.line && first !== null) { const L = r.line + first - 1; Ed.markError(L); status(`Erreur ligne ${L}`, 'err'); }
+  else if (r.line || r.fatal) status('Erreur', 'err');
+  else status(`Terminé en ${r.ms < 1000 ? Math.round(r.ms) + ' ms' : (r.ms / 1000).toFixed(2).replace('.', ',') + ' s'}`, 'ok');
+  if ($('#pv-vars').classList.contains('act')) Vars.refresh();
+  if ($('#pv-files').classList.contains('act')) Files.refresh();
+}
+
+// ======================================================================
+// Figures
+// ======================================================================
+const Figs = {
+  list: [], sel: -1, n: 0,
+  add(title, b64) {
+    const f = { id: ++this.n, title, src: 'data:image/png;base64,' + b64 };
+    this.list.push(f); this.sel = this.list.length - 1; this.render();
+    if (!$('#pv-fig').classList.contains('act')) Pane.show('fig');
+    if ($('#autoFloat').checked) this.float(f);
+  },
+  render() {
+    const v = $('#figview'), th = $('#thumbs'); th.innerHTML = '';
+    if (!this.list.length) { v.innerHTML = '<div class="empty">Les figures de matplotlib (<code>plt.show()</code>) s\'affichent ici.</div>'; return; }
+    const f = this.list[this.sel];
+    v.innerHTML = `<img src="${f.src}" alt="${esc(f.title)}" title="${esc(f.title)} — double-clic: fenêtre flottante"><span class="tagfig">MP* Malherbe</span>`;
+    $('img', v).ondblclick = () => this.float(f);
+    this.list.forEach((g, i) => { const im = document.createElement('img'); im.src = g.src; im.title = g.title; if (i === this.sel) im.className = 'sel'; im.onclick = () => { this.sel = i; this.render(); }; im.ondblclick = () => this.float(g); th.appendChild(im); });
+    th.lastChild && this.sel === this.list.length - 1 && th.lastChild.scrollIntoView({ block: 'nearest' });
+  },
+  cur() { return this.list[this.sel]; },
+  float(f, x, y) {
+    f = f || this.cur(); if (!f) return;
+    const w = document.createElement('div'); w.className = 'fwin';
+    const k = $$('.fwin').length;
+    const W = Math.min(640, innerWidth - 40), H = Math.min(520, innerHeight - 60);
+    Object.assign(w.style, { left: (x !== undefined ? x : 60 + 28 * (k % 8)) + 'px', top: (y !== undefined ? y : 70 + 28 * (k % 8)) + 'px', width: W + 'px', height: H + 'px' });
+    w.innerHTML = `<div class="hd"><b>${esc(f.title)}</b><button data-a="png" title="Enregistrer l'image">PNG</button><button data-a="max" title="Agrandir / réduire">□</button><button data-a="x" title="Fermer">×</button></div><div class="bd"><img src="${f.src}"><span class="tagfig">MP* Malherbe</span></div>`;
+    document.body.appendChild(w);
+    const front = () => { $$('.fwin').forEach(o => o.style.zIndex = 80); w.style.zIndex = 81; };
+    front(); w.addEventListener('pointerdown', front);
+    $('[data-a=x]', w).onclick = () => w.remove();
+    $('[data-a=png]', w).onclick = () => this.save(f);
+    let prev = null;
+    $('[data-a=max]', w).onclick = () => { if (prev) { Object.assign(w.style, prev); prev = null; } else { prev = { left: w.style.left, top: w.style.top, width: w.style.width, height: w.style.height }; Object.assign(w.style, { left: '8px', top: '8px', width: (innerWidth - 16) + 'px', height: (innerHeight - 16) + 'px' }); } };
+    const hd = $('.hd', w); let d = null;
+    hd.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; d = { x: e.clientX - w.offsetLeft, y: e.clientY - w.offsetTop }; hd.setPointerCapture(e.pointerId); });
+    hd.addEventListener('pointermove', e => { if (!d) return; w.style.left = Math.max(-w.offsetWidth + 80, Math.min(innerWidth - 80, e.clientX - d.x)) + 'px'; w.style.top = Math.max(0, Math.min(innerHeight - 30, e.clientY - d.y)) + 'px'; });
+    hd.addEventListener('pointerup', () => { d = null; });
+    hd.ondblclick = () => $('[data-a=max]', w).click();
+  },
+  window(f) {
+    f = f || this.cur(); if (!f) return;
+    let win = null;
+    try { win = window.open('', '_blank', 'width=760,height=600'); } catch (e) { win = null; }
+    if (!win) { this.float(f); toast('Ce navigateur (ou cette vue) bloque les nouvelles fenêtres: la figure est ouverte dans une fenêtre flottante.'); return; }
+    win.document.write(`<!doctype html><title>${esc(f.title)} — MP* Malherbe</title><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff"><img src="${f.src}" style="max-width:100%;max-height:100vh"><span style="position:fixed;right:8px;bottom:6px;font:600 11px system-ui;color:#fff;background:#3b5f96;padding:1px 8px;border-radius:9px">MP* Malherbe</span></body>`);
+    win.document.close();
+  },
+  async save(f) { f = f || this.cur(); if (!f) return; const b = await (await fetch(f.src)).blob(); saveFile((f.title || 'figure').replace(/[^\w\- ]+/g, '_').trim().replace(/\s+/g, '_') + '.png', b); },
+  async copy() { const f = this.cur(); if (!f) return; try { const b = await (await fetch(f.src)).blob(); await navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]); toast('Figure copiée: collez-la dans un document'); } catch (e) { toast('Copie impossible avec ce navigateur'); } },
+  del() { if (this.sel < 0) return; this.list.splice(this.sel, 1); this.sel = Math.min(this.sel, this.list.length - 1); this.render(); },
+  clear() { this.list = []; this.sel = -1; this.render(); },
+};
+
+// ======================================================================
+// Variables et fichiers
+// ======================================================================
+const Vars = {
+  refresh() { if (Py.ready) Py.send({ t: 'vars', all: $('#varsFn').checked }); },
+  render(rows) {
+    const b = $('#varsbody');
+    if (!rows.length) { b.innerHTML = '<div class="empty">Aucune variable.</div>'; return; }
+    b.innerHTML = `<table class="vars"><tr><th>Nom</th><th>Type</th><th>Taille</th><th>Valeur</th></tr>${rows.map(r => `<tr><td class="nm">${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td class="v">${esc(r[3])}</td></tr>`).join('')}</table>`;
+  },
+};
+const Files = {
+  refresh() { if (Py.ready) Py.send({ t: 'files' }); },
+  render(rows) {
+    const b = $('#filesbody');
+    if (!rows.length) { b.innerHTML = '<div class="empty">Dossier vide. Envoyez un fichier de données, ou créez-en un depuis Python.</div>'; return; }
+    b.innerHTML = `<table class="vars"><tr><th>Fichier</th><th>Taille</th><th></th></tr>${rows.map(r => `<tr><td class="nm">${esc(r[0])}</td><td>${fmtSize(r[1])}</td><td>${r[1] >= 0 ? `<button class="b" data-get="${esc(r[0])}" style="height:22px">Télécharger</button> <button class="b" data-ins="${esc(r[0])}" style="height:22px" title="Insérer np.loadtxt(…) dans le script">loadtxt</button> <button class="b" data-rm="${esc(r[0])}" style="height:22px">Supprimer</button>` : ''}</td></tr>`).join('')}</table>`;
+    $$('[data-get]', b).forEach(e => e.onclick = () => Py.send({ t: 'get', name: e.dataset.get }));
+    $$('[data-rm]', b).forEach(e => e.onclick = async () => { if (await ask('Supprimer', `<p>Supprimer « ${esc(e.dataset.rm)} » du dossier de travail ?</p>`, 'Supprimer')) Py.send({ t: 'rm', name: e.dataset.rm }); });
+    $$('[data-ins]', b).forEach(e => e.onclick = () => { const n = e.dataset.ins, sep = /\.csv$/i.test(n) ? ', delimiter=";"' : ''; Ed.ta.focus(); document.execCommand('insertText', false, `donnees = np.loadtxt("${n}"${sep}, skiprows=1)\n`); });
+  },
+};
+
+// ======================================================================
+// Panneaux, séparateurs, divers
+// ======================================================================
+const Pane = {
+  show(p) { $$('#panetabs .tab').forEach(t => t.classList.toggle('act', t.dataset.p === p)); $$('.pv').forEach(v => v.classList.toggle('act', v.id === 'pv-' + p)); if (p === 'vars') Vars.refresh(); if (p === 'files') Files.refresh(); },
+};
+function splitter(el, prop, host, horiz) {
+  el.addEventListener('pointerdown', e => {
+    el.setPointerCapture(e.pointerId);
+    const r = host.getBoundingClientRect();
+    const mv = ev => { const f = horiz ? (ev.clientY - r.top) / r.height : (ev.clientX - r.left) / r.width; host.style.setProperty(prop, Math.max(15, Math.min(85, f * 100)) + '%'); };
+    const up = () => { el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); store.set('mpm-python-' + prop, host.style.getPropertyValue(prop)); };
+    el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up);
+  });
+  const s = store.get('mpm-python-' + prop); if (s) host.style.setProperty(prop, s);
+}
+function toast(t) { Cons.write(t + '\n', 'info'); status(t, ''); }
+function modal(title, html, buttons) {
+  return new Promise(res => {
+    const bg = document.createElement('div'); bg.className = 'mbg';
+    bg.innerHTML = `<div class="modal"><h2>${esc(title)}</h2><div class="mb">${html}</div><div class="mf"></div></div>`;
+    const close = v => { bg.remove(); document.removeEventListener('keydown', kd); res(v); };
+    buttons.forEach(b => { const e = document.createElement('button'); e.className = 'b' + (b.pri ? ' pri' : ''); e.textContent = b.label; e.onclick = () => { const v = b.action ? b.action(bg) : b.value; if (v === false) return; close(v); }; $('.mf', bg).appendChild(e); });
+    const kd = e => { if (e.key === 'Escape') close(null); if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') { const p = buttons.findIndex(b => b.pri); if (p >= 0) { e.preventDefault(); $$('.mf .b', bg)[p].click(); } } };
+    document.addEventListener('keydown', kd); bg.addEventListener('mousedown', e => { if (e.target === bg) close(null); });
+    document.body.appendChild(bg); const i = $('input,textarea', bg); if (i) { i.focus(); i.select && i.select(); }
+  });
+}
+const ask = (t, h, ok) => modal(t, h, [{ label: 'Annuler', value: false }, { label: ok || 'OK', pri: true, value: true }]);
+const promptBox = (t, v) => modal(t, `<input type="text" id="pv" value="${esc(v || '')}">`, [{ label: 'Annuler', value: null }, { label: 'OK', pri: true, action: bg => $('#pv', bg).value.trim() || null }]);
+
+// enregistrement de fichiers: capacité « downloads » de la page, sinon téléchargement classique, sinon copie
+let dlCap;
+async function getDl() { if (dlCap !== undefined) return dlCap; try { dlCap = window.claude && window.claude.use ? await Promise.race([window.claude.use('downloads'), new Promise(r => setTimeout(() => r(null), 4000))]) : null; } catch (e) { dlCap = null; } return dlCap; }
+async function saveFile(name, data) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: 'text/plain' });
+  const dl = await getDl();
+  if (dl) { try { await dl.save({ filename: name, data: blob }); toast('Fichier « ' + name + ' » enregistré (dossier Téléchargements)'); return; } catch (e) { if (e && e.code === 'declined') { toast('Enregistrement annulé'); return; } if (e && e.code === 'rejected_extension') { toast('Ce type de fichier ne peut pas être téléchargé ici: extension non autorisée'); } } }
+  if (window.claude) {
+    if (typeof data === 'string') {
+      modal('Copier le contenu', `<p style="font-size:12.5px;color:#555">Le téléchargement n'est pas disponible dans cette vue: copiez le texte et collez-le dans un fichier « ${esc(name)} ».</p><textarea id="cpy" spellcheck="false" style="width:100%;height:300px;font:12px var(--mono)">${esc(data)}</textarea>`, [{ label: 'Copier', pri: true, action: bg => { navigator.clipboard.writeText($('#cpy', bg).value).then(() => toast('Copié'), () => toast('Copie refusée: sélectionnez le texte et Ctrl+C')); return false; } }, { label: 'Fermer' }]);
+    } else toast('Téléchargement indisponible dans cette vue');
+    return;
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+function pickFile(accept) { return new Promise(res => { const i = $('#fin'); i.value = ''; i.accept = accept || ''; i.onchange = () => res(i.files[0] || null); i.click(); }); }
+async function sendData(f) { const buf = await f.arrayBuffer(); Py.send({ t: 'put', name: f.name.replace(/[\/\\]/g, '_'), data: buf }); Pane.show('files'); }
+
+// ======================================================================
+// Commandes
+// ======================================================================
+const Cmd = {
+  nouveau() { Ed.add('script.py', '# -*- coding: utf-8 -*-\nimport numpy as np\nimport matplotlib.pyplot as plt\n\n'); },
+  async ouvrir() {
+    const f = await pickFile('.py,.txt'); if (!f) return;
+    const buf = await f.arrayBuffer(); let txt; try { txt = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { txt = new TextDecoder('windows-1252').decode(buf); }
+    const cur = Ed.files[Ed.cur];
+    if (!cur.code.trim()) { cur.name = f.name; Ed.code = txt.replace(/\r\n?/g, '\n'); Ed.renderTabs(); Ed.persist(); } else Ed.add(f.name, txt.replace(/\r\n?/g, '\n'));
+  },
+  enregistrer() { const f = Ed.files[Ed.cur]; f.code = Ed.code; saveFile(f.name, f.code); },
+  exemples() { $('#ddEx').classList.toggle('open'); },
+  executer() { Ed.files[Ed.cur].code = Ed.code; runCode(Ed.code, 1, 'exécution de ' + Ed.files[Ed.cur].name); },
+  cellule() { const c = Ed.currentCell(); runCode(c.code, c.first, `cellule (lignes ${c.first} à ${c.first + c.code.split('\n').length - 1})`); },
+  async selection() {
+    const s = Ed.selectionOrLine(); if (!s.code) return;
+    Cons.write('>>> ' + s.code.replace(/\n/g, '\n... ') + '\n', 'in');
+    const r = await Py.run(s.code, Ed.files[Ed.cur].name, 'repl'); afterRun(r, s.first);
+    if (s.end !== undefined && Ed.ta.selectionStart === Ed.ta.selectionEnd) { const p = Math.min(Ed.ta.value.length, s.end + 1); Ed.ta.setSelectionRange(p, p); Ed.pos(); }
+  },
+  arreter() { if (Py.busy) Py.restart('\n— Programme interrompu: Python a été redémarré (les variables sont effacées) —\n'); },
+  async redemarrer() { if (await ask('Redémarrer Python', '<p>Toutes les variables et les fichiers créés dans le dossier de travail seront effacés.</p>', 'Redémarrer')) Py.restart(); },
+  async donnees() { const f = await pickFile(''); if (f) sendData(f); },
+};
+
+// ======================================================================
+// Exemples
+// ======================================================================
+const EXAMPLES = [
+  { nom: 'Premier programme', desc: 'tracé d\'une fonction', code: `# -*- coding: utf-8 -*-
+# Premier programme: tracé d'une fonction
+import numpy as np
+import matplotlib.pyplot as plt
+
+x = np.linspace(0, 4*np.pi, 400)
+y = np.exp(-x/5) * np.cos(2*x)
+
+plt.figure("Oscillations amorties")
+plt.plot(x, y, label=r"$e^{-x/5}\\cos(2x)$")
+plt.plot(x, np.exp(-x/5), "--", label="enveloppe")
+plt.xlabel("$x$")
+plt.ylabel("$y$")
+plt.legend()
+plt.grid()
+plt.show()
+
+print("Valeur maximale:", y.max())
+` },
+  { nom: 'Pendule simple (solve_ivp)', desc: 'équation différentielle non linéaire, portrait de phase', code: `# -*- coding: utf-8 -*-
+# Pendule simple non linéaire résolu avec solve_ivp (scipy.integrate)
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+
+g = 9.81    # m/s^2
+ell = 1.0   # m
+a = g/ell
+
+# On écrit l'équation sous la forme vectorielle dY/dt = F(t, Y) avec Y = [theta, dtheta/dt]
+# Attention : pour solve_ivp, le temps est le PREMIER argument de F
+def F(t, Y):
+    return [Y[1], -a*np.sin(Y[0])]
+
+t = np.linspace(0, 10, 2000)
+plt.figure("Pendule : theta(t)")
+for theta0 in [0.2, 1.0, 2.0, 2.5]:
+    sol = solve_ivp(F, (t[0], t[-1]), [theta0, 0], t_eval=t, rtol=1e-8, atol=1e-10)
+    plt.plot(sol.t, sol.y[0], label=r"$\\theta_0$ = " + str(theta0) + " rad")
+plt.xlabel("$t$ (s)")
+plt.ylabel(r"$\\theta$ (rad)")
+plt.legend()
+plt.grid()
+plt.show()
+
+plt.figure("Portrait de phase")
+for theta0 in np.linspace(0.3, 3.0, 8):
+    sol = solve_ivp(F, (t[0], t[-1]), [theta0, 0], t_eval=t, rtol=1e-8, atol=1e-10)
+    plt.plot(sol.y[0], sol.y[1])
+plt.xlabel(r"$\\theta$ (rad)")
+plt.ylabel(r"$\\dot\\theta$ (rad/s)")
+plt.grid()
+plt.show()
+
+# Période en fonction de l'amplitude : on repère les passages par theta = 0 en descendant
+def passage(t, Y):
+    return Y[0]
+passage.direction = -1
+for theta0 in [0.1, 1.0, 2.0, 3.0]:
+    sol = solve_ivp(F, (0, 30), [theta0, 0], events=passage, rtol=1e-10, atol=1e-12)
+    tp = sol.t_events[0]
+    print(f"theta0 = {theta0:.1f} rad : T = {np.mean(np.diff(tp)):.4f} s (petites oscillations : {2*np.pi/np.sqrt(a):.4f} s)")
+` },
+  { nom: 'Méthode d\'Euler', desc: 'charge d\'un condensateur, comparaison avec la solution exacte', code: `# -*- coding: utf-8 -*-
+# Méthode d'Euler explicite: charge d'un condensateur  tau du/dt + u = E
+import numpy as np
+import matplotlib.pyplot as plt
+
+E, tau = 5.0, 1e-3       # V, s
+
+def euler(f, y0, t0, tf, n):
+    """Résout y' = f(t, y) par la méthode d'Euler avec n pas."""
+    h = (tf - t0)/n
+    t = np.zeros(n+1)
+    y = np.zeros(n+1)
+    t[0], y[0] = t0, y0
+    for k in range(n):
+        y[k+1] = y[k] + h*f(t[k], y[k])
+        t[k+1] = t[k] + h
+    return t, y
+
+def f(t, u):
+    return (E - u)/tau
+
+plt.figure("Euler")
+for n in [5, 10, 50]:
+    t, u = euler(f, 0, 0, 5*tau, n)
+    plt.plot(t*1e3, u, "o-", ms=3, label="Euler, n = " + str(n))
+tt = np.linspace(0, 5*tau, 300)
+plt.plot(tt*1e3, E*(1 - np.exp(-tt/tau)), "k", label="solution exacte")
+plt.xlabel("$t$ (ms)")
+plt.ylabel("$u$ (V)")
+plt.legend()
+plt.grid()
+plt.show()
+
+# Erreur en fonction du pas: l'erreur est proportionnelle à h (méthode d'ordre 1)
+for n in [10, 100, 1000]:
+    t, u = euler(f, 0, 0, 5*tau, n)
+    err = np.max(np.abs(u - E*(1 - np.exp(-t/tau))))
+    print(f"n = {n:5d}   h = {5*tau/n:.1e} s   erreur max = {err:.2e} V")
+` },
+  { nom: 'Analyse spectrale (FFT)', desc: 'spectre d\'un signal échantillonné, repliement', code: `# -*- coding: utf-8 -*-
+# Spectre d'un signal échantillonné avec numpy.fft
+import numpy as np
+import matplotlib.pyplot as plt
+
+fe = 1000.0          # fréquence d'échantillonnage (Hz)
+T = 1.0              # durée d'acquisition (s)
+N = int(fe*T)
+t = np.arange(N)/fe
+s = 1.0*np.sin(2*np.pi*50*t) + 0.5*np.sin(2*np.pi*120*t) + 0.3*np.sin(2*np.pi*700*t)
+# 700 Hz > fe/2 = 500 Hz: cette composante va se replier en 1000 - 700 = 300 Hz
+
+S = np.fft.rfft(s)
+f = np.fft.rfftfreq(N, 1/fe)
+A = 2*np.abs(S)/N     # amplitudes des composantes
+
+plt.figure("Signal")
+plt.plot(t[:200], s[:200], ".-")
+plt.xlabel("$t$ (s)")
+plt.grid()
+plt.show()
+
+plt.figure("Spectre")
+plt.stem(f, A, markerfmt=" ", basefmt=" ")
+plt.xlabel("$f$ (Hz)")
+plt.ylabel("amplitude")
+plt.grid()
+plt.show()
+
+for k in np.argsort(A)[-3:][::-1]:
+    print(f"raie à {f[k]:.0f} Hz, amplitude {A[k]:.2f}")
+` },
+  { nom: 'Régression linéaire et incertitudes', desc: 'polyfit, incertitudes-types par Monte-Carlo', code: `# -*- coding: utf-8 -*-
+# Régression linéaire et incertitudes par la méthode de Monte-Carlo
+# Exemple: loi d'Ohm U = R I, mesures avec incertitudes-types u(U) et u(I)
+import numpy as np
+import matplotlib.pyplot as plt
+
+I = np.array([0.010, 0.020, 0.030, 0.040, 0.050, 0.060])   # A
+U = np.array([1.02, 2.05, 2.96, 4.08, 5.01, 6.04])          # V
+uI = 0.0005 * np.ones_like(I)
+uU = 0.05 * np.ones_like(U)
+
+a, b = np.polyfit(I, U, 1)
+print(f"Régression: U = a I + b avec a = {a:.2f} ohm, b = {b:.3f} V")
+
+# Monte-Carlo: on tire N jeux de mesures compatibles avec les incertitudes
+N = 10000
+A, B = np.zeros(N), np.zeros(N)
+for k in range(N):
+    Isim = I + uI*np.random.normal(size=len(I))
+    Usim = U + uU*np.random.normal(size=len(U))
+    A[k], B[k] = np.polyfit(Isim, Usim, 1)
+print(f"a = {A.mean():.2f} ohm,  u(a) = {A.std(ddof=1):.2f} ohm")
+print(f"b = {B.mean():.3f} V,  u(b) = {B.std(ddof=1):.3f} V")
+
+plt.figure("Régression linéaire")
+plt.errorbar(I, U, xerr=uI, yerr=uU, fmt="o", capsize=3, label="mesures")
+x = np.linspace(0, I.max()*1.1, 100)
+plt.plot(x, a*x + b, label="modèle affine")
+plt.xlabel("$I$ (A)")
+plt.ylabel("$U$ (V)")
+plt.legend()
+plt.grid()
+plt.show()
+
+plt.figure("Histogramme des pentes simulées")
+plt.hist(A, bins=50)
+plt.xlabel("$a$ (ohm)")
+plt.show()
+` },
+  { nom: 'Dichotomie et Newton', desc: 'zéro d\'une fonction, comparaison avec scipy.optimize', code: `# -*- coding: utf-8 -*-
+# Recherche d'un zéro: dichotomie, méthode de Newton, scipy.optimize.brentq
+import numpy as np
+from scipy.optimize import brentq
+
+def f(x):
+    return np.cos(x) - x
+
+def df(x):
+    return -np.sin(x) - 1
+
+def dichotomie(f, a, b, eps):
+    n = 0
+    while b - a > eps:
+        c = (a + b)/2
+        if f(a)*f(c) <= 0:
+            b = c
+        else:
+            a = c
+        n += 1
+    return (a + b)/2, n
+
+def newton(f, df, x0, eps):
+    x, n = x0, 0
+    while True:
+        x1 = x - f(x)/df(x)
+        n += 1
+        if abs(x1 - x) < eps:
+            return x1, n
+        x = x1
+
+x1, n1 = dichotomie(f, 0, 1, 1e-12)
+x2, n2 = newton(f, df, 1.0, 1e-12)
+x3 = brentq(f, 0, 1)
+print(f"dichotomie: x = {x1:.12f} en {n1} itérations")
+print(f"Newton     : x = {x2:.12f} en {n2} itérations")
+print(f"brentq     : x = {x3:.12f}")
+` },
+  { nom: 'Intégration numérique', desc: 'rectangles, trapèzes, scipy.integrate.quad', code: `# -*- coding: utf-8 -*-
+# Intégration numérique: comparaison des méthodes
+import numpy as np
+from scipy.integrate import quad
+
+def f(x):
+    return np.exp(-x**2)
+
+a, b = 0, 2
+exact, err = quad(f, a, b)
+print(f"quad: I = {exact:.12f} (erreur estimée {err:.1e})")
+
+def rectangles(f, a, b, n):
+    x = np.linspace(a, b, n+1)[:-1]
+    return (b - a)/n*np.sum(f(x))
+
+def trapezes(f, a, b, n):
+    x = np.linspace(a, b, n+1)
+    y = f(x)
+    return (b - a)/n*(np.sum(y) - (y[0] + y[-1])/2)
+
+for n in [10, 100, 1000]:
+    print(f"n = {n:4d}  rectangles: erreur {abs(rectangles(f, a, b, n) - exact):.2e}"
+          f"   trapèzes: erreur {abs(trapezes(f, a, b, n) - exact):.2e}")
+` },
+  { nom: 'Lignes de champ d\'un dipôle', desc: 'streamplot et équipotentielles', code: `# -*- coding: utf-8 -*-
+# Champ et potentiel de deux charges opposées (dipôle): streamplot et contour
+import numpy as np
+import matplotlib.pyplot as plt
+
+k = 9e9
+charges = [(+1e-9, (-0.5, 0)), (-1e-9, (0.5, 0))]   # (q en C, position en m)
+
+x = np.linspace(-2, 2, 300)
+y = np.linspace(-1.5, 1.5, 240)
+X, Y = np.meshgrid(x, y)
+Ex, Ey, V = np.zeros_like(X), np.zeros_like(X), np.zeros_like(X)
+for q, (x0, y0) in charges:
+    r = np.sqrt((X - x0)**2 + (Y - y0)**2) + 1e-9
+    Ex += k*q*(X - x0)/r**3
+    Ey += k*q*(Y - y0)/r**3
+    V += k*q/r
+
+plt.figure("Dipôle", figsize=(7, 5.5))
+plt.streamplot(X, Y, Ex, Ey, density=1.4, color="tab:blue", linewidth=0.8)
+plt.contour(X, Y, V, levels=np.linspace(-30, 30, 13), colors="tab:red", linewidths=0.8)
+for q, (x0, y0) in charges:
+    plt.plot(x0, y0, "o", ms=10, color="red" if q > 0 else "black")
+plt.gca().set_aspect("equal")
+plt.title("Lignes de champ (bleu) et équipotentielles (rouge)")
+plt.show()
+` },
+  { nom: 'Fichier de mesures (loadtxt)', desc: 'écrire puis relire un fichier CSV', code: `# -*- coding: utf-8 -*-
+# Écriture et lecture d'un fichier de données.
+# Pour vos propres mesures: bouton « Fichier de données… », puis np.loadtxt("nom_du_fichier")
+import numpy as np
+import matplotlib.pyplot as plt
+
+# 1) on fabrique un fichier « mesures.csv » (séparateur ;): chute d'une bille
+t = np.linspace(0, 0.5, 11)
+z = 0.5*9.81*t**2 + 0.003*np.random.normal(size=t.size)
+np.savetxt("mesures.csv", np.column_stack([t, z]), delimiter=";", header="t (s);z (m)", comments="", fmt="%.4f")
+print(open("mesures.csv").read())
+
+# 2) on le relit (skiprows=1 pour sauter la ligne d'en-tête)
+donnees = np.loadtxt("mesures.csv", delimiter=";", skiprows=1)
+t, z = donnees[:, 0], donnees[:, 1]
+
+# 3) modélisation z = a t^2  ->  g = 2a
+a, b, c = np.polyfit(t, z, 2)
+print(f"g mesuré: {2*a:.2f} m/s^2")
+plt.figure("Chute libre")
+plt.plot(t, z, "o", label="mesures")
+tt = np.linspace(0, 0.5, 100)
+plt.plot(tt, a*tt**2 + b*tt + c, label="ajustement parabolique")
+plt.xlabel("$t$ (s)"); plt.ylabel("$z$ (m)")
+plt.legend(); plt.grid(); plt.show()
+` },
+  { nom: 'Calcul formel (sympy)', desc: 'dérivées, intégrales, équations différentielles', code: `# -*- coding: utf-8 -*-
+# Calcul formel avec sympy
+import sympy as sp
+
+x, t = sp.symbols("x t", real=True)
+w0, Q = sp.symbols("omega_0 Q", positive=True)
+
+print("Dérivée:", sp.diff(sp.sin(x)**2*sp.exp(-x), x))
+print("Primitive:", sp.integrate(x*sp.exp(-x), x))
+print("Intégrale:", sp.integrate(sp.exp(-x**2), (x, -sp.oo, sp.oo)))
+print("DL:", sp.series(1/sp.sqrt(1 + x), x, 0, 5))
+
+# Équation différentielle de l'oscillateur amorti
+y = sp.Function("y")
+eq = sp.Eq(y(t).diff(t, 2) + w0/Q*y(t).diff(t) + w0**2*y(t), 0)
+print("Solution:", sp.dsolve(eq))
+` },
+];
+function buildExamples() {
+  const m = $('#exMenu');
+  m.innerHTML = EXAMPLES.map((e, i) => `<div data-ex="${i}">${esc(e.nom)}<small>${esc(e.desc)}</small></div>`).join('');
+  $$('[data-ex]', m).forEach(d => d.onclick = () => { const e = EXAMPLES[+d.dataset.ex]; $('#ddEx').classList.remove('open'); Ed.add(e.nom.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') + '.py', e.code); });
+}
+
+const AIDE = `
+<h3>Principe</h3>
+<p>Le code est exécuté par Python 3.12 (Pyodide) directement dans le navigateur, sans installation. Il faut une connexion internet au premier lancement (Python et les bibliothèques sont ensuite gardés en cache par le navigateur).</p>
+<p>Bibliothèques: <code>math</code>, <code>numpy</code>, <code>scipy</code>, <code>matplotlib</code>, <code>sympy</code>, <code>pandas</code> et le reste de la bibliothèque standard. Les bibliothèques sont chargées automatiquement au premier <code>import</code>.</p>
+<h3>Exécution (comme Spyder)</h3>
+<p><kbd>F5</kbd> exécute tout le script · <kbd>Ctrl+Entrée</kbd> exécute la cellule courante (cellules séparées par une ligne <code># %%</code>) · <kbd>F9</kbd> exécute la sélection ou la ligne courante. Les variables restent en mémoire d'une exécution à l'autre (onglet <b>Variables</b>) et sont utilisables dans la console. « Redémarrer » efface tout.</p>
+<p>Un programme qui ne s'arrête pas (boucle infinie): bouton <b>Arrêter</b> (Python est alors redémarré).</p>
+<h3>Figures</h3>
+<p><code>plt.show()</code> affiche les figures dans l'onglet Figures (les figures non affichées le sont à la fin de l'exécution). Une figure peut être ouverte dans une <b>fenêtre flottante</b> (déplaçable, redimensionnable ; double-clic sur la figure) ou une <b>nouvelle fenêtre</b> du navigateur, enregistrée en PNG ou copiée. La case « nouvelles figures en fenêtres » ouvre automatiquement chaque figure dans sa fenêtre, comme matplotlib sur un ordinateur. Pas d'animation ni de figure interactive (zoom à la souris).</p>
+<h3>Fichiers</h3>
+<p>« Ouvrir » / « Enregistrer »: scripts <code>.py</code>. « Fichier de données… » envoie un fichier (CSV, TXT…) dans le dossier de travail de Python, lisible avec <code>np.loadtxt("fichier.csv", delimiter=";", skiprows=1)</code> ou <code>open()</code>. Les fichiers créés par le programme apparaissent dans l'onglet <b>Fichiers</b>, d'où on peut les télécharger. Le dossier de travail est effacé quand on recharge la page.</p>
+<p>Le code des onglets est sauvegardé automatiquement dans le navigateur (sur cet ordinateur).</p>
+<h3>Éditeur</h3>
+<p><kbd>Tab</kbd> / <kbd>Maj+Tab</kbd> : indenter / désindenter (aussi sur une sélection) · <kbd>Ctrl+/</kbd> ou <kbd>Ctrl+1</kbd> : commenter / décommenter · indentation automatique après « : » · double-clic sur un onglet: renommer. En cas d'erreur, la ligne fautive est signalée en rouge.</p>
+<h3>Limites</h3>
+<p><code>input()</code> n'est pas disponible: écrire les valeurs dans le programme. Pas d'interface graphique (tkinter), pas d'accès à internet depuis Python.</p>`;
+
+// ======================================================================
+// Démarrage
+// ======================================================================
+window.addEventListener('DOMContentLoaded', () => {
+  Cons.el = $('#out');
+  buildExamples();
+  Ed.init();
+  $('#pv-aide').innerHTML = AIDE;
+  try { $('#autoFloat').checked = store.get('mpm-python-float') === '1'; } catch (e) { }
+  $('#autoFloat').onchange = e => store.set('mpm-python-float', e.target.checked ? '1' : '0');
+  splitter($('#sv'), '--wl', $('#main'), false); splitter($('#sh'), '--ht', $('#right'), true);
+  $$('#panetabs .tab').forEach(t => t.onclick = () => Pane.show(t.dataset.p));
+  document.addEventListener('click', e => {
+    const c = e.target.closest('[data-c]'); if (c && Cmd[c.dataset.c]) { e.stopPropagation(); if (c.dataset.c !== 'exemples') $('#ddEx').classList.remove('open'); Cmd[c.dataset.c](); return; }
+    const f = e.target.closest('[data-f]'); if (f) { ({ flot: () => Figs.float(), win: () => Figs.window(), png: () => Figs.save(), copy: () => Figs.copy(), del: () => Figs.del(), clear: () => Figs.clear() })[f.dataset.f](); return; }
+    if (!e.target.closest('#ddEx')) $('#ddEx').classList.remove('open');
+  });
+  $('#bVars').onclick = () => Vars.refresh(); $('#varsFn').onchange = () => Vars.refresh(); $('#bFiles').onclick = () => Files.refresh();
+  $('#bClear').onclick = () => { $('#out').innerHTML = ''; };
+  const cin = $('#cin');
+  cin.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { const v = cin.value; cin.value = ''; Cons.exec(v); }
+    else if (e.key === 'ArrowUp') { if (Cons.hpos > 0) { Cons.hpos--; cin.value = Cons.hist[Cons.hpos]; } e.preventDefault(); }
+    else if (e.key === 'ArrowDown') { if (Cons.hpos < Cons.hist.length) { Cons.hpos++; cin.value = Cons.hist[Cons.hpos] || ''; } e.preventDefault(); }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.target.closest && e.target.closest('.modal')) return;
+    if (e.key === 'F5') { e.preventDefault(); Cmd.executer(); }
+    else if (e.key === 'F9') { e.preventDefault(); Cmd.selection(); }
+    else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target === Ed.ta) { e.preventDefault(); Cmd.cellule(); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); Cmd.enregistrer(); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') { e.preventDefault(); Cmd.ouvrir(); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n' && !e.shiftKey) { e.preventDefault(); Cmd.nouveau(); }
+  });
+  // glisser-déposer: .py -> éditeur, autre -> dossier de travail
+  document.addEventListener('dragover', e => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); });
+  document.addEventListener('drop', async e => {
+    if (!e.dataTransfer.files.length) return; e.preventDefault();
+    for (const f of e.dataTransfer.files) { if (/\.py$/i.test(f.name)) Ed.add(f.name, (await f.text()).replace(/\r\n?/g, '\n')); else sendData(f); }
+  });
+  window.addEventListener('beforeunload', () => { Ed.files[Ed.cur].code = Ed.code; Ed.persist(); });
+  Py.start(); getDl();
+});
+</script>
+</body>
+</html>

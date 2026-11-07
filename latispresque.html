@@ -1,0 +1,2659 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LaboAnalyse (latispresque) — MP* Malherbe</title>
+<style>:root{
+  --bg:#e9edf2; --panel:#f7f9fb; --panel2:#ffffff; --line:#c9d1db; --fg:#1d2733; --muted:#5d6b7a;
+  --accent:#1f6fd1; --accent-weak:#dbe8fb; --ok:#138a4b; --warn:#b26b00; --err:#c62828;
+  --plot-bg:#ffffff; --plot-fg:#222; --plot-grid:#e3e7ec; --plot-axis:#778;
+  --tb-h:38px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#1b2027; --panel:#232a33; --panel2:#2a323d; --line:#3a4552; --fg:#e4e9ef; --muted:#9aa7b5;
+  --accent:#5aa1ff; --accent-weak:#24364f; --plot-bg:#161b21; --plot-fg:#d8dee6; --plot-grid:#2b333d; --plot-axis:#8894a3;
+}}
+:root[data-theme="dark"]{
+  --bg:#1b2027; --panel:#232a33; --panel2:#2a323d; --line:#3a4552; --fg:#e4e9ef; --muted:#9aa7b5;
+  --accent:#5aa1ff; --accent-weak:#24364f; --plot-bg:#161b21; --plot-fg:#d8dee6; --plot-grid:#2b333d; --plot-axis:#8894a3;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:13px/1.35 system-ui,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+#app{display:grid;grid-template-rows:auto var(--tb-h) 1fr 24px;height:100vh}
+/* menu */
+#menubar{display:flex;gap:0;background:var(--panel2);border-bottom:1px solid var(--line);padding:0 6px;user-select:none}
+#menubar .brand{font-weight:700;padding:5px 10px 5px 4px;color:var(--accent)}
+.menu{position:relative}
+.menu>span{display:block;padding:5px 10px;cursor:default;border-radius:4px}
+.menu:hover>span,.menu.open>span{background:var(--accent-weak)}
+.menu .items{display:none;position:absolute;left:0;top:100%;min-width:250px;background:var(--panel2);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.18);z-index:50;padding:4px 0;border-radius:4px}
+.menu.open .items{display:block}
+.items div{padding:5px 14px;display:flex;justify-content:space-between;gap:20px;cursor:default;white-space:nowrap}
+.items div:hover{background:var(--accent);color:#fff}
+.items div kbd{opacity:.7;font:11px system-ui}
+.items hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+/* toolbar */
+#toolbar{display:flex;align-items:center;gap:3px;padding:3px 6px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto}
+.tb{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 9px;border:1px solid transparent;border-radius:5px;background:transparent;white-space:nowrap}
+.tb:hover{background:var(--accent-weak);border-color:var(--line)}
+.tb.on{background:var(--accent-weak);border-color:var(--accent)}
+.tb svg{width:18px;height:18px;flex:none}
+.tb.go{background:#1a8f4c;color:#fff;font-weight:600}
+.tb.go:hover{background:#157a40}
+.tb.stop{background:#c62828;color:#fff;font-weight:600}
+.sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+/* main */
+#main{display:grid;grid-template-columns:300px 1fr auto;min-height:0}
+#left{background:var(--panel);border-right:1px solid var(--line);overflow:auto;min-height:0}
+#center{display:flex;flex-direction:column;min-width:0;min-height:0}
+#right{background:var(--panel);border-left:1px solid var(--line);width:0;overflow:auto;transition:width .15s}
+#right.open{width:340px}
+.sec{border-bottom:1px solid var(--line)}
+.sec>h3{margin:0;padding:7px 10px;font-size:12px;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}
+.sec>h3::after{content:"▾";font-size:11px}
+.sec.closed>h3::after{content:"▸"}
+.sec.closed>.body{display:none}
+.sec .body{padding:4px 10px 10px}
+.row{display:flex;align-items:center;gap:6px;margin:4px 0}
+.row label{flex:1;color:var(--muted)}
+.row input[type=number],.row input[type=text],.row select{width:120px;padding:3px 5px;border:1px solid var(--line);border-radius:4px;background:var(--panel2)}
+.row input[type=checkbox]{margin:0}
+.chips{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.chip{border:1px solid var(--line);border-radius:6px;padding:5px 4px;text-align:center;background:var(--panel2);cursor:pointer;user-select:none;position:relative}
+.chip b{display:block;font-size:13px}
+.chip small{color:var(--muted);font-size:10.5px}
+.chip.on{border-color:var(--accent);background:var(--accent-weak);box-shadow:inset 0 0 0 1px var(--accent)}
+.chip .dot{position:absolute;top:4px;right:5px;width:7px;height:7px;border-radius:50%}
+.out{border:1px solid var(--line);border-radius:6px;padding:4px 8px;margin:6px 0;background:var(--panel2)}
+.out.on{border-color:var(--accent)}
+.hint{color:var(--muted);font-size:11.5px;margin:4px 0}
+/* curves list */
+#curveList{list-style:none;margin:0;padding:0}
+#curveList li{display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:4px;cursor:grab}
+#curveList li:hover{background:var(--accent-weak)}
+#curveList li.sel{background:var(--accent);color:#fff}
+#curveList .sw{width:12px;height:12px;border-radius:2px;flex:none}
+#curveList .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#curveList .c{font-size:11px;opacity:.7}
+/* tabs */
+#tabs{display:flex;gap:2px;padding:4px 6px 0;background:var(--bg);border-bottom:1px solid var(--line);overflow-x:auto;flex:none}
+.tab{padding:5px 10px;border:1px solid var(--line);border-bottom:none;border-radius:6px 6px 0 0;background:var(--panel);cursor:pointer;white-space:nowrap;display:flex;gap:6px;align-items:center}
+.tab.act{background:var(--panel2);font-weight:600;position:relative;top:1px}
+.tab .x{opacity:.5;padding:0 2px}
+.tab .x:hover{opacity:1;color:var(--err)}
+#docs{flex:1;position:relative;min-height:0;background:var(--panel2)}
+.doc{position:absolute;inset:0;display:none;flex-direction:column}
+.doc.act{display:flex}
+.plotwrap{flex:1;position:relative;min-height:0}
+.plotwrap.drop{outline:3px dashed var(--accent);outline-offset:-6px}
+.plotbar{display:flex;gap:6px;align-items:center;padding:4px 8px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.plotbar select,.plotbar input{padding:2px 4px;border:1px solid var(--line);border-radius:4px;background:var(--panel2)}
+.small{font-size:11.5px;color:var(--muted)}
+.plot-canvas{position:absolute;inset:0;touch-action:none}
+/* tableur */
+.grid{flex:1;overflow:auto;position:relative}
+.grid table{border-collapse:collapse;font-variant-numeric:tabular-nums}
+.grid th,.grid td{border:1px solid var(--line);padding:2px 8px;text-align:right;min-width:90px;height:22px;white-space:nowrap}
+.grid th{position:sticky;top:0;background:var(--panel);z-index:2}
+.grid td.i{background:var(--panel);color:var(--muted);min-width:50px;position:sticky;left:0}
+.grid td:focus{outline:2px solid var(--accent)}
+.grid td input{width:100%;border:0;background:transparent;text-align:right;padding:0}
+/* feuille de calcul */
+.calc{display:grid;grid-template-columns:1fr 300px;flex:1;min-height:0}
+.calc textarea{width:100%;height:100%;border:0;resize:none;padding:10px;font:14px/1.6 ui-monospace,Consolas,monospace;background:var(--panel2);outline:none}
+.calc aside{border-left:1px solid var(--line);overflow:auto;padding:8px 12px;background:var(--panel);font-size:12px}
+.calc aside code{background:var(--accent-weak);padding:0 3px;border-radius:3px}
+.msg{padding:6px 10px;font-size:12.5px;border-top:1px solid var(--line);background:var(--panel);min-height:28px}
+.msg.err{color:var(--err)} .msg.ok{color:var(--ok)}
+/* right panel */
+#right h2{font-size:14px;margin:10px 12px 6px;display:flex;justify-content:space-between}
+#right .body{padding:0 12px 12px}
+#right .res{font:12.5px/1.6 ui-monospace,Consolas,monospace;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:6px 8px;white-space:pre-wrap}
+.btn{padding:5px 12px;border:1px solid var(--line);border-radius:5px;background:var(--panel2)}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+#status{display:flex;gap:16px;align-items:center;padding:0 10px;font-size:12px;background:var(--panel2);border-top:1px solid var(--line);color:var(--muted)}
+#status .led{width:9px;height:9px;border-radius:50%;display:inline-block;background:#999;margin-right:5px;vertical-align:-1px}
+#status .led.ok{background:var(--ok)} #status .led.sim{background:var(--warn)}
+#prog{flex:none;width:160px;height:8px;background:var(--line);border-radius:4px;overflow:hidden;display:none}
+#prog>div{height:100%;width:0;background:var(--accent)}
+/* modale */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:var(--panel2);border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.35);min-width:340px;max-width:min(760px,94vw);max-height:90vh;display:flex;flex-direction:column}
+.modal h2{margin:0;padding:12px 16px;font-size:15px;border-bottom:1px solid var(--line)}
+.modal .mb{padding:12px 16px;overflow:auto}
+.modal .mf{padding:10px 16px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+.ctx{position:fixed;background:var(--panel2);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.2);z-index:120;padding:4px 0;border-radius:4px;min-width:200px}
+.ctx div{padding:5px 14px;cursor:default}
+.ctx div:hover{background:var(--accent);color:#fff}
+.ctx hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+/* vidéo */
+.video{display:grid;grid-template-columns:1fr 280px;flex:1;min-height:0}
+.vstage{position:relative;overflow:hidden;background:#111;display:flex;align-items:center;justify-content:center}
+.vstage video,.vstage canvas{position:absolute;max-width:100%;max-height:100%}
+.vside{overflow:auto;padding:4px 12px 12px;background:var(--panel);border-left:1px solid var(--line)}
+.video{grid-template-columns:1fr 330px}
+.vsec{border-bottom:1px solid var(--line);padding:4px 0 8px}
+.vsec h4{margin:6px 0 4px;font-size:12px;letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
+.vside .row{flex-wrap:wrap}
+.vside .row label{flex:1 1 auto}
+.btn.armed{outline:2px solid #e67e22;outline-offset:1px}
+.btn:disabled{opacity:.45;cursor:default}
+.vstage canvas.ov{z-index:2}
+.vstage canvas.loupe{position:absolute;top:8px;left:8px;width:180px;height:180px;max-width:none;max-height:none;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.6);display:none;z-index:3;pointer-events:none}
+.vempty{color:#ccc;position:absolute;padding:20px;text-align:center}
+.vtag{position:absolute;right:8px;bottom:6px;color:#fff;background:rgba(59,95,150,.85);font-size:11.5px;font-weight:600;padding:1px 9px;border-radius:9px;z-index:4;pointer-events:none}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:4px 0}
+.btns .btn{padding:5px 6px}
+#menubar .brand small{font-weight:400;color:var(--muted)}
+#menubar .tag{align-self:center;margin-left:auto;font-size:11.5px;font-weight:600;color:#fff;background:#3b5f96;border-radius:10px;padding:2px 10px;white-space:nowrap}
+#menubar .back{align-self:center;margin:0 10px 0 8px;font-size:12.5px;color:var(--accent);text-decoration:none;white-space:nowrap}
+#menubar .back:hover{text-decoration:underline}
+@media (max-width: 800px){ #main{grid-template-columns:1fr} #left{display:none} #left.mobile{display:block;position:fixed;inset:64px 0 24px 0;z-index:40} }
+</style>
+</head>
+<body>
+<div id="app">
+  <nav id="menubar">
+    <span class="brand">LaboAnalyse <small>(latispresque)</small></span>
+    <div class="menu"><span>Fichier</span><div class="items">
+      <div data-cmd="nouveau">Nouveau <kbd>Ctrl+N</kbd></div>
+      <div data-cmd="ouvrir">Ouvrir une session… <kbd>Ctrl+O</kbd></div>
+      <div data-cmd="enregistrer">Enregistrer la session… <kbd>Ctrl+S</kbd></div>
+      <hr>
+      <div data-cmd="importer">Importer des données (CSV, TXT, Excel, Regressi)…</div>
+      <div data-cmd="video">Ouvrir une vidéo (pointage)…</div>
+      <hr>
+      <div data-cmd="exporterCSV">Exporter les courbes (CSV)…</div>
+      <div data-cmd="copierTableau">Copier les données (pour tableur)</div>
+      <div data-cmd="exporterPNG">Exporter le graphe actif (image PNG)</div>
+      <div data-cmd="copierImage">Copier l'image du graphe actif</div>
+    </div></div>
+    <div class="menu"><span>Édition</span><div class="items">
+      <div data-cmd="generateur">Créer une courbe (générateur)…</div>
+      <div data-cmd="nouvelleVariable">Nouvelle variable (saisie au clavier)…</div>
+      <div data-cmd="proprietes">Propriétés de la courbe sélectionnée…</div>
+      <div data-cmd="supprimerCourbe">Supprimer la courbe sélectionnée</div>
+      <div data-cmd="toutSupprimer">Supprimer toutes les courbes</div>
+    </div></div>
+    <div class="menu"><span>Affichage</span><div class="items">
+      <div data-cmd="nouvelleFenetre">Nouvelle fenêtre graphique</div>
+      <div data-cmd="tableur">Tableur <kbd>F11</kbd></div>
+      <div data-cmd="feuilleCalcul">Feuille de calcul <kbd>F3</kbd></div>
+      <div data-cmd="panneauGauche">Afficher / masquer le panneau de gauche</div>
+      <div data-cmd="theme">Thème clair / sombre</div>
+    </div></div>
+    <div class="menu"><span>Traitements</span><div class="items">
+      <div data-cmd="modelisation">Modélisation <kbd>F4</kbd></div>
+      <div data-cmd="fourier">Analyse de Fourier (amplitude, phase) <kbd>F6</kbd></div>
+      <div data-cmd="bode">Diagramme de Bode (entrée / sortie)…</div>
+      <hr>
+      <div data-cmd="traitements">Calculs sur une courbe (dérivée, intégrale, lissage…)</div>
+      <div data-cmd="filtres">Filtres numériques (1er et 2e ordre)…</div>
+      <div data-cmd="echantillonnage">Échantillonnage, repliement de spectre…</div>
+      <hr>
+      <div data-cmd="statistiques">Mesures automatiques (moyenne, efficace, période…)</div>
+      <div data-cmd="tangente">Tangente / pente en un point</div>
+      <div data-cmd="video">Pointage vidéo</div>
+    </div></div>
+    <div class="menu"><span>Aide</span><div class="items">
+      <div data-cmd="aide">Aide-mémoire</div>
+      <div data-cmd="apropos">À propos</div>
+    </div></div>
+    <span class="tag">MP* Malherbe</span>
+    <a class="back" href="index.html">← Sommaire</a>
+  </nav>
+  <div id="toolbar"></div>
+  <div id="main">
+    <aside id="left"></aside>
+    <section id="center">
+      <div id="tabs"></div>
+      <div id="docs"></div>
+    </section>
+    <aside id="right"></aside>
+  </div>
+  <footer id="status">
+    <span><b style="color:#3b5f96">MP* Malherbe</b> · LaboAnalyse</span>
+    <span id="prog"><div></div></span>
+    <span id="msg" style="flex:1"></span>
+    <span id="pos"></span>
+  </footer>
+</div>
+<input type="file" id="fileInput" style="display:none">
+
+<script>// ===== Évaluateur d'expressions vectorielles (feuille de calcul, modèles) =====
+'use strict';
+const Expr = (() => {
+  const FUNCS1 = {
+    sin: Math.sin, cos: Math.cos, tan: Math.tan, asin: Math.asin, acos: Math.acos, atan: Math.atan,
+    arcsin: Math.asin, arccos: Math.acos, arctan: Math.atan, sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh,
+    exp: Math.exp, ln: Math.log, log: Math.log10, log10: Math.log10, sqrt: Math.sqrt, rac: Math.sqrt,
+    abs: Math.abs, sign: Math.sign, sgn: Math.sign, floor: Math.floor, ceil: Math.ceil, round: Math.round,
+    ent: Math.trunc, int: Math.trunc, sqr: x => x * x,
+    echelon: x => (x >= 0 ? 1 : 0), heaviside: x => (x >= 0 ? 1 : 0),
+  };
+  const CONSTS = { pi: Math.PI, PI: Math.PI, e: Math.E, g: 9.81 };
+
+  function tokenize(s) {
+    const toks = []; let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      if (/\s/.test(c)) { i++; continue; }
+      if (/[0-9.]/.test(c)) {
+        const m = /^(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?/.exec(s.slice(i));
+        if (!m) throw new Error('Nombre invalide près de « ' + s.slice(i, i + 8) + ' »');
+        toks.push({ t: 'num', v: parseFloat(m[0]) }); i += m[0].length; continue;
+      }
+      if (/[A-Za-z_À-ɏ]/.test(c)) {
+        const m = /^[A-Za-z_À-ɏ][A-Za-z0-9_À-ɏ]*/.exec(s.slice(i));
+        toks.push({ t: 'id', v: m[0] }); i += m[0].length; continue;
+      }
+      if (s.startsWith('<=', i) || s.startsWith('>=', i) || s.startsWith('==', i) || s.startsWith('<>', i) || s.startsWith('!=', i)) {
+        toks.push({ t: 'op', v: s.substr(i, 2) }); i += 2; continue;
+      }
+      if ('+-*/^(),;<>='.includes(c)) { toks.push({ t: 'op', v: c === ';' ? ',' : c }); i++; continue; }
+      throw new Error('Caractère inattendu « ' + c + ' »');
+    }
+    return toks;
+  }
+
+  function parse(src) {
+    const toks = tokenize(src); let p = 0;
+    const peek = () => toks[p], next = () => toks[p++];
+    const isOp = v => toks[p] && toks[p].t === 'op' && toks[p].v === v;
+    function expect(v) { if (!isOp(v)) throw new Error('« ' + v + ' » attendu'); p++; }
+    function cmp() {
+      let a = add();
+      while (toks[p] && toks[p].t === 'op' && ['<', '>', '<=', '>=', '==', '=', '<>', '!='].includes(toks[p].v)) {
+        const o = next().v; a = { k: 'bin', o, a, b: add() };
+      }
+      return a;
+    }
+    function add() {
+      let a = mul();
+      while (isOp('+') || isOp('-')) { const o = next().v; a = { k: 'bin', o, a, b: mul() }; }
+      return a;
+    }
+    function mul() {
+      let a = unary();
+      while (isOp('*') || isOp('/')) { const o = next().v; a = { k: 'bin', o, a, b: unary() }; }
+      return a;
+    }
+    function unary() {
+      if (isOp('-')) { next(); return { k: 'neg', a: unary() }; }
+      if (isOp('+')) { next(); return unary(); }
+      return pow();
+    }
+    function pow() {
+      const a = atom();
+      if (isOp('^')) { next(); return { k: 'bin', o: '^', a, b: unary() }; }
+      return a;
+    }
+    function atom() {
+      const t = next();
+      if (!t) throw new Error('Expression incomplète');
+      if (t.t === 'num') return { k: 'num', v: t.v };
+      if (t.t === 'id') {
+        if (isOp('(')) {
+          next(); const args = [];
+          if (!isOp(')')) { args.push(cmp()); while (isOp(',')) { next(); args.push(cmp()); } }
+          expect(')');
+          return { k: 'call', f: t.v, args };
+        }
+        return { k: 'var', v: t.v };
+      }
+      if (t.v === '(') { const e = cmp(); expect(')'); return e; }
+      throw new Error('Symbole inattendu « ' + t.v + ' »');
+    }
+    const e = cmp();
+    if (p < toks.length) throw new Error('Symbole en trop « ' + toks[p].v + ' »');
+    return e;
+  }
+
+  function vars(ast, out = new Set()) {
+    if (!ast) return out;
+    if (ast.k === 'var') out.add(ast.v);
+    if (ast.a) vars(ast.a, out); if (ast.b) vars(ast.b, out);
+    if (ast.args) ast.args.forEach(a => vars(a, out));
+    return out;
+  }
+
+  const isArr = v => v instanceof Float64Array || Array.isArray(v);
+  function map1(a, f) {
+    if (!isArr(a)) return f(a);
+    const r = new Float64Array(a.length); for (let i = 0; i < a.length; i++) r[i] = f(a[i]); return r;
+  }
+  function map2(a, b, f) {
+    const A = isArr(a), B = isArr(b);
+    if (!A && !B) return f(a, b);
+    const n = A && B ? Math.min(a.length, b.length) : (A ? a.length : b.length);
+    const r = new Float64Array(n);
+    for (let i = 0; i < n; i++) r[i] = f(A ? a[i] : a, B ? b[i] : b);
+    return r;
+  }
+  const BIN = {
+    '+': (x, y) => x + y, '-': (x, y) => x - y, '*': (x, y) => x * y, '/': (x, y) => x / y, '^': Math.pow,
+    '<': (x, y) => +(x < y), '>': (x, y) => +(x > y), '<=': (x, y) => +(x <= y), '>=': (x, y) => +(x >= y),
+    '==': (x, y) => +(x === y), '=': (x, y) => +(x === y), '<>': (x, y) => +(x !== y), '!=': (x, y) => +(x !== y),
+  };
+
+  // ctx: { get(name) -> number | {y, x} ; xdefault }
+  function evaluate(ast, ctx) {
+    switch (ast.k) {
+      case 'num': return ast.v;
+      case 'neg': return map1(evaluate(ast.a, ctx), x => -x);
+      case 'bin': return map2(evaluate(ast.a, ctx), evaluate(ast.b, ctx), BIN[ast.o]);
+      case 'var': {
+        const v = ctx.get(ast.v);
+        if (v === undefined) {
+          if (ast.v in CONSTS) return CONSTS[ast.v];
+          throw new Error('Grandeur inconnue : ' + ast.v);
+        }
+        if (typeof v === 'number') return v;
+        if (!ctx.xref && v.x) ctx.xref = v.x;
+        return v.y;
+      }
+      case 'call': return call(ast, ctx);
+    }
+  }
+
+  function argArr(ast, ctx, i) { return evaluate(ast.args[i], ctx); }
+  function xOf(ast, ctx, i) {
+    // abscisse associée à l'argument i (variable) ou abscisse par défaut
+    const a = ast.args[i];
+    if (a && a.k === 'var') { const v = ctx.get(a.v); if (v && v.x) return v.x; }
+    return ctx.xref || ctx.xdefault;
+  }
+
+  function call(ast, ctx) {
+    const f = ast.f.toLowerCase(), n = ast.args.length;
+    if (FUNCS1[f] && n === 1) return map1(evaluate(ast.args[0], ctx), FUNCS1[f]);
+    switch (f) {
+      case 'deriv': case 'derivee': case 'diff': {
+        const y = argArr(ast, ctx, 0);
+        const x = n > 1 ? argArr(ast, ctx, 1) : xOf(ast, ctx, 0);
+        if (!isArr(y) || !isArr(x)) throw new Error('deriv : arguments non tabulés');
+        return Num.deriv(x, y);
+      }
+      case 'integ': case 'integrale': case 'primitive': {
+        const y = argArr(ast, ctx, 0);
+        const x = n > 1 ? argArr(ast, ctx, 1) : xOf(ast, ctx, 0);
+        return Num.integ(x, y);
+      }
+      case 'lisse': case 'lissage': return Num.smooth(argArr(ast, ctx, 0), n > 1 ? evaluate(ast.args[1], ctx) : 5);
+      case 'moy': case 'moyenne': return Num.mean(argArr(ast, ctx, 0));
+      case 'eff': case 'rms': return Num.rms(argArr(ast, ctx, 0));
+      case 'max': if (n === 1) return Num.max(argArr(ast, ctx, 0)); return map2(argArr(ast, ctx, 0), argArr(ast, ctx, 1), Math.max);
+      case 'min': if (n === 1) return Num.min(argArr(ast, ctx, 0)); return map2(argArr(ast, ctx, 0), argArr(ast, ctx, 1), Math.min);
+      case 'somme': case 'sum': { const a = argArr(ast, ctx, 0); let s = 0; for (const v of a) s += v; return s; }
+      case 'ecarttype': case 'std': return Num.std(argArr(ast, ctx, 0));
+      case 'pow': case 'puissance': return map2(argArr(ast, ctx, 0), argArr(ast, ctx, 1), Math.pow);
+      case 'atan2': return map2(argArr(ast, ctx, 0), argArr(ast, ctx, 1), Math.atan2);
+      case 'mod': return map2(argArr(ast, ctx, 0), argArr(ast, ctx, 1), (a, b) => a - b * Math.floor(a / b));
+      case 'si': case 'if': {
+        const c = argArr(ast, ctx, 0), a = argArr(ast, ctx, 1), b = argArr(ast, ctx, 2);
+        const L = [c, a, b].filter(isArr).map(v => v.length);
+        if (!L.length) return c ? a : b;
+        const N = Math.min(...L), r = new Float64Array(N);
+        for (let i = 0; i < N; i++) r[i] = (isArr(c) ? c[i] : c) ? (isArr(a) ? a[i] : a) : (isArr(b) ? b[i] : b);
+        return r;
+      }
+      case 'indice': case 'index': { const a = argArr(ast, ctx, 0); return map1(new Float64Array(a.length).map((_, i) => i), x => x); }
+      case 'rampe': case 'ramp': return map1(argArr(ast, ctx, 0), x => (x >= 0 ? x : 0));
+      case 'carre': case 'square': return map1(argArr(ast, ctx, 0), x => (x - Math.floor(x) < 0.5 ? 1 : -1));
+      case 'dent': case 'scie': return map1(argArr(ast, ctx, 0), x => 2 * (x - Math.floor(x)) - 1);
+      case 'bruit': case 'gauss': { const a = argArr(ast, ctx, 0); const g = () => { let u = 0, v = 0; while (!u) u = Math.random(); v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }; return isArr(a) ? map1(a, g) : g(); }
+      case 'triangle': return map1(argArr(ast, ctx, 0), x => { const u = x - Math.floor(x); return u < 0.5 ? 4 * u - 1 : 3 - 4 * u; });
+      case 'alea': case 'random': { const a = argArr(ast, ctx, 0); return isArr(a) ? map1(a, () => Math.random()) : Math.random(); }
+    }
+    throw new Error('Fonction inconnue : ' + ast.f + ' (' + n + ' arg.)');
+  }
+
+  // Compile une expression scalaire f(x, params) rapide pour la modélisation
+  function compileScalar(src, xname, pnames) {
+    const ast = parse(src);
+    const known = new Set([xname, ...pnames]);
+    function gen(a) {
+      switch (a.k) {
+        case 'num': return '(' + a.v + ')';
+        case 'neg': return '(-' + gen(a.a) + ')';
+        case 'bin':
+          if (a.o === '^') return 'Math.pow(' + gen(a.a) + ',' + gen(a.b) + ')';
+          if (['+', '-', '*', '/'].includes(a.o)) return '(' + gen(a.a) + a.o + gen(a.b) + ')';
+          return '(+(' + gen(a.a) + ({ '=': '===', '<>': '!==' }[a.o] || a.o) + gen(a.b) + '))';
+        case 'var':
+          if (a.v === xname) return 'x';
+          if (pnames.includes(a.v)) return 'p[' + pnames.indexOf(a.v) + ']';
+          if (a.v in CONSTS) return '(' + CONSTS[a.v] + ')';
+          throw new Error('Symbole inconnu dans le modèle : ' + a.v);
+        case 'call': {
+          const f = a.f.toLowerCase();
+          if (FUNCS1[f]) return 'F.' + f + '(' + a.args.map(gen).join(',') + ')';
+          if (f === 'pow') return 'Math.pow(' + a.args.map(gen).join(',') + ')';
+          if (f === 'si' || f === 'if') return '(' + gen(a.args[0]) + '?' + gen(a.args[1]) + ':' + gen(a.args[2]) + ')';
+          throw new Error('Fonction non autorisée dans un modèle : ' + a.f);
+        }
+      }
+    }
+    const body = gen(ast);
+    const fn = new Function('F', 'return function(x,p){return ' + body + ';}')(FUNCS1);
+    return { fn, ast, known };
+  }
+
+  // Liste des paramètres (symboles libres) d'un modèle
+  function freeSymbols(src, xname) {
+    const s = vars(parse(src));
+    s.delete(xname); for (const c in CONSTS) s.delete(c);
+    return [...s];
+  }
+
+  return { parse, evaluate, vars, compileScalar, freeSymbols, FUNCS1, CONSTS };
+})();
+
+// ===== Outils numériques =====
+const Num = {
+  deriv(x, y) {
+    const n = Math.min(x.length, y.length), r = new Float64Array(n);
+    if (n < 2) return r;
+    r[0] = (y[1] - y[0]) / (x[1] - x[0]);
+    r[n - 1] = (y[n - 1] - y[n - 2]) / (x[n - 1] - x[n - 2]);
+    for (let i = 1; i < n - 1; i++) r[i] = (y[i + 1] - y[i - 1]) / (x[i + 1] - x[i - 1]);
+    return r;
+  },
+  integ(x, y) {
+    const n = Math.min(x.length, y.length), r = new Float64Array(n);
+    for (let i = 1; i < n; i++) r[i] = r[i - 1] + 0.5 * (y[i] + y[i - 1]) * (x[i] - x[i - 1]);
+    return r;
+  },
+  smooth(y, k) {
+    k = Math.max(1, Math.round(k)); const h = Math.floor(k / 2), n = y.length, r = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      let s = 0, c = 0;
+      for (let j = Math.max(0, i - h); j <= Math.min(n - 1, i + h); j++) { s += y[j]; c++; }
+      r[i] = s / c;
+    }
+    return r;
+  },
+  mean(y) { let s = 0; for (const v of y) s += v; return s / y.length; },
+  rms(y) { let s = 0; for (const v of y) s += v * v; return Math.sqrt(s / y.length); },
+  std(y) { const m = Num.mean(y); let s = 0; for (const v of y) s += (v - m) ** 2; return Math.sqrt(s / (y.length - 1)); },
+  max(y) { let m = -Infinity; for (const v of y) if (v > m) m = v; return m; },
+  min(y) { let m = Infinity; for (const v of y) if (v < m) m = v; return m; },
+  // Filtre numérique du 2e ordre (transformation bilinéaire, R. Bristow-Johnson)
+  biquad(x, type, f0, Q, fs) {
+    const w = 2 * Math.PI * f0 / fs, c = Math.cos(w), al = Math.sin(w) / (2 * Q);
+    let b0, b1, b2; const a0 = 1 + al, a1 = -2 * c, a2 = 1 - al;
+    if (type === 'lp') { b0 = (1 - c) / 2; b1 = 1 - c; b2 = (1 - c) / 2; }
+    else if (type === 'hp') { b0 = (1 + c) / 2; b1 = -(1 + c); b2 = (1 + c) / 2; }
+    else if (type === 'bp') { b0 = al; b1 = 0; b2 = -al; }
+    else { b0 = 1; b1 = -2 * c; b2 = 1; }
+    const n = x.length, y = new Float64Array(n); if (!n) return y;
+    const g0 = (b0 + b1 + b2) / (a0 + a1 + a2); // gain statique : départ en régime établi
+    let x1 = x[0], x2 = x[0], y1 = g0 * x[0], y2 = g0 * x[0];
+    for (let i = 0; i < n; i++) { const v = (b0 * x[i] + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2) / a0; x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] = v; }
+    return y;
+  },
+  // FFT radix-2 en place
+  fft(re, im) {
+    const n = re.length;
+    for (let i = 1, j = 0; i < n; i++) {
+      let bit = n >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; }
+    }
+    for (let len = 2; len <= n; len <<= 1) {
+      const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+      for (let i = 0; i < n; i += len) {
+        let cr = 1, ci = 0;
+        for (let j = 0; j < len / 2; j++) {
+          const a = i + j, b = a + len / 2;
+          const tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+          re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+          const ncr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = ncr;
+        }
+      }
+    }
+  },
+  // Spectre d'amplitude (crête) d'un signal échantillonné éventuellement non uniforme
+  spectrum(x, y, opts = {}) {
+    let n = Math.min(x.length, y.length);
+    if (n < 4) throw new Error('Pas assez de points');
+    const dt = (x[n - 1] - x[0]) / (n - 1), Trec = n * dt; // durée analysée = n·Te (comme un enregistrement)
+    let N = 1; while (N < n) N <<= 1;
+    const dtN = Trec / N; // rééchantillonnage sur N = 2^p points couvrant la même durée
+    const Nfft = opts.zeroPad ? N << 2 : N;
+    const re = new Float64Array(Nfft), im = new Float64Array(Nfft);
+    let j = 0, wsum = 0;
+    for (let i = 0; i < N; i++) {
+      const t = x[0] + i * dtN;
+      while (j < n - 1 && x[j + 1] <= t) j++;
+      let v;
+      if (j >= n - 1) { const u = (t - x[n - 1]) / dt; v = y[n - 1] + u * (y[0] - y[n - 1]); } // raccord périodique
+      else { const u = (t - x[j]) / ((x[j + 1] - x[j]) || 1); v = y[j] + u * (y[j + 1] - y[j]); }
+      let w = 1;
+      if (opts.window === 'hann') w = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N);
+      else if (opts.window === 'hamming') w = 0.54 - 0.46 * Math.cos(2 * Math.PI * i / N);
+      else if (opts.window === 'blackman') w = 0.42 - 0.5 * Math.cos(2 * Math.PI * i / N) + 0.08 * Math.cos(4 * Math.PI * i / N);
+      re[i] = v * w; wsum += w;
+    }
+    Num.fft(re, im);
+    const M = Nfft / 2 + 1, f = new Float64Array(M), a = new Float64Array(M), ph = new Float64Array(M);
+    for (let k = 0; k < M; k++) {
+      f[k] = k / (Nfft * dtN);
+      const mag = Math.hypot(re[k], im[k]) / wsum;
+      a[k] = k === 0 ? mag : 2 * mag;
+      ph[k] = Math.atan2(im[k], re[k]);
+    }
+    return { f, a, ph, dt: dtN, N: Nfft };
+  },
+};
+
+;
+// ===== Modélisation : Levenberg-Marquardt + modèles prédéfinis =====
+'use strict';
+const Fit = (() => {
+  function solve(A, b) { // Gauss avec pivot partiel
+    const n = b.length, M = A.map((r, i) => [...r, b[i]]);
+    for (let c = 0; c < n; c++) {
+      let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+      if (Math.abs(M[p][c]) < 1e-300) return null;
+      [M[c], M[p]] = [M[p], M[c]];
+      for (let r = 0; r < n; r++) if (r !== c) {
+        const f = M[r][c] / M[c][c]; for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k];
+      }
+    }
+    return M.map((r, i) => r[n] / r[i]);
+  }
+  function invert(A) {
+    const n = A.length, I = A.map((_, i) => A.map((_, j) => +(i === j)));
+    const cols = I.map((_, j) => solve(A, I.map(r => r[j])));
+    if (cols.some(c => !c)) return null;
+    return A.map((_, i) => cols.map(c => c[i]));
+  }
+
+  function lm(f, x, y, p0, opts = {}) {
+    const n = x.length, m = p0.length; let p = p0.slice();
+    const fixed = opts.fixed || [];
+    const resid = pp => { let s = 0; for (let i = 0; i < n; i++) { const r = y[i] - f(x[i], pp); s += r * r; } return s; };
+    let S = resid(p), lambda = 1e-3;
+    if (!isFinite(S)) S = Infinity;
+    for (let it = 0; it < (opts.maxIter || 300); it++) {
+      const J = new Array(n), r = new Float64Array(n);
+      const h = p.map(v => (Math.abs(v) > 1e-12 ? Math.abs(v) * 1e-6 : 1e-8));
+      for (let i = 0; i < n; i++) {
+        const fi = f(x[i], p); r[i] = y[i] - fi; J[i] = new Float64Array(m);
+        for (let k = 0; k < m; k++) {
+          if (fixed[k]) continue;
+          const pk = p[k]; p[k] = pk + h[k]; J[i][k] = (f(x[i], p) - fi) / h[k]; p[k] = pk;
+        }
+      }
+      const A = Array.from({ length: m }, () => new Float64Array(m)), g = new Float64Array(m);
+      for (let i = 0; i < n; i++) for (let a = 0; a < m; a++) {
+        g[a] += J[i][a] * r[i];
+        for (let b = 0; b <= a; b++) A[a][b] += J[i][a] * J[i][b];
+      }
+      for (let a = 0; a < m; a++) for (let b = 0; b < a; b++) A[b][a] = A[a][b];
+      let improved = false;
+      for (let tries = 0; tries < 12; tries++) {
+        const B = A.map((row, a) => Array.from(row, (v, b) => (a === b ? v * (1 + lambda) + (fixed[a] ? 1 : 1e-30) : v)));
+        const gg = Array.from(g, (v, a) => (fixed[a] ? 0 : v));
+        const d = solve(B, gg);
+        if (!d) { lambda *= 10; continue; }
+        const pn = p.map((v, k) => v + d[k]);
+        const Sn = resid(pn);
+        if (isFinite(Sn) && Sn <= S) {
+          const rel = (S - Sn) / (S || 1);
+          p = pn; S = Sn; lambda = Math.max(lambda / 10, 1e-12); improved = true;
+          if (rel < 1e-12) { it = 1e9; }
+          break;
+        }
+        lambda *= 10;
+      }
+      if (!improved) break;
+    }
+    // statistiques
+    let ym = 0; for (let i = 0; i < n; i++) ym += y[i]; ym /= n;
+    let St = 0; for (let i = 0; i < n; i++) St += (y[i] - ym) ** 2;
+    const r2 = St > 0 ? 1 - S / St : 1;
+    const dof = Math.max(1, n - m), s2 = S / dof;
+    // incertitudes-type sur les paramètres
+    let sig = p.map(() => NaN);
+    try {
+      const J = []; for (let i = 0; i < n; i++) {
+        const fi = f(x[i], p), row = new Float64Array(m);
+        for (let k = 0; k < m; k++) { const hk = Math.abs(p[k]) > 1e-12 ? Math.abs(p[k]) * 1e-6 : 1e-8, pk = p[k]; p[k] = pk + hk; row[k] = (f(x[i], p) - fi) / hk; p[k] = pk; }
+        J.push(row);
+      }
+      const A = Array.from({ length: m }, (_, a) => Array.from({ length: m }, (_, b) => { let s = 0; for (let i = 0; i < n; i++) s += J[i][a] * J[i][b]; return s; }));
+      const C = invert(A); if (C) sig = p.map((_, k) => Math.sqrt(Math.abs(C[k][k] * s2)));
+    } catch (e) { }
+    let yr = 0; for (let i = 0; i < n; i++) yr = Math.max(yr, Math.abs(y[i]));
+    const ecart = yr ? 100 * Math.sqrt(S / n) / yr : 0;
+    return { p, S, r2, sig, ecart };
+  }
+
+  // estimations initiales
+  function range(a) { let lo = Infinity, hi = -Infinity; for (const v of a) { if (v < lo) lo = v; if (v > hi) hi = v; } return [lo, hi]; }
+  function linreg(x, y) {
+    const n = x.length; let sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (let i = 0; i < n; i++) { sx += x[i]; sy += y[i]; sxx += x[i] * x[i]; sxy += x[i] * y[i]; }
+    const a = (n * sxy - sx * sy) / (n * sxx - sx * sx); return [a, (sy - a * sx) / n];
+  }
+  function polyfit(x, y, deg) {
+    const m = deg + 1, A = Array.from({ length: m }, () => new Array(m).fill(0)), b = new Array(m).fill(0);
+    for (let i = 0; i < x.length; i++) {
+      const pw = [1]; for (let k = 1; k < 2 * m; k++) pw[k] = pw[k - 1] * x[i];
+      for (let a = 0; a < m; a++) { b[a] += pw[a] * y[i]; for (let c = 0; c < m; c++) A[a][c] += pw[a + c]; }
+    }
+    return solve(A, b) || new Array(m).fill(0);
+  }
+  function estFreq(x, y) {
+    const [lo, hi] = range(y), mid = (lo + hi) / 2; let cr = [];
+    for (let i = 1; i < y.length; i++) if ((y[i - 1] - mid) * (y[i] - mid) < 0 && y[i] > y[i - 1]) cr.push(x[i]);
+    if (cr.length >= 2) return (cr.length - 1) / (cr[cr.length - 1] - cr[0]);
+    return 1 / ((x[x.length - 1] - x[0]) || 1);
+  }
+
+  const MODELS = [
+    { id: 'lin', nom: 'Linéaire', expr: 'a*x', params: ['a'], init: (x, y) => { let sxy = 0, sxx = 0; for (let i = 0; i < x.length; i++) { sxy += x[i] * y[i]; sxx += x[i] * x[i]; } return [sxy / sxx]; } },
+    { id: 'aff', nom: 'Affine', expr: 'a*x+b', params: ['a', 'b'], init: linreg },
+    { id: 'par', nom: 'Parabolique', expr: 'a*x^2+b*x+c', params: ['a', 'b', 'c'], init: (x, y) => polyfit(x, y, 2).reverse() },
+    { id: 'pol3', nom: 'Polynôme degré 3', expr: 'a*x^3+b*x^2+c*x+d', params: ['a', 'b', 'c', 'd'], init: (x, y) => polyfit(x, y, 3).reverse() },
+    { id: 'exp', nom: 'Exponentielle', expr: 'A*exp(-x/tau)+B', params: ['A', 'tau', 'B'], init: (x, y) => { const n = y.length, B = y[n - 1], A = y[0] - B; const t = range(x); return [A, (t[1] - t[0]) / 4 || 1, B]; } },
+    { id: 'p1m', nom: '1er ordre (montée)', expr: 'A*(1-exp(-(x-x0)/tau))', params: ['A', 'tau', 'x0'], init: (x, y) => { const t = range(x); return [y[y.length - 1], (t[1] - t[0]) / 5 || 1, x[0]]; } },
+    { id: 'p1d', nom: '1er ordre (descente)', expr: 'A*exp(-(x-x0)/tau)', params: ['A', 'tau', 'x0'], init: (x, y) => { const t = range(x); return [y[0], (t[1] - t[0]) / 5 || 1, x[0]]; } },
+    { id: 'pui', nom: 'Puissance', expr: 'A*x^n', params: ['A', 'n'], init: (x, y) => [y[y.length - 1] / (x[x.length - 1] || 1), 1] },
+    { id: 'sin', nom: 'Sinusoïde', expr: 'A*sin(2*pi*f*x+phi)+B', params: ['A', 'f', 'phi', 'B'], init: (x, y) => { const [lo, hi] = range(y); const f = estFreq(x, y); return [(hi - lo) / 2, f, 0, (hi + lo) / 2]; }, multistart: 'phi' },
+    { id: 'sinam', nom: 'Sinusoïde amortie', expr: 'A*exp(-x/tau)*sin(2*pi*f*x+phi)+B', params: ['A', 'tau', 'f', 'phi', 'B'], init: (x, y) => { const [lo, hi] = range(y); const t = range(x); return [(hi - lo) / 2, (t[1] - t[0]) / 2 || 1, estFreq(x, y), 0, Num.mean(y)]; }, multistart: 'phi' },
+    { id: 'ord2', nom: 'Réponse 2nd ordre (échelon)', expr: 'K*(1-exp(-m*w0*(x-x0))*(cos(w0*sqrt(1-m^2)*(x-x0))+m/sqrt(1-m^2)*sin(w0*sqrt(1-m^2)*(x-x0))))', params: ['K', 'm', 'w0', 'x0'], init: (x, y) => [y[y.length - 1], 0.3, 2 * Math.PI * estFreq(x, y), x[0]] },
+    { id: 'gauss', nom: 'Gaussienne', expr: 'A*exp(-(x-x0)^2/(2*s^2))+B', params: ['A', 'x0', 's', 'B'], init: (x, y) => { let k = 0; for (let i = 1; i < y.length; i++) if (y[i] > y[k]) k = i; const t = range(x); return [y[k] - Math.min(...y), x[k], (t[1] - t[0]) / 6 || 1, Math.min(...y)]; } },
+    { id: 'log', nom: 'Logarithmique', expr: 'a*ln(x)+b', params: ['a', 'b'], init: () => [1, 0] },
+    { id: 'pb1', nom: 'Passe-bas 1er ordre (gain)', expr: 'G0/sqrt(1+(x/fc)^2)', params: ['G0', 'fc'], init: (x, y) => [y[0], Num.mean(x)] },
+    { id: 'reso', nom: 'Résonance (amplitude)', expr: 'A/sqrt(1+Q^2*(x/f0-f0/x)^2)', params: ['A', 'Q', 'f0'], init: (x, y) => { let k = 0; for (let i = 1; i < y.length; i++) if (y[i] > y[k]) k = i; return [y[k], 2, x[k]]; } },
+    { id: 'perso', nom: 'Expression libre…', expr: '', params: null },
+  ];
+
+  function run(expr, xname, x, y, pinit) {
+    const pnames = Expr.freeSymbols(expr, xname);
+    const { fn } = Expr.compileScalar(expr, xname, pnames);
+    let p0 = pnames.map(n => (pinit && pinit[n] !== undefined && isFinite(pinit[n]) ? pinit[n] : 1));
+    return { pnames, fn, res: lm(fn, x, y, p0) };
+  }
+
+  function runModel(model, x, y, xname, userExpr, userInit) {
+    if (!model.params) {
+      const r = run(userExpr.replace(/\bx\b/g, xname === 'x' ? 'x' : 'x'), 'x', x, y, userInit);
+      return { ...r, expr: userExpr };
+    }
+    const pnames = model.params;
+    const { fn } = Expr.compileScalar(model.expr, 'x', pnames);
+    let p0 = model.init(x, y);
+    if (userInit) p0 = p0.map((v, i) => (userInit[pnames[i]] !== undefined && isFinite(userInit[pnames[i]]) ? userInit[pnames[i]] : v));
+    let best = lm(fn, x, y, p0);
+    if (model.multistart) {
+      const k = pnames.indexOf(model.multistart);
+      for (let s = 1; s < 8; s++) {
+        const q = best.p.slice(); q[k] = (s * Math.PI) / 4 - Math.PI;
+        const q0 = p0.slice(); q0[k] = q[k];
+        const r = lm(fn, x, y, q0); if (r.S < best.S) best = r;
+      }
+      // normalisation amplitude positive / phase dans ]-pi, pi]
+      const iA = pnames.indexOf('A');
+      if (iA >= 0 && best.p[iA] < 0) { best.p[iA] = -best.p[iA]; best.p[k] += Math.PI; }
+      best.p[k] = Math.atan2(Math.sin(best.p[k]), Math.cos(best.p[k]));
+    }
+    return { pnames, fn, res: best, expr: model.expr };
+  }
+
+  return { MODELS, lm, runModel, run, polyfit, linreg, solve };
+})();
+
+;
+// ===== Fenêtre graphique (canvas) =====
+'use strict';
+function niceStep(range, target) {
+  const raw = range / Math.max(1, target), p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+  return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p;
+}
+function fmtNum(v, step) {
+  if (v === 0) return '0';
+  const a = Math.abs(v);
+  if (a >= 1e5 || a < 1e-3) return v.toExponential(step ? Math.max(0, Math.min(6, Math.ceil(-Math.log10(step / a)))) : 3).replace('.', ',');
+  const dec = step ? Math.max(0, Math.ceil(-Math.log10(step) + 0.001)) : 4;
+  return v.toFixed(Math.min(dec, 8)).replace('.', ',');
+}
+function fmtVal(v, sig = 4) {
+  if (!isFinite(v)) return '—';
+  if (v === 0) return '0';
+  const a = Math.abs(v);
+  if (a >= 1e5 || a < 1e-3) return v.toExponential(sig - 1).replace('.', ',');
+  return (+v.toPrecision(sig)).toString().replace('.', ',');
+}
+
+class Plot {
+  constructor(host, app, opts = {}) {
+    this.app = app; this.host = host;
+    this.canvas = document.createElement('canvas'); this.canvas.className = 'plot-canvas';
+    host.appendChild(this.canvas);
+    this.ctx = this.canvas.getContext('2d');
+    this.curves = []; // noms de courbes
+    this.xName = opts.xName || null; // abscisse imposée (nom d'une courbe), null = abscisse propre
+    this.view = null; this.auto = true;
+    this.mode = 'zoom'; // zoom | pan | reticule | curseur | mesure
+    this.cursor = null; this.cursorCurve = null; this.mesure = [];
+    this.style = opts.style || 'ligne'; // ligne | points | lignepoints
+    this.grid = true; this.sepAxes = false; this.logx = false;
+    this.title = opts.title || '';
+    this.extraOverlays = [];
+    this.onSelect = null;
+    this._bind();
+    this.ro = new ResizeObserver(() => this.draw()); this.ro.observe(host);
+  }
+  destroy() { this.ro.disconnect(); this.canvas.remove(); }
+  data(name) { return this.app.getCurveXY(name, this.xName); }
+  tx(v) { return this.logx ? (v > 0 ? Math.log10(v) : NaN) : v; }
+  ux(u) { return this.logx ? Math.pow(10, u) : u; }
+  xRange() { const V = this.getView(); return [this.ux(V.xmin), this.ux(V.xmax)]; }
+  zoomed() { return !this.auto && !!this.view; }
+
+  bounds() {
+    let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity, y2min = Infinity, y2max = -Infinity;
+    for (const n of this.curves) {
+      const d = this.data(n); if (!d) continue;
+      const c = this.app.curve(n), right = c && c.axis === 'd';
+      const L = Math.min(d.x.length, d.y.length);
+      for (let i = 0; i < L; i++) {
+        const x = this.tx(d.x[i]), y = d.y[i]; if (!isFinite(x) || !isFinite(y)) continue;
+        if (x < xmin) xmin = x; if (x > xmax) xmax = x;
+        if (right) { if (y < y2min) y2min = y; if (y > y2max) y2max = y; }
+        else { if (y < ymin) ymin = y; if (y > ymax) ymax = y; }
+      }
+    }
+    const pad = (a, b) => { if (!isFinite(a)) return [-1, 1]; if (a === b) { const d = Math.abs(a) * 0.1 || 1; return [a - d, b + d]; } const d = (b - a) * 0.05; return [a - d, b + d]; };
+    const [x0, x1] = isFinite(xmin) ? (xmin === xmax ? pad(xmin, xmax) : [xmin, xmax]) : [0, 1];
+    const [a, b] = pad(ymin, ymax), [c, d] = pad(y2min, y2max);
+    return { xmin: x0, xmax: x1, ymin: a, ymax: b, y2min: c, y2max: d };
+  }
+  autoscale() { this.auto = true; this.view = null; this.draw(); }
+  getView() {
+    if (this.auto || !this.view) {
+      this.view = this.bounds();
+      const V = this.view, B = this.box;
+      if (this.equal && B && !this.logx && !B.hasRight) { // repère orthonormé
+        const sx = (B.r - B.l) / (V.xmax - V.xmin), sy = (B.b - B.t) / (V.ymax - V.ymin), s = Math.min(sx, sy);
+        const cx = (V.xmin + V.xmax) / 2, cy = (V.ymin + V.ymax) / 2, hx = (B.r - B.l) / s / 2, hy = (B.b - B.t) / s / 2;
+        V.xmin = cx - hx; V.xmax = cx + hx; V.ymin = cy - hy; V.ymax = cy + hy;
+      }
+    }
+    return this.view;
+  }
+
+  layout() {
+    const r = this.host.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    const W = Math.max(50, r.width), H = Math.max(50, r.height);
+    if (this.canvas.width !== Math.round(W * dpr) || this.canvas.height !== Math.round(H * dpr)) {
+      this.canvas.width = Math.round(W * dpr); this.canvas.height = Math.round(H * dpr);
+      this.canvas.style.width = W + 'px'; this.canvas.style.height = H + 'px';
+    }
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const hasRight = this.curves.some(n => { const c = this.app.curve(n); return c && c.axis === 'd'; });
+    this.box = { l: 66, r: W - (hasRight ? 66 : 16), t: 26, b: H - 40, W, H, hasRight };
+  }
+  X(v) { const V = this.view, B = this.box; v = this.tx(v); return B.l + (v - V.xmin) / (V.xmax - V.xmin) * (B.r - B.l); }
+  Y(v, right) { const V = this.view, B = this.box; const lo = right ? V.y2min : V.ymin, hi = right ? V.y2max : V.ymax; return B.b - (v - lo) / (hi - lo) * (B.b - B.t); }
+  invXt(px) { const V = this.view, B = this.box; return V.xmin + (px - B.l) / (B.r - B.l) * (V.xmax - V.xmin); }
+  invX(px) { return this.ux(this.invXt(px)); }
+  invY(py, right) { const V = this.view, B = this.box; const lo = right ? V.y2min : V.ymin, hi = right ? V.y2max : V.ymax; return lo + (B.b - py) / (B.b - B.t) * (hi - lo); }
+
+  colors() {
+    const cs = getComputedStyle(document.documentElement);
+    return { bg: cs.getPropertyValue('--plot-bg').trim() || '#fff', fg: cs.getPropertyValue('--plot-fg').trim() || '#222', grid: cs.getPropertyValue('--plot-grid').trim() || '#ddd', axis: cs.getPropertyValue('--plot-axis').trim() || '#555' };
+  }
+
+  draw() {
+    if (!this.host.isConnected || this.host.offsetParent === null) return;
+    this.layout(); const ctx = this.ctx, B = this.box, C = this.colors();
+    const V = this.getView();
+    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, B.W, B.H);
+    ctx.font = '11px system-ui, sans-serif';
+    // grille + graduations
+    const xs = niceStep(V.xmax - V.xmin, (B.r - B.l) / 80), ys = niceStep(V.ymax - V.ymin, (B.b - B.t) / 40);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = C.grid; ctx.fillStyle = C.fg; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    if (this.logx) {
+      const k0 = Math.floor(V.xmin), k1 = Math.ceil(V.xmax), many = k1 - k0 > 8;
+      for (let k = k0; k <= k1; k++) for (let m = 1; m <= 9; m++) {
+        const u = k + Math.log10(m); if (u < V.xmin - 1e-9 || u > V.xmax + 1e-9) continue;
+        const px = Math.round(B.l + (u - V.xmin) / (V.xmax - V.xmin) * (B.r - B.l)) + 0.5;
+        if (this.grid && (m === 1 || !many)) { ctx.globalAlpha = m === 1 ? 1 : 0.5; ctx.beginPath(); ctx.moveTo(px, B.t); ctx.lineTo(px, B.b); ctx.stroke(); ctx.globalAlpha = 1; }
+        if (m === 1) ctx.fillText(fmtVal(Math.pow(10, k), 3), px, B.b + 5);
+      }
+    } else for (let v = Math.ceil(V.xmin / xs) * xs; v <= V.xmax + xs * 1e-9; v += xs) {
+      const px = Math.round(this.X(v)) + 0.5;
+      if (this.grid) { ctx.beginPath(); ctx.moveTo(px, B.t); ctx.lineTo(px, B.b); ctx.stroke(); }
+      ctx.fillText(fmtNum(Math.abs(v) < xs * 1e-9 ? 0 : v, xs), px, B.b + 5);
+    }
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let v = Math.ceil(V.ymin / ys) * ys; v <= V.ymax + ys * 1e-9; v += ys) {
+      const py = Math.round(this.Y(v)) + 0.5;
+      if (this.grid) { ctx.beginPath(); ctx.moveTo(B.l, py); ctx.lineTo(B.r, py); ctx.stroke(); }
+      ctx.fillText(fmtNum(Math.abs(v) < ys * 1e-9 ? 0 : v, ys), B.l - 5, py);
+    }
+    if (B.hasRight) {
+      const y2s = niceStep(V.y2max - V.y2min, (B.b - B.t) / 40); ctx.textAlign = 'left';
+      for (let v = Math.ceil(V.y2min / y2s) * y2s; v <= V.y2max + y2s * 1e-9; v += y2s) ctx.fillText(fmtNum(Math.abs(v) < y2s * 1e-9 ? 0 : v, y2s), B.r + 5, this.Y(v, true));
+    }
+    // axes zéro
+    ctx.strokeStyle = C.axis;
+    if (V.ymin < 0 && V.ymax > 0) { const py = Math.round(this.Y(0)) + 0.5; ctx.beginPath(); ctx.moveTo(B.l, py); ctx.lineTo(B.r, py); ctx.stroke(); }
+    if (!this.logx && V.xmin < 0 && V.xmax > 0) { const px = Math.round(this.X(0)) + 0.5; ctx.beginPath(); ctx.moveTo(px, B.t); ctx.lineTo(px, B.b); ctx.stroke(); }
+    ctx.strokeRect(B.l + 0.5, B.t + 0.5, B.r - B.l, B.b - B.t);
+    // libellés d'axes
+    const xc = this.xName ? this.app.curve(this.xName) : (this.curves[0] && this.app.curve(this.curves[0]) && this.app.xCurveOf(this.curves[0]));
+    ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillStyle = C.fg; ctx.font = '12px system-ui, sans-serif';
+    if (xc) ctx.fillText(xc.name + (xc.unit ? ' (' + xc.unit + ')' : ''), B.r, B.H - 3);
+    // courbes
+    ctx.save(); ctx.beginPath(); ctx.rect(B.l, B.t, B.r - B.l, B.b - B.t); ctx.clip();
+    for (const n of this.curves) this.drawCurve(n);
+    for (const o of this.extraOverlays) o(ctx, this);
+    ctx.font = '600 12px system-ui, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillStyle = C.fg; ctx.globalAlpha = 0.28;
+    ctx.fillText('MP* Malherbe', B.r - 6, B.b - 5); ctx.globalAlpha = 1;
+    ctx.restore();
+    // légende
+    ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    let lx = B.l + 4;
+    for (const n of this.curves) {
+      const c = this.app.curve(n); if (!c) continue;
+      const lab = c.name + (c.unit ? ' (' + c.unit + ')' : '') + (c.axis === 'd' ? ' →' : '');
+      ctx.fillStyle = c.color; ctx.fillRect(lx, 9, 14, 3); ctx.fillStyle = C.fg; ctx.fillText(lab, lx + 18, 11);
+      lx += 26 + ctx.measureText(lab).width;
+    }
+    this.drawCursors(C);
+    if (this.dragBox) {
+      const d = this.dragBox; ctx.strokeStyle = '#3b82f6'; ctx.setLineDash([4, 3]); ctx.strokeRect(d.x0, d.y0, d.x1 - d.x0, d.y1 - d.y0); ctx.setLineDash([]);
+    }
+  }
+
+  drawCurve(n) {
+    const c = this.app.curve(n), d = this.data(n); if (!c || !d) return;
+    const ctx = this.ctx, B = this.box, right = c.axis === 'd';
+    const L = Math.min(d.x.length, d.y.length); if (!L) return;
+    const style = c.style || this.style;
+    ctx.strokeStyle = c.color; ctx.fillStyle = c.color; ctx.lineWidth = c.width || 1.5;
+    if (style === 'batons') {
+      const y0 = this.Y(Math.max(right ? this.view.y2min : this.view.ymin, Math.min(0, right ? this.view.y2max : this.view.ymax)), right);
+      ctx.beginPath();
+      for (let i = 0; i < L; i++) { const px = this.X(d.x[i]), py = this.Y(d.y[i], right); if (!isFinite(px) || !isFinite(py)) continue; ctx.moveTo(px, y0); ctx.lineTo(px, py); }
+      ctx.stroke(); return;
+    }
+    if (style !== 'points') {
+      ctx.beginPath();
+      const W = B.r - B.l;
+      let monotone = true; for (let i = 1; i < Math.min(L, 50); i++) if (d.x[i] < d.x[i - 1]) { monotone = false; break; }
+      if (L > 4 * W && monotone) { // décimation min/max par colonne
+        let col = -1, mn = 0, mx = 0, first = true, lastY = 0;
+        for (let i = 0; i < L; i++) {
+          const px = Math.floor(this.X(d.x[i])), py = this.Y(d.y[i], right);
+          if (!isFinite(py)) continue;
+          if (px !== col) {
+            if (col >= 0) { ctx.lineTo(col, mn); ctx.lineTo(col, mx); ctx.lineTo(col, lastY); }
+            col = px; mn = mx = py; if (first) { ctx.moveTo(px, py); first = false; }
+          } else { if (py < mn) mn = py; if (py > mx) mx = py; }
+          lastY = py;
+        }
+        if (col >= 0) { ctx.lineTo(col, mn); ctx.lineTo(col, mx); }
+      } else {
+        let pen = false;
+        for (let i = 0; i < L; i++) {
+          const px = this.X(d.x[i]), py = this.Y(d.y[i], right);
+          if (!isFinite(px) || !isFinite(py)) { pen = false; continue; }
+          if (pen) ctx.lineTo(px, py); else { ctx.moveTo(px, py); pen = true; }
+        }
+      }
+      ctx.stroke();
+    }
+    if (style === 'points' || style === 'lignepoints') {
+      const step = Math.max(1, Math.floor(L / 3000));
+      for (let i = 0; i < L; i += step) {
+        const px = this.X(d.x[i]), py = this.Y(d.y[i], right);
+        if (isFinite(px) && isFinite(py)) { ctx.fillRect(px - 2, py - 2, 4, 4); }
+      }
+    }
+  }
+
+  nearestIndex(d, x) {
+    const L = Math.min(d.x.length, d.y.length); let best = 0, bd = Infinity;
+    // recherche dichotomique si monotone
+    if (L > 2 && d.x[L - 1] >= d.x[0]) {
+      let lo = 0, hi = L - 1;
+      while (hi - lo > 1) { const m = (lo + hi) >> 1; if (d.x[m] < x) lo = m; else hi = m; }
+      return Math.abs(d.x[lo] - x) <= Math.abs(d.x[hi] - x) ? lo : hi;
+    }
+    for (let i = 0; i < L; i++) { const e = Math.abs(d.x[i] - x); if (e < bd) { bd = e; best = i; } }
+    return best;
+  }
+
+  drawCursors(C) {
+    const ctx = this.ctx, B = this.box;
+    const label = (txt, px, py) => {
+      ctx.font = '12px system-ui, sans-serif';
+      const lines = txt.split('\n'), w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 10, h = lines.length * 15 + 6;
+      let bx = px + 10, by = py - h - 8; if (bx + w > B.r) bx = px - w - 10; if (by < B.t) by = py + 10;
+      ctx.fillStyle = 'rgba(255,255,240,0.95)'; ctx.strokeStyle = '#888'; ctx.fillRect(bx, by, w, h); ctx.strokeRect(bx + 0.5, by + 0.5, w, h);
+      ctx.fillStyle = '#111'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      lines.forEach((l, i) => ctx.fillText(l, bx + 5, by + 4 + i * 15));
+    };
+    const xc = this.xName ? this.app.curve(this.xName) : (this.curves[0] && this.app.xCurveOf(this.curves[0]));
+    const xu = xc && xc.unit ? ' ' + xc.unit : '', xn = xc ? xc.name : 'x';
+    if (this.cursor && (this.mode === 'reticule' || this.mode === 'curseur')) {
+      let { px, py } = this.cursor; let txt;
+      if (this.mode === 'curseur' && this.cursorCurve) {
+        const d = this.data(this.cursorCurve), c = this.app.curve(this.cursorCurve);
+        if (d && c && d.x.length) {
+          const i = this.nearestIndex(d, this.invX(px));
+          px = this.X(d.x[i]); py = this.Y(d.y[i], c.axis === 'd');
+          txt = xn + ' = ' + fmtVal(d.x[i], 5) + xu + '\n' + c.name + ' = ' + fmtVal(d.y[i], 5) + (c.unit ? ' ' + c.unit : '') + '\n(point n° ' + (i + 1) + ')';
+          ctx.fillStyle = c.color; ctx.beginPath(); ctx.arc(px, py, 4, 0, 7); ctx.fill();
+        }
+      }
+      if (!txt) txt = xn + ' = ' + fmtVal(this.invX(px), 5) + xu + '\ny = ' + fmtVal(this.invY(py), 5);
+      ctx.strokeStyle = '#d33'; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
+      ctx.beginPath(); ctx.moveTo(px, B.t); ctx.lineTo(px, B.b); ctx.moveTo(B.l, py); ctx.lineTo(B.r, py); ctx.stroke(); ctx.setLineDash([]);
+      label(txt, px, py);
+    }
+    if (this.mode === 'mesure' || this.mesure.length) {
+      ctx.strokeStyle = '#0a7'; ctx.lineWidth = 1.2;
+      this.mesure.forEach(m => { const px = this.X(m.x), py = this.Y(m.y); ctx.beginPath(); ctx.moveTo(px, B.t); ctx.lineTo(px, B.b); ctx.moveTo(B.l, py); ctx.lineTo(B.r, py); ctx.stroke(); });
+      if (this.mesure.length === 2) {
+        const [a, b] = this.mesure, dx = b.x - a.x, dy = b.y - a.y;
+        const px = (this.X(a.x) + this.X(b.x)) / 2, py = Math.min(this.Y(a.y), this.Y(b.y));
+        ctx.beginPath(); ctx.moveTo(this.X(a.x), this.Y(a.y)); ctx.lineTo(this.X(b.x), this.Y(b.y)); ctx.stroke();
+        label('Δ' + xn + ' = ' + fmtVal(dx, 5) + xu + '\nΔy = ' + fmtVal(dy, 5) + '\npente = ' + fmtVal(dy / dx, 5) + (Math.abs(dx) > 0 ? '\n1/Δ' + xn + ' = ' + fmtVal(1 / Math.abs(dx), 5) : ''), px, py);
+      }
+    }
+  }
+
+  _bind() {
+    const cv = this.canvas;
+    const pos = e => { const r = cv.getBoundingClientRect(); return { px: e.clientX - r.left, py: e.clientY - r.top }; };
+    cv.addEventListener('wheel', e => {
+      e.preventDefault(); const { px, py } = pos(e); const V = this.getView(); this.auto = false;
+      const f = e.deltaY > 0 ? 1.2 : 1 / 1.2, x = this.invXt(px), y = this.invY(py), y2 = this.invY(py, true);
+      const zx = !e.shiftKey || e.ctrlKey, zy = !e.ctrlKey || e.shiftKey;
+      if (zx) { V.xmin = x + (V.xmin - x) * f; V.xmax = x + (V.xmax - x) * f; }
+      if (zy) { V.ymin = y + (V.ymin - y) * f; V.ymax = y + (V.ymax - y) * f; V.y2min = y2 + (V.y2min - y2) * f; V.y2max = y2 + (V.y2max - y2) * f; }
+      this.draw();
+    }, { passive: false });
+    cv.addEventListener('dblclick', () => this.autoscale());
+    cv.addEventListener('contextmenu', e => { e.preventDefault(); this.app.plotMenu(this, e); });
+    cv.addEventListener('pointerdown', e => {
+      if (e.button === 2) return;
+      cv.setPointerCapture(e.pointerId);
+      const p = pos(e); this.down = { ...p, view: { ...this.getView() }, btn: e.button };
+      if (this.mode === 'mesure' && e.button === 0) {
+        const pt = this.snap(p); if (this.mesure.length >= 2) this.mesure = []; this.mesure.push(pt); this.draw(); this.down = null; return;
+      }
+      if (this.mode === 'curseur' || this.mode === 'reticule') { this.cursor = p; this.draw(); if (this.onPick) this.onPick(this.invX(p.px), this.invY(p.py)); }
+    });
+    cv.addEventListener('pointermove', e => {
+      const p = pos(e);
+      if ((this.mode === 'reticule' || this.mode === 'curseur') && (this.down || !this.lockCursor)) { this.cursor = p; this.draw(); return; }
+      if (!this.down) return;
+      if (this.mode === 'pan' || this.down.btn === 1 || e.shiftKey) {
+        const V0 = this.down.view, B = this.box, dx = (p.px - this.down.px) / (B.r - B.l) * (V0.xmax - V0.xmin), dy = (p.py - this.down.py) / (B.b - B.t);
+        this.auto = false;
+        this.view = { xmin: V0.xmin - dx, xmax: V0.xmax - dx, ymin: V0.ymin + dy * (V0.ymax - V0.ymin), ymax: V0.ymax + dy * (V0.ymax - V0.ymin), y2min: V0.y2min + dy * (V0.y2max - V0.y2min), y2max: V0.y2max + dy * (V0.y2max - V0.y2min) };
+        this.draw();
+      } else if (this.mode === 'zoom') {
+        this.dragBox = { x0: this.down.px, y0: this.down.py, x1: p.px, y1: p.py }; this.draw();
+      }
+    });
+    cv.addEventListener('pointerup', () => {
+      if (this.dragBox) {
+        const d = this.dragBox;
+        if (Math.abs(d.x1 - d.x0) > 6 && Math.abs(d.y1 - d.y0) > 6) {
+          const V = this.getView(); this.auto = false;
+          const nx0 = this.invXt(Math.min(d.x0, d.x1)), nx1 = this.invXt(Math.max(d.x0, d.x1));
+          const ny0 = this.invY(Math.max(d.y0, d.y1)), ny1 = this.invY(Math.min(d.y0, d.y1));
+          const m0 = this.invY(Math.max(d.y0, d.y1), true), m1 = this.invY(Math.min(d.y0, d.y1), true);
+          this.view = { xmin: nx0, xmax: nx1, ymin: ny0, ymax: ny1, y2min: m0, y2max: m1 }; void V;
+        }
+        this.dragBox = null; this.draw();
+      }
+      this.down = null;
+    });
+    cv.addEventListener('pointerleave', () => { if (this.mode === 'reticule' || this.mode === 'curseur') { this.cursor = null; this.draw(); } });
+  }
+  snap(p) {
+    // point sur la courbe active la plus proche (pour la mesure)
+    const n = this.cursorCurve || this.curves[0];
+    if (n) { const d = this.data(n); if (d && d.x.length) { const i = this.nearestIndex(d, this.invX(p.px)); return { x: d.x[i], y: d.y[i] }; } }
+    return { x: this.invX(p.px), y: this.invY(p.py) };
+  }
+  png() { return this.canvas.toDataURL('image/png'); }
+}
+
+;
+
+;
+// ===== Application : modèle de données, documents, interface générale =====
+'use strict';
+const COLORS = ['#d62728', '#1f77b4', '#2ca02c', '#ff7f0e', '#9467bd', '#17becf', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#000000', '#0b5394'];
+const ICON = {
+  new: '<path d="M6 2h8l4 4v16H6z M14 2v4h4" fill="none" stroke="currentColor" stroke-width="1.6"/>',
+  open: '<path d="M3 6h6l2 2h10v11H3z" fill="none" stroke="currentColor" stroke-width="1.6"/>',
+  save: '<path d="M4 4h13l3 3v13H4z M8 4v5h8V4 M7 20v-6h10v6" fill="none" stroke="currentColor" stroke-width="1.6"/>',
+  play: '<path d="M7 4l13 8-13 8z" fill="currentColor"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" fill="currentColor"/>',
+  zoom: '<circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15 15l6 6" stroke="currentColor" stroke-width="2"/>',
+  pan: '<path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3" stroke="currentColor" stroke-width="1.5" fill="none"/>',
+  reticule: '<path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/>',
+  curseur: '<path d="M3 18c4-12 8-12 10-6s5 6 8-4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="13" cy="12" r="2.5" fill="currentColor"/><path d="M13 2v20" stroke="currentColor" stroke-dasharray="2 2"/>',
+  mesure: '<path d="M5 3v18M19 3v18M5 12h14M5 12l3-3M5 12l3 3M19 12l-3-3M19 12l-3 3" stroke="currentColor" stroke-width="1.5" fill="none"/>',
+  auto: '<path d="M3 9V3h6M21 9V3h-6M3 15v6h6M21 15v6h-6" stroke="currentColor" stroke-width="1.8" fill="none"/>',
+  graph: '<path d="M3 3v18h18" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M6 15l4-5 4 3 6-8" stroke="currentColor" stroke-width="1.6" fill="none"/>',
+  table: '<rect x="3" y="4" width="18" height="16" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 9h18M3 14h18M9 4v16M15 4v16" stroke="currentColor" stroke-width="1.2"/>',
+  calc: '<text x="3" y="17" font-size="15" font-family="serif" font-style="italic" fill="currentColor">f(x)</text>',
+  model: '<circle cx="5" cy="17" r="1.5" fill="currentColor"/><circle cx="9" cy="12" r="1.5" fill="currentColor"/><circle cx="14" cy="9" r="1.5" fill="currentColor"/><circle cx="19" cy="5" r="1.5" fill="currentColor"/><path d="M3 20L21 3" stroke="currentColor" stroke-width="1.3"/>',
+  fourier: '<path d="M4 20V14M8 20V6M12 20v-9M16 20v-4M20 20v-2" stroke="currentColor" stroke-width="2.2"/>',
+  import: '<path d="M12 3v11M7 9l5 5 5-5M4 15v5h16v-5" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+  video: '<rect x="3" y="6" width="13" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 10l5-3v10l-5-3z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8" cy="11" r="1.6" fill="currentColor"/>',
+  bode: '<path d="M3 3v18h18" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M5 7h7c3 0 4 3 8 11" stroke="currentColor" stroke-width="1.8" fill="none"/>',
+  filtre: '<path d="M3 12c2-6 3 6 5 0s3 6 5 0" stroke="currentColor" stroke-width="1.4" fill="none" opacity=".5"/><path d="M13 12h8M17 8l4 4-4 4" stroke="currentColor" stroke-width="1.6" fill="none"/>',
+  usb: '<path d="M12 2v16M12 18a2 2 0 1 0 .01 0M12 7l-4 3v3M12 11l4-2v2" stroke="currentColor" stroke-width="1.6" fill="none"/><rect x="7" y="12" width="2" height="2" fill="currentColor"/><circle cx="16" cy="8" r="1.4" fill="currentColor"/>',
+};
+const svg = k => `<svg viewBox="0 0 24 24">${ICON[k]}</svg>`;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const parseNum = s => { if (typeof s === 'number') return s; s = String(s).trim().replace(',', '.').replace(/\s/g, ''); const m = /^([-+]?[\d.]+(?:e[-+]?\d+)?)\s*([pnuµmkMG]?)$/i.exec(s); if (!m) return parseFloat(s); const mult = { p: 1e-12, n: 1e-9, u: 1e-6, 'µ': 1e-6, m: 1e-3, k: 1e3, M: 1e6, G: 1e9 }[m[2]] || 1; return parseFloat(m[1]) * mult; };
+function fmtSI(v, unit) {
+  if (!isFinite(v)) return '—'; if (v === 0) return '0 ' + unit;
+  const p = [[1e9, 'G'], [1e6, 'M'], [1e3, 'k'], [1, ''], [1e-3, 'm'], [1e-6, 'µ'], [1e-9, 'n']];
+  for (const [f, s] of p) if (Math.abs(v) >= f * 0.9999) return (+(v / f).toPrecision(4)).toString().replace('.', ',') + ' ' + s + unit;
+  return v.toExponential(3).replace('.', ',') + ' ' + unit;
+}
+
+const App = {
+  curves: new Map(), order: [], docs: [], active: null, selCurve: null, colorIdx: 0, nDoc: 0,
+  hw: null, mode: 'zoom',
+
+  // ---------- courbes ----------
+  curve(n) { return this.curves.get(n); },
+  xCurveOf(n) { const c = this.curve(n); return c && c.x ? this.curve(c.x) : null; },
+  getCurveXY(name, xName) {
+    const c = this.curve(name); if (!c) return null;
+    let x;
+    if (xName && xName !== name) { const xc = this.curve(xName); if (!xc) return null; x = xc.y; }
+    else if (c.x && this.curve(c.x)) x = this.curve(c.x).y;
+    else { if (!c._idx || c._idx.length !== c.y.length) c._idx = Float64Array.from({ length: c.y.length }, (_, i) => i); x = c._idx; }
+    return { x, y: c.y };
+  },
+  nextColor() { return COLORS[(this.colorIdx++) % COLORS.length]; },
+  setCurve(name, props) {
+    let c = this.curve(name);
+    if (!c) { c = { name, unit: '', x: null, y: new Float64Array(0), color: this.nextColor(), axis: 'g', kind: 'calc' }; this.curves.set(name, c); this.order.push(name); }
+    Object.assign(c, props);
+    if (!(c.y instanceof Float64Array)) c.y = Float64Array.from(c.y);
+    return c;
+  },
+  removeCurve(name) {
+    if (!this.curves.has(name)) return;
+    // les courbes qui utilisent celle-ci comme abscisse perdent leur abscisse
+    for (const c of this.curves.values()) if (c.x === name) c.x = null;
+    this.curves.delete(name); this.order = this.order.filter(n => n !== name);
+    for (const d of this.docs) if (d.plot) { d.plot.curves = d.plot.curves.filter(n => n !== name); if (d.plot.xName === name) d.plot.xName = null; }
+    if (this.selCurve === name) this.selCurve = null;
+  },
+  renameCurve(old, nu) {
+    if (old === nu || !this.curves.has(old)) return;
+    if (this.curves.has(nu)) throw new Error('Le nom « ' + nu + ' » existe déjà');
+    const c = this.curves.get(old); c.name = nu;
+    const m = new Map(); for (const [k, v] of this.curves) m.set(k === old ? nu : k, v); this.curves = m;
+    this.order = this.order.map(n => (n === old ? nu : n));
+    for (const v of this.curves.values()) if (v.x === old) v.x = nu;
+    for (const d of this.docs) if (d.plot) { d.plot.curves = d.plot.curves.map(n => (n === old ? nu : n)); if (d.plot.xName === old) d.plot.xName = nu; if (d.plot.cursorCurve === old) d.plot.cursorCurve = nu; }
+    if (this.selCurve === old) this.selCurve = nu;
+  },
+  validName(n) { return /^[A-Za-z_À-ɏ][A-Za-z0-9_À-ɏ]*$/.test(n); },
+  uniqueName(base) { if (!this.curves.has(base)) return base; let i = 1; while (this.curves.has(base + '_' + i)) i++; return base + '_' + i; },
+
+  refresh() { this.renderCurveList(); for (const d of this.docs) d.refresh && d.refresh(); },
+  redraw() { for (const d of this.docs) if (d.plot) d.plot.draw(); },
+
+  // ---------- messages ----------
+  msg(t, cls) { const m = $('#msg'); m.textContent = t; m.style.color = cls === 'err' ? 'var(--err)' : cls === 'ok' ? 'var(--ok)' : ''; clearTimeout(this._mt); if (t) this._mt = setTimeout(() => { m.textContent = ''; }, 12000); },
+  progress(p) { const e = $('#prog'); if (p === null || p === undefined) { e.style.display = 'none'; return; } e.style.display = 'block'; e.firstChild.style.width = Math.round(p * 100) + '%'; },
+
+  // ---------- modale ----------
+  modal(title, html, buttons = [{ label: 'Fermer' }], opts = {}) {
+    return new Promise(resolve => {
+      const bg = document.createElement('div'); bg.className = 'modal-bg';
+      bg.innerHTML = `<div class="modal" style="${opts.width ? 'width:' + opts.width : ''}"><h2>${esc(title)}</h2><div class="mb">${html}</div><div class="mf"></div></div>`;
+      const mf = $('.mf', bg);
+      const close = v => { bg.remove(); document.removeEventListener('keydown', kd); resolve(v); };
+      buttons.forEach(b => { const e = document.createElement('button'); e.className = 'btn' + (b.pri ? ' pri' : ''); e.textContent = b.label; e.onclick = () => { if (b.action) { const r = b.action(bg); if (r === false) return; close(r === undefined ? b.value : r); } else close(b.value); }; mf.appendChild(e); });
+      const kd = e => { if (e.key === 'Escape') close(null); if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') { const p = buttons.find(b => b.pri); if (p) { e.preventDefault(); $$('.mf .btn', bg)[buttons.indexOf(p)].click(); } } };
+      document.addEventListener('keydown', kd);
+      bg.addEventListener('mousedown', e => { if (e.target === bg) close(null); });
+      document.body.appendChild(bg);
+      if (opts.onOpen) opts.onOpen(bg);
+      const f = $('input,select,textarea', bg); if (f) f.focus();
+    });
+  },
+  ctxMenu(x, y, items) {
+    $$('.ctx').forEach(e => e.remove());
+    const m = document.createElement('div'); m.className = 'ctx';
+    for (const it of items) {
+      if (it === '-') { m.appendChild(document.createElement('hr')); continue; }
+      const d = document.createElement('div'); d.textContent = it.label; d.onclick = () => { m.remove(); it.action(); }; m.appendChild(d);
+    }
+    document.body.appendChild(m);
+    const r = m.getBoundingClientRect();
+    m.style.left = Math.min(x, innerWidth - r.width - 4) + 'px'; m.style.top = Math.min(y, innerHeight - r.height - 4) + 'px';
+    setTimeout(() => document.addEventListener('mousedown', function h(e) { if (!m.contains(e.target)) { m.remove(); document.removeEventListener('mousedown', h); } }), 0);
+  },
+  curveOptions(sel, filter) { return this.order.filter(n => !filter || filter(this.curve(n))).map(n => `<option ${n === sel ? 'selected' : ''}>${esc(n)}</option>`).join(''); },
+
+  // ---------- documents (onglets) ----------
+  addDoc(doc) {
+    doc.id = 'd' + (++this.nDoc);
+    doc.el = document.createElement('div'); doc.el.className = 'doc'; $('#docs').appendChild(doc.el);
+    this.docs.push(doc); doc.build(doc.el); this.activate(doc); this.renderTabs(); return doc;
+  },
+  closeDoc(doc) {
+    if (doc.plot) doc.plot.destroy();
+    if (doc.destroy) doc.destroy();
+    doc.el.remove(); this.docs = this.docs.filter(d => d !== doc);
+    if (this.active === doc) this.activate(this.docs[this.docs.length - 1] || null);
+    this.renderTabs();
+  },
+  activate(doc) {
+    this.active = doc; for (const d of this.docs) d.el.classList.toggle('act', d === doc);
+    this.renderTabs(); if (doc) { doc.refresh && doc.refresh(); if (doc.plot) { doc.plot.mode = this.mode; doc.plot.draw(); } }
+    if (this.rightPanel && this.rightPanel.onActivate) this.rightPanel.onActivate();
+  },
+  renderTabs() {
+    const t = $('#tabs'); t.innerHTML = '';
+    for (const d of this.docs) {
+      const e = document.createElement('div'); e.className = 'tab' + (d === this.active ? ' act' : '');
+      e.innerHTML = `${svg(d.icon || 'graph').replace('<svg', '<svg width="14" height="14"')}<span>${esc(d.title)}</span><span class="x" title="Fermer">×</span>`;
+      e.onclick = ev => { if (ev.target.classList.contains('x')) { this.closeDoc(d); return; } this.activate(d); };
+      e.ondblclick = async () => { const n = await this.prompt('Nom de la fenêtre', d.title); if (n) { d.title = n; this.renderTabs(); } };
+      t.appendChild(e);
+    }
+  },
+  graphDocs() { return this.docs.filter(d => d.plot && d.type === 'graph'); },
+  // fenêtre où afficher une courbe nouvelle : même abscisse, pas d'échelle log ni d'abscisse imposée différente
+  targetPlot(name) {
+    const c = this.curve(name), xa = c ? c.x : null;
+    const fits = p => p && !p.logx && !p.equal && (!p.xName || p.xName === xa) && (!p.curves.length || p.curves.some(n => this.curve(n) && this.curve(n).x === xa));
+    const a = this.active && this.active.plot;
+    if (fits(a)) return a;
+    const d = this.graphDocs().find(d => fits(d.plot));
+    if (d) { this.activate(d); return d.plot; }
+    return this.newGraph().plot;
+  },
+  activePlot() { return this.active && this.active.plot ? this.active.plot : (this.graphDocs()[0] || {}).plot; },
+  async prompt(label, val = '') {
+    const r = await this.modal(label, `<input id="pv" style="width:100%" value="${esc(val)}">`, [{ label: 'Annuler', value: null }, { label: 'OK', pri: true, action: bg => $('#pv', bg).value }]);
+    return r;
+  },
+
+  newGraph(title, curves = [], xName = null, gopts = {}) {
+    const app = this;
+    const doc = {
+      type: 'graph', icon: 'graph', title: title || ('Fenêtre ' + (this.graphDocs().length + 1)),
+      build(el) {
+        el.innerHTML = `<div class="plotbar">
+          <span class="small">Abscisse :</span><select class="xsel"></select>
+          <span class="small">Tracé :</span><select class="stsel"><option value="ligne">lignes</option><option value="points">points</option><option value="lignepoints">lignes + points</option><option value="batons">bâtons</option></select>
+          <label class="small"><input type="checkbox" class="grid" checked> grille</label>
+          <label class="small" title="Abscisse en échelle logarithmique (diagramme de Bode)"><input type="checkbox" class="logx"> x log</label>
+          <label class="small" title="Même échelle sur les deux axes (trajectoires)"><input type="checkbox" class="eq"> orthonormé</label>
+          <span class="small">Curseur sur :</span><select class="cursel"></select>
+          <span style="flex:1"></span>
+          <button class="btn add" title="Ajouter des courbes à cette fenêtre">+ Courbes…</button>
+          <span class="small hint2">Glissez une courbe depuis la liste · molette = zoom · double-clic = calibrage auto · clic droit = menu</span>
+        </div><div class="plotwrap"></div>`;
+        this.plot = new Plot($('.plotwrap', el), app, { xName });
+        this.plot.curves = curves.slice();
+        if (gopts.logx) { this.plot.logx = true; $('.logx', el).checked = true; }
+        if (gopts.equal) { this.plot.equal = true; $('.eq', el).checked = true; }
+        if (gopts.style) { this.plot.style = gopts.style; $('.stsel', el).value = gopts.style; }
+        const wrap = $('.plotwrap', el);
+        wrap.addEventListener('dragover', e => { e.preventDefault(); wrap.classList.add('drop'); });
+        wrap.addEventListener('dragleave', () => wrap.classList.remove('drop'));
+        wrap.addEventListener('drop', e => { e.preventDefault(); wrap.classList.remove('drop'); const n = e.dataTransfer.getData('text/plain'); if (n && app.curve(n) && !this.plot.curves.includes(n)) { this.plot.curves.push(n); this.plot.autoscale(); this.refresh(); } });
+        $('.xsel', el).onchange = e => { this.plot.xName = e.target.value || null; this.plot.autoscale(); };
+        $('.stsel', el).onchange = e => { this.plot.style = e.target.value; this.plot.draw(); };
+        $('.grid', el).onchange = e => { this.plot.grid = e.target.checked; this.plot.draw(); };
+        $('.logx', el).onchange = e => { this.plot.logx = e.target.checked; this.plot.autoscale(); };
+        $('.eq', el).onchange = e => { this.plot.equal = e.target.checked; this.plot.autoscale(); };
+        $('.cursel', el).onchange = e => { this.plot.cursorCurve = e.target.value; this.plot.draw(); };
+        $('.add', el).onclick = () => app.chooseCurves(this);
+        this.plot.canvas.addEventListener('pointermove', e => {
+          const r = this.plot.canvas.getBoundingClientRect(); if (!this.plot.box) return;
+          $('#pos').textContent = 'x = ' + fmtVal(this.plot.invX(e.clientX - r.left), 5) + '   y = ' + fmtVal(this.plot.invY(e.clientY - r.top), 5);
+        });
+      },
+      refresh() {
+        const p = this.plot; p.curves = p.curves.filter(n => app.curve(n));
+        $('.xsel', this.el).innerHTML = `<option value="">(abscisse propre de chaque courbe)</option>` + app.curveOptions(p.xName);
+        if (!p.cursorCurve || !p.curves.includes(p.cursorCurve)) p.cursorCurve = p.curves[0] || null;
+        $('.cursel', this.el).innerHTML = p.curves.map(n => `<option ${n === p.cursorCurve ? 'selected' : ''}>${esc(n)}</option>`).join('');
+        p.draw();
+      },
+    };
+    return this.addDoc(doc);
+  },
+  async chooseCurves(doc) {
+    const p = doc.plot;
+    const html = `<p class="hint">Cochez les courbes à afficher dans « ${esc(doc.title)} ». « → » : axe des ordonnées de droite.</p>` +
+      this.order.map(n => { const c = this.curve(n); return `<div class="row"><label style="flex:1;color:inherit"><input type="checkbox" data-n="${esc(n)}" ${p.curves.includes(n) ? 'checked' : ''}> <span style="color:${c.color}">■</span> ${esc(n)} ${c.unit ? '(' + esc(c.unit) + ')' : ''} <span class="small">${c.y.length} pts</span></label><label class="small"><input type="checkbox" data-ax="${esc(n)}" ${c.axis === 'd' ? 'checked' : ''}> →</label></div>`; }).join('');
+    const r = await this.modal('Courbes affichées', html || '<p>Aucune courbe.</p>', [{ label: 'Annuler', value: null }, { label: 'OK', pri: true, action: bg => ({ sel: $$('[data-n]', bg).filter(e => e.checked).map(e => e.dataset.n), ax: $$('[data-ax]', bg).map(e => [e.dataset.ax, e.checked]) }) }]);
+    if (!r) return;
+    p.curves = r.sel; r.ax.forEach(([n, d]) => { this.curve(n).axis = d ? 'd' : 'g'; });
+    p.autoscale(); doc.refresh();
+  },
+  plotMenu(plot, e) {
+    const doc = this.docs.find(d => d.plot === plot);
+    const setMode = m => this.setMode(m);
+    this.ctxMenu(e.clientX, e.clientY, [
+      { label: 'Calibrage automatique', action: () => plot.autoscale() },
+      { label: 'Calibrage manuel…', action: () => this.manualScale(plot) },
+      '-',
+      { label: 'Zoom (cadre)', action: () => setMode('zoom') },
+      { label: 'Déplacer', action: () => setMode('pan') },
+      { label: 'Réticule', action: () => setMode('reticule') },
+      { label: 'Curseur lié à une courbe', action: () => setMode('curseur') },
+      { label: 'Mesure entre deux points', action: () => { plot.mesure = []; setMode('mesure'); } },
+      '-',
+      { label: 'Courbes affichées…', action: () => doc && this.chooseCurves(doc) },
+      { label: 'Modélisation…', action: () => this.openModel() },
+      { label: 'Analyse de Fourier…', action: () => this.openFourier() },
+      { label: 'Mesures automatiques…', action: () => this.openStats() },
+      '-',
+      { label: 'Exporter l\'image (PNG)', action: () => this.exportPNG(plot) },
+      { label: 'Copier l\'image', action: () => plot.canvas.toBlob(b => navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]).then(() => this.msg('Image copiée'), () => this.msg('Copie impossible', 'err'))) },
+    ]);
+  },
+  async manualScale(plot) {
+    const V = plot.getView();
+    const f = (id, v) => `<div class="row"><label>${id}</label><input id="${id}" value="${fmtVal(v, 6)}"></div>`;
+    const r = await this.modal('Calibrage manuel', f('xmin', plot.ux(V.xmin)) + f('xmax', plot.ux(V.xmax)) + f('ymin', V.ymin) + f('ymax', V.ymax) + (plot.box && plot.box.hasRight ? f('y2min', V.y2min) + f('y2max', V.y2max) : ''),
+      [{ label: 'Annuler', value: null }, { label: 'OK', pri: true, action: bg => Object.fromEntries($$('input', bg).map(i => [i.id, parseNum(i.value)])) }]);
+    if (!r) return; r.xmin = plot.tx(r.xmin); r.xmax = plot.tx(r.xmax); if (!isFinite(r.xmin) || !isFinite(r.xmax)) { this.msg('Axe logarithmique : bornes strictement positives', 'err'); return; }
+    plot.auto = false; plot.view = Object.assign({}, V, r); plot.draw();
+  },
+  setMode(m) {
+    this.mode = m; for (const d of this.docs) if (d.plot) { d.plot.mode = m; if (m !== 'mesure') d.plot.mesure = []; d.plot.cursor = null; d.plot.draw(); }
+    $$('#toolbar [data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  },
+
+  // ---------- liste des courbes (panneau gauche) ----------
+  renderCurveList() {
+    const ul = $('#curveList'); if (!ul) return; ul.innerHTML = '';
+    for (const n of this.order) {
+      const c = this.curve(n), li = document.createElement('li');
+      li.draggable = true; li.className = n === this.selCurve ? 'sel' : '';
+      li.innerHTML = `<span class="sw" style="background:${c.color}"></span><span class="n">${esc(n)}${c.unit ? ' <span class="c">(' + esc(c.unit) + ')</span>' : ''}</span><span class="c">${c.y.length}</span>`;
+      li.title = 'Glisser vers une fenêtre graphique · double-clic : afficher dans la fenêtre active · clic droit : options';
+      li.ondragstart = e => e.dataTransfer.setData('text/plain', n);
+      li.onclick = () => { this.selCurve = n; this.renderCurveList(); };
+      li.ondblclick = () => { const p = this.activePlot(); if (p && !p.curves.includes(n)) { p.curves.push(n); p.autoscale(); this.refresh(); } };
+      li.oncontextmenu = e => { e.preventDefault(); this.selCurve = n; this.renderCurveList(); this.curveMenu(n, e.clientX, e.clientY); };
+      ul.appendChild(li);
+    }
+    $('#nbCourbes').textContent = this.order.length ? '(' + this.order.length + ')' : '';
+  },
+  curveMenu(n, x, y) {
+    this.ctxMenu(x, y, [
+      { label: 'Propriétés…', action: () => this.curveProps(n) },
+      { label: 'Afficher dans la fenêtre active', action: () => { const p = this.activePlot(); if (p && !p.curves.includes(n)) { p.curves.push(n); p.autoscale(); this.refresh(); } } },
+      { label: 'Afficher dans une nouvelle fenêtre', action: () => this.newGraph(null, [n]) },
+      { label: 'Dériver / intégrer / lisser…', action: () => this.openTraitements(n) },
+      { label: 'Modéliser…', action: () => { this.selCurve = n; this.openModel(n); } },
+      { label: 'Spectre (Fourier)…', action: () => this.openFourier(n) },
+      '-',
+      { label: 'Supprimer', action: () => { this.removeCurve(n); this.refresh(); } },
+    ]);
+  },
+  async curveProps(n) {
+    const c = this.curve(n); if (!c) return;
+    const html = `<div class="row"><label>Nom</label><input id="pn" value="${esc(c.name)}"></div>
+      <div class="row"><label>Unité</label><input id="pu" value="${esc(c.unit)}"></div>
+      <div class="row"><label>Abscisse</label><select id="px"><option value="">(indice des points)</option>${this.curveOptions(c.x, k => k !== c)}</select></div>
+      <div class="row"><label>Couleur</label><input type="color" id="pc" value="${c.color}"></div>
+      <div class="row"><label>Axe des ordonnées</label><select id="pa"><option value="g">gauche</option><option value="d" ${c.axis === 'd' ? 'selected' : ''}>droite</option></select></div>
+      <div class="row"><label>Tracé</label><select id="ps"><option value="">comme la fenêtre</option><option value="ligne" ${c.style === 'ligne' ? 'selected' : ''}>lignes</option><option value="points" ${c.style === 'points' ? 'selected' : ''}>points</option><option value="lignepoints" ${c.style === 'lignepoints' ? 'selected' : ''}>lignes + points</option></select></div>
+      <div class="row"><label>Épaisseur</label><input type="number" id="pw" min="0.5" max="6" step="0.5" value="${c.width || 1.5}"></div>
+      <p class="hint">${c.y.length} points · origine : ${esc({ acq: 'acquisition', gen: 'générateur', calc: 'calcul', model: 'modélisation', import: 'importation', saisie: 'saisie', video: 'pointage vidéo' }[c.kind] || c.kind)}</p>`;
+    const r = await this.modal('Propriétés de ' + n, html, [{ label: 'Annuler', value: null }, { label: 'OK', pri: true, action: bg => ({ name: $('#pn', bg).value.trim(), unit: $('#pu', bg).value.trim(), x: $('#px', bg).value || null, color: $('#pc', bg).value, axis: $('#pa', bg).value, style: $('#ps', bg).value || undefined, width: parseNum($('#pw', bg).value) }) }]);
+    if (!r) return;
+    try {
+      if (r.name !== n) { if (!this.validName(r.name)) throw new Error('Nom invalide (lettres, chiffres, _)'); this.renameCurve(n, r.name); }
+      Object.assign(this.curve(r.name), { unit: r.unit, x: r.x, color: r.color, axis: r.axis, style: r.style, width: r.width });
+      this.refresh();
+    } catch (e) { this.msg(e.message, 'err'); }
+  },
+
+  // ---------- panneau droit ----------
+  openRight(panel) {
+    const R = $('#right'); this.rightPanel = panel; R.innerHTML = ''; R.classList.add('open');
+    const h = document.createElement('h2'); h.innerHTML = `<span>${esc(panel.title)}</span><button class="btn" title="Fermer">×</button>`;
+    $('button', h).onclick = () => this.closeRight(); R.appendChild(h);
+    const b = document.createElement('div'); b.className = 'body'; R.appendChild(b); panel.build(b);
+    setTimeout(() => this.redraw(), 200);
+  },
+  closeRight() { const R = $('#right'); R.classList.remove('open'); R.innerHTML = ''; if (this.rightPanel && this.rightPanel.close) this.rightPanel.close(); this.rightPanel = null; setTimeout(() => this.redraw(), 200); },
+
+  // ---------- fichiers ----------
+  _dl: undefined,
+  async dlCap() {
+    if (this._dl !== undefined) return this._dl;
+    try { this._dl = window.claude && window.claude.use ? await Promise.race([window.claude.use('downloads'), new Promise(r => setTimeout(() => r(null), 4000))]) : null; } catch (e) { this._dl = null; }
+    return this._dl;
+  },
+  async download(name, data, type) {
+    const blob = data instanceof Blob ? data : new Blob([data], { type: type || 'text/plain' });
+    const dl = await this.dlCap();
+    if (dl) {
+      try { await dl.save({ filename: name, data: blob }); this.msg('Fichier « ' + name + ' » enregistré (dossier Téléchargements)', 'ok'); return; }
+      catch (e) { if (e && e.code === 'declined') { this.msg('Enregistrement annulé'); return; } if (e && e.code === 'rate_limited') { this.msg('Une demande d\'enregistrement est déjà ouverte', 'err'); return; } }
+    }
+    if (window.claude) { // vue intégrée sans téléchargement possible : copie du texte
+      if (typeof data === 'string') {
+        this.modal('Copier le contenu', `<p class="hint">Le téléchargement n'est pas disponible dans cette vue. Copiez le texte puis collez-le dans un fichier nommé « ${esc(name)} ».</p><textarea id="cpy" spellcheck="false" style="width:100%;height:280px;font:12px/1.4 ui-monospace,Consolas,monospace">${esc(data)}</textarea>`,
+          [{ label: 'Copier', pri: true, action: bg => { navigator.clipboard.writeText($('#cpy', bg).value).then(() => this.msg('Contenu copié', 'ok'), () => this.msg('Copie refusée : sélectionnez le texte et faites Ctrl+C', 'err')); return false; } }, { label: 'Fermer' }], { width: 'min(760px,94vw)' });
+      } else this.msg('Téléchargement indisponible dans cette vue : utilisez « Copier l\'image » (clic droit sur le graphe)', 'err');
+      return;
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  },
+  pickFile(accept) {
+    return new Promise(res => { const i = $('#fileInput'); i.value = ''; i.accept = accept || ''; i.onchange = () => res(i.files[0] || null); i.click(); });
+  },
+  exportPNG(plot) { plot = plot || this.activePlot(); if (!plot) return; plot.canvas.toBlob(b => this.download((this.active ? this.active.title : 'graphe') + '.png', b)); },
+  sessionJSON() {
+    const curves = this.order.map(n => { const c = this.curve(n); return { name: c.name, unit: c.unit, x: c.x, color: c.color, axis: c.axis, kind: c.kind, style: c.style, width: c.width, y: Array.from(c.y) }; });
+    const docs = this.docs.filter(d => d.type !== 'video').map(d => ({ type: d.type, title: d.title, curves: d.plot ? d.plot.curves : undefined, xName: d.plot ? d.plot.xName : undefined, logx: d.plot ? d.plot.logx : undefined, equal: d.plot ? d.plot.equal : undefined, style: d.plot ? d.plot.style : undefined }));
+    return JSON.stringify({ format: 'LaboSignal', version: 1, app: 'LaboAnalyse', date: new Date().toISOString(), gen: Gen.getConfig(), curves, docs, calcText: this.calcText || '' });
+  },
+  loadSession(obj) {
+    if (obj.format !== 'LaboSignal') throw new Error('Fichier de session non reconnu');
+    this.clearAll(true);
+    for (const c of obj.curves) this.setCurve(c.name, { ...c, y: Float64Array.from(c.y) });
+    this.calcText = obj.calcText || '';
+    for (const d of obj.docs || []) {
+      if (d.type === 'graph') this.newGraph(d.title, d.curves || [], d.xName || null, { logx: d.logx, equal: d.equal, style: d.style });
+      else if (d.type === 'tableur') this.openTableur();
+      else if (d.type === 'calc') this.openCalc();
+    }
+    if (!this.graphDocs().length) this.newGraph();
+    if (obj.gen) Gen.setConfig(obj.gen);
+    this.refresh(); this.activate(this.docs[0]);
+  },
+  clearAll(noGraph) {
+    for (const d of this.docs.slice()) this.closeDoc(d);
+    this.curves.clear(); this.order = []; this.colorIdx = 0; this.selCurve = null;
+    if (!noGraph) this.newGraph();
+    this.refresh();
+  },
+
+  // ---------- importation ----------
+  parseTable(text) {
+    const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim() && !/^\s*(#|\/\/)/.test(l));
+    if (!lines.length) throw new Error('Fichier vide');
+    const sample = lines.slice(0, 20).join('\n');
+    const seps = ['\t', ';', ',', ' '];
+    let sep = null, best = -1;
+    const probe = lines.slice(0, 20);
+    for (const s of seps) {
+      const counts = probe.map(l => (s === ' ' ? l.trim().split(/\s+/) : l.split(s)).length);
+      const ok = counts.every(c => c === counts[counts.length - 1]) && counts[counts.length - 1] > 1;
+      if (!ok) continue;
+      if (s === '\t' || s === ';') { sep = s; break; } // séparateurs prioritaires
+      if (counts[0] > best) { best = counts[0]; sep = s; }
+    }
+    if (!sep) sep = /;/.test(sample) ? ';' : /\t/.test(sample) ? '\t' : ',';
+    const split = l => (sep === ' ' ? l.trim().split(/\s+/) : l.split(sep)).map(s => s.trim().replace(/^"|"$/g, ''));
+    const decComma = sep !== ',' && /\d,\d/.test(sample);
+    const num = s => { if (typeof s === 'number') return s; if (s === '' || s === undefined || s === null) return NaN; s = String(s).replace(/\s/g, ''); if (decComma) s = s.replace(',', '.'); return s === '' ? NaN : Number(s); };
+    return this.tableFromRows(lines.map(split), num);
+  },
+  // rows : tableau de lignes (chaînes ou nombres) -> { names:[{nm,un}], cols:[[...]] }
+  tableFromRows(rows, num) {
+    num = num || (s => { if (typeof s === 'number') return s; if (s === '' || s == null) return NaN; s = String(s).trim().replace(/\s/g, '').replace(',', '.'); return s === '' ? NaN : Number(s); });
+    const filled = r => r.filter(v => v !== '' && v !== undefined && v !== null).length;
+    rows = rows.filter(r => r && filled(r) > 0);
+    if (!rows.length) throw new Error('Aucune donnée');
+    const W = Math.max(...rows.map(r => r.length));
+    // lignes de titre en tête (une seule cellule remplie)
+    while (rows.length > 2 && W > 1 && filled(rows[0]) <= 1) rows.shift();
+    // colonnes entièrement vides retirées
+    const keep = []; for (let j = 0; j < W; j++) if (rows.some(r => r[j] !== '' && r[j] !== undefined && r[j] !== null)) keep.push(j);
+    rows = rows.map(r => keep.map(j => (r[j] === undefined || r[j] === null ? '' : r[j])));
+    const isNum = v => v !== '' && isFinite(num(v));
+    let header = rows[0].map(String), start = 1;
+    if (rows[0].every(v => v === '' || isNum(v))) { header = header.map((_, i) => 'C' + (i + 1)); start = 0; }
+    let units = header.map(() => '');
+    if (rows[start] && rows[start].every(v => !isNum(v))) { units = rows[start].map(String); start++; }
+    const cols = header.map(() => []);
+    for (let i = start; i < rows.length; i++) cols.forEach((c, j) => c.push(num(rows[i][j])));
+    // lignes vides en fin de tableau
+    let L = cols[0] ? cols[0].length : 0; while (L > 0 && cols.every(c => !isFinite(c[L - 1]))) L--; cols.forEach(c => c.length = L);
+    const names = header.map((h, i) => {
+      let m = /^(.*?)\s*[\(\[]\s*([^\)\]]*)\s*[\)\]]\s*$/.exec(h), nm = h, un = units[i] || '';
+      if (m) { nm = m[1]; un = m[2]; }
+      nm = nm.normalize('NFC').replace(/[^A-Za-z0-9_À-ɏ]+/g, '_').replace(/^_+|_+$/g, '') || 'C' + (i + 1);
+      if (/^\d/.test(nm)) nm = 'C' + nm;
+      return { nm, un };
+    });
+    return { names, cols };
+  },
+  async importer(file) {
+    const f = file || await this.pickFile('.csv,.txt,.dat,.tsv,.json,.rw3,.xlsx,.xlsm'); if (!f) return;
+    try {
+      if (/\.json$/i.test(f.name)) { this.loadSession(JSON.parse(await f.text())); this.msg('Session ouverte : ' + f.name, 'ok'); return; }
+      if (/\.xls$/i.test(f.name)) throw new Error('ancien format .xls : enregistrez le classeur au format .xlsx ou .csv');
+      if (/\.ods$/i.test(f.name)) throw new Error('format .ods : enregistrez le classeur au format .xlsx ou .csv');
+      let t;
+      if (/\.xls[xm]$/i.test(f.name)) {
+        const wb = await Xlsx.read(await f.arrayBuffer());
+        let sh = wb.sheets.find(s => s.rows.length) || wb.sheets[0];
+        if (wb.sheets.filter(s => s.rows.length).length > 1) {
+          const k = await this.modal('Classeur ' + f.name, `<div class="row"><label>Feuille à importer</label><select id="sh">${wb.sheets.map((s, i) => `<option value="${i}" ${s === sh ? 'selected' : ''}>${esc(s.name)} (${s.rows.length} lignes)</option>`).join('')}</select></div>`, [{ label: 'Annuler', value: null }, { label: 'OK', pri: true, action: bg => +$('#sh', bg).value }]);
+          if (k === null) return; sh = wb.sheets[k];
+        }
+        t = this.tableFromRows(sh.rows);
+      } else {
+        const buf = await f.arrayBuffer(); let text;
+        try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { text = new TextDecoder('windows-1252').decode(buf); }
+        if (/\.rw3$/i.test(f.name) || /^EVARISTE REGRESSI/i.test(text)) { this.importRegressi(text); return; }
+        t = this.parseTable(text);
+      }
+      await this.importTable(t, f.name);
+    } catch (e) { this.msg('Importation impossible : ' + e.message, 'err'); }
+  },
+  async importTable(t, fname) {
+    if (!t.cols.length || !t.cols[0].length) throw new Error('aucune ligne de données');
+    const r = await this.modal('Importer ' + fname, `<p>${t.names.length} colonne(s), ${t.cols[0].length} ligne(s).</p>
+      <div class="row"><label>Abscisse commune</label><select id="ix">${t.names.map((n, i) => `<option value="${i}">colonne ${i + 1} (${esc(n.nm)})</option>`).join('')}<option value="-1">(aucune : indice des points)</option></select></div>
+      ${t.names.map((n, i) => `<div class="row"><label>Colonne ${i + 1}</label><input data-i="${i}" class="nm" value="${esc(this.uniqueName(n.nm))}" style="width:110px"><input data-u="${i}" class="un" value="${esc(n.un)}" style="width:60px" placeholder="unité"></div>`).join('')}
+      <p class="hint">Les noms servent dans la feuille de calcul : lettres, chiffres et _ uniquement.</p>`,
+      [{ label: 'Annuler', value: null }, { label: 'Importer', pri: true, action: bg => ({ ix: +$('#ix', bg).value, names: $$('.nm', bg).map(e => e.value.trim()), units: $$('.un', bg).map(e => e.value.trim()) }) }]);
+    if (!r) return;
+    r.names = r.names.map((n, i) => (this.validName(n) ? n : this.uniqueName(t.names[i].nm)));
+    const xName = r.ix >= 0 ? r.names[r.ix] : null;
+    t.cols.forEach((c, i) => this.setCurve(r.names[i], { y: Float64Array.from(c), unit: r.units[i], x: i === r.ix ? null : xName, kind: 'import' }));
+    const shown = r.names.filter((_, i) => i !== r.ix);
+    if (shown.length) { const p = this.targetPlot(shown[0]); shown.forEach(n => { if (!p.curves.includes(n)) p.curves.push(n); }); p.autoscale(); }
+    this.refresh(); this.msg('Importé : ' + fname, 'ok');
+  },
+  importRegressi(text) {
+    // format texte Regressi (.rw3) : sections £NOM VAR, £UNITE VAR, &... valeurs
+    const lines = text.replace(/\r/g, '').split('\n');
+    let i = lines.findIndex(l => /^£\d+\s*NOM VAR/i.test(l)); if (i < 0) throw new Error('Fichier Regressi non reconnu');
+    const nv = parseInt(/£(\d+)/.exec(lines[i])[1]); const names = lines.slice(i + 1, i + 1 + nv).map(s => s.trim());
+    let j = lines.findIndex(l => /^£\d+\s*UNITE VAR/i.test(l)); const units = j >= 0 ? lines.slice(j + 1, j + 1 + nv).map(s => s.trim()) : names.map(() => '');
+    let k = lines.findIndex(l => /^&\d+\s+\d+/.test(l)); if (k < 0) k = lines.findIndex(l => /^&/.test(l));
+    const m = /^&(\d+)/.exec(lines[k]); const np = m ? parseInt(m[1]) : 0;
+    const cols = names.map(() => []);
+    for (let r = 0; r < np; r++) { const v = lines[k + 1 + r].trim().split(/\s+/).map(Number); cols.forEach((c, q) => c.push(v[q])); }
+    names.forEach((n, q) => this.setCurve(this.uniqueName(n.replace(/[^A-Za-z0-9_]/g, '_')), { y: Float64Array.from(cols[q]), unit: units[q], x: q ? names[0] : null, kind: 'import' }));
+    this.refresh(); this.msg('Fichier Regressi importé', 'ok');
+  },
+  exportCSV(names, sep = ';', dec = ',') {
+    names = names || this.order;
+    const cols = names.map(n => this.curve(n).y), N = Math.max(0, ...cols.map(c => c.length));
+    const f = v => (v === undefined || !isFinite(v) ? '' : String(+v.toPrecision(10)).replace('.', dec));
+    let s = names.map(n => { const c = this.curve(n); return n + (c.unit ? ' (' + c.unit + ')' : ''); }).join(sep) + '\n';
+    for (let i = 0; i < N; i++) s += cols.map(c => f(c[i])).join(sep) + '\n';
+    return s;
+  },
+};
+
+;
+// ===== Outils : tableur, feuille de calcul, modélisation, Fourier, traitements, vidéo =====
+'use strict';
+Object.assign(App, {
+  // ---------- TABLEUR ----------
+  openTableur() {
+    const ex = this.docs.find(d => d.type === 'tableur'); if (ex) { this.activate(ex); return ex; }
+    const app = this;
+    return this.addDoc({
+      type: 'tableur', icon: 'table', title: 'Tableur', cols: null,
+      build(el) {
+        el.innerHTML = `<div class="plotbar"><button class="btn cols">Colonnes…</button><button class="btn addrow">+ Ligne</button><button class="btn newvar">Nouvelle variable…</button><button class="btn copy">Copier tout</button><button class="btn csv">Exporter CSV</button><span class="small">Double-clic sur une cellule pour la modifier · Entrée valide · coller (Ctrl+V) depuis un tableur fonctionne sur une cellule sélectionnée</span></div><div class="grid" tabindex="0"><div class="spacer" style="position:relative"><table></table></div></div>`;
+        this.grid = $('.grid', el); this.grid.onscroll = () => this.renderRows();
+        $('.cols', el).onclick = () => this.chooseCols();
+        $('.addrow', el).onclick = () => { for (const n of this.columns()) { const c = app.curve(n); const y = new Float64Array(c.y.length + 1); y.set(c.y); y[c.y.length] = NaN; c.y = y; } app.refresh(); this.grid.scrollTop = 1e9; };
+        $('.newvar', el).onclick = () => app.nouvelleVariable();
+        $('.copy', el).onclick = () => navigator.clipboard.writeText(app.exportCSV(this.columns(), '\t', ',')).then(() => app.msg('Tableau copié (collez-le dans un tableur)', 'ok'));
+        $('.csv', el).onclick = () => app.download('donnees.csv', app.exportCSV(this.columns()), 'text/csv');
+        this.grid.addEventListener('paste', e => this.paste(e));
+      },
+      columns() { return (this.cols || app.order).filter(n => app.curve(n)); },
+      async chooseCols() {
+        const cur = this.columns();
+        const r = await app.modal('Colonnes du tableur', app.order.map(n => `<div><label><input type="checkbox" data-n="${esc(n)}" ${cur.includes(n) ? 'checked' : ''}> ${esc(n)}</label></div>`).join(''), [{ label: 'Toutes', value: 'all' }, { label: 'OK', pri: true, action: bg => $$('[data-n]', bg).filter(e => e.checked).map(e => e.dataset.n) }]);
+        if (r === 'all') this.cols = null; else if (r) this.cols = r; this.refresh();
+      },
+      refresh() {
+        const cols = this.columns(); this.N = Math.max(0, ...cols.map(n => app.curve(n).y.length));
+        const RH = 23; this.RH = RH;
+        $('.spacer', this.el).style.height = (this.N * RH + 30) + 'px';
+        this.head = `<tr><th>n°</th>${cols.map(n => { const c = app.curve(n); return `<th style="color:${c.color}" data-n="${esc(n)}">${esc(n)}${c.unit ? ' (' + esc(c.unit) + ')' : ''}</th>`; }).join('')}</tr>`;
+        this.renderRows(true);
+      },
+      renderRows() {
+        const cols = this.columns(), RH = this.RH || 23, g = this.grid; if (!g) return;
+        const first = Math.max(0, Math.floor(g.scrollTop / RH) - 5), last = Math.min(this.N, first + Math.ceil(g.clientHeight / RH) + 12);
+        const tbl = $('table', this.el); tbl.style.transform = `translateY(${first * RH}px)`;
+        let h = this.head;
+        for (let i = first; i < last; i++) h += `<tr><td class="i">${i + 1}</td>${cols.map(n => { const v = app.curve(n).y[i]; return `<td tabindex="0" data-r="${i}" data-n="${esc(n)}">${v === undefined || !isFinite(v) ? '' : fmtVal(v, 6)}</td>`; }).join('')}</tr>`;
+        tbl.innerHTML = h;
+        $$('th[data-n]', tbl).forEach(th => th.ondblclick = () => app.curveProps(th.dataset.n));
+        $$('td[data-n]', tbl).forEach(td => { td.ondblclick = () => this.edit(td); td.onkeydown = e => { if (e.key === 'Enter' || /^[-0-9.,]$/.test(e.key)) { e.preventDefault(); this.edit(td, /^[-0-9.,]$/.test(e.key) ? e.key : null); } if (e.key === 'Delete') { app.curve(td.dataset.n).y[+td.dataset.r] = NaN; app.refresh(); } }; td.onfocus = () => { this.focus = td; }; });
+        // sticky header correction
+        const th = $$('th', tbl); th.forEach(t => t.style.top = (-first * RH) + 'px');
+      },
+      edit(td, init) {
+        const n = td.dataset.n, r = +td.dataset.r, c = app.curve(n);
+        const inp = document.createElement('input'); inp.value = init !== null && init !== undefined ? init : (isFinite(c.y[r]) ? String(c.y[r]).replace('.', ',') : '');
+        td.innerHTML = ''; td.appendChild(inp); inp.focus();
+        const done = ok => {
+          if (ok) {
+            const v = inp.value.trim() === '' ? NaN : parseNum(inp.value);
+            if (r >= c.y.length) { const y = new Float64Array(r + 1).fill(NaN); y.set(c.y); c.y = y; }
+            c.y[r] = v; app.refresh(); app.redraw();
+            setTimeout(() => { const nx = $(`td[data-r="${r + 1}"][data-n="${CSS.escape(n)}"]`, this.el); if (nx) nx.focus(); }, 0);
+          } else this.renderRows();
+        };
+        inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); done(true); } if (e.key === 'Escape') done(false); };
+        inp.onblur = () => done(true);
+      },
+      paste(e) {
+        const td = this.focus; if (!td || !td.dataset.n) return;
+        e.preventDefault(); const txt = e.clipboardData.getData('text'); const rows = txt.replace(/\r/g, '').split('\n').filter(l => l.length);
+        const cols = this.columns(), c0 = cols.indexOf(td.dataset.n), r0 = +td.dataset.r;
+        rows.forEach((l, i) => l.split('\t').forEach((v, j) => {
+          const n = cols[c0 + j]; if (!n) return; const c = app.curve(n), r = r0 + i;
+          if (r >= c.y.length) { const y = new Float64Array(r + 1).fill(NaN); y.set(c.y); c.y = y; }
+          c.y[r] = parseNum(v);
+        }));
+        app.refresh(); app.redraw();
+      },
+    });
+  },
+  async nouvelleVariable() {
+    const r = await this.modal('Nouvelle variable', `<div class="row"><label>Nom</label><input id="vn" value="${this.uniqueName('x')}"></div><div class="row"><label>Unité</label><input id="vu"></div><div class="row"><label>Abscisse</label><select id="vx"><option value="">(aucune)</option>${this.curveOptions()}</select></div><div class="row"><label>Nombre de lignes</label><input id="vl" type="number" value="10"></div><p class="hint">La variable est ajoutée au tableur où vous pouvez saisir les valeurs.</p>`,
+      [{ label: 'Annuler', value: null }, { label: 'Créer', pri: true, action: bg => ({ n: $('#vn', bg).value.trim(), u: $('#vu', bg).value.trim(), x: $('#vx', bg).value || null, l: +$('#vl', bg).value }) }]);
+    if (!r) return;
+    if (!this.validName(r.n) || this.curve(r.n)) { this.msg('Nom invalide ou déjà utilisé', 'err'); return; }
+    const L = r.x ? this.curve(r.x).y.length : Math.max(1, r.l);
+    this.setCurve(r.n, { unit: r.u, x: r.x, y: new Float64Array(L).fill(NaN), kind: 'saisie' });
+    const t = this.openTableur(); if (t.cols) t.cols.push(r.n); this.refresh();
+  },
+
+  // ---------- FEUILLE DE CALCUL ----------
+  calcText: '',
+  openCalc() {
+    const ex = this.docs.find(d => d.type === 'calc'); if (ex) { this.activate(ex); return ex; }
+    const app = this;
+    return this.addDoc({
+      type: 'calc', icon: 'calc', title: 'Feuille de calcul',
+      build(el) {
+        el.innerHTML = `<div class="plotbar"><button class="btn pri run">▶ Exécuter (F2)</button><span class="small">Une formule par ligne · <code>Nom = expression</code> · unité facultative entre crochets en fin de ligne · <code>//</code> commentaire</span></div>
+          <div class="calc"><textarea spellcheck="false" placeholder="// Exemples&#10;m = 0.25&#10;vx = deriv(x) [m/s]&#10;vy = deriv(y) [m/s]&#10;v = sqrt(vx^2+vy^2) [m/s]&#10;Ec = 0.5*m*v^2 [J]&#10;Ep = m*g*y [J]&#10;Em = Ec + Ep [J]"></textarea>
+          <aside>${app.calcHelp()}</aside></div><div class="msg"></div>`;
+        this.ta = $('textarea', el); this.ta.value = app.calcText;
+        this.ta.oninput = () => { app.calcText = this.ta.value; };
+        this.ta.onkeydown = e => { if (e.key === 'F2' || (e.key === 'Enter' && e.ctrlKey)) { e.preventDefault(); this.run(); } if (e.key === 'Tab') { e.preventDefault(); document.execCommand('insertText', false, '  '); } };
+        $('.run', el).onclick = () => this.run();
+        $$('aside code', el).forEach(c => { c.style.cursor = 'pointer'; c.title = 'Insérer'; c.onclick = () => { this.ta.focus(); document.execCommand('insertText', false, c.textContent); }; });
+      },
+      getText() { return this.ta.value; },
+      run() {
+        const out = app.runCalc(this.ta.value), m = $('.msg', this.el);
+        m.className = 'msg ' + (out.err ? 'err' : 'ok'); m.textContent = out.text;
+        if (out.err && out.line >= 0) { const lines = this.ta.value.split('\n'); let p = 0; for (let i = 0; i < out.line; i++) p += lines[i].length + 1; this.ta.focus(); this.ta.setSelectionRange(p, p + lines[out.line].length); }
+      },
+    });
+  },
+  calcHelp() {
+    return `<b>Grandeurs</b> : noms des courbes (t, x, u, …) et constantes définies plus haut (<code>R = 1000</code>).<br>
+      <b>Opérations</b> : <code>+ - * / ^</code> et parenthèses.<br>
+      <b>Fonctions</b> : <code>sin()</code> <code>cos()</code> <code>tan()</code> <code>exp()</code> <code>ln()</code> <code>log()</code> <code>sqrt()</code> <code>abs()</code> <code>arctan()</code> <code>sqr()</code> <code>echelon()</code><br>
+      <b>Traitements</b> :<br><code>deriv(y)</code> dérivée par rapport à son abscisse ; <code>deriv(y,x)</code><br>
+      <code>integ(y)</code> primitive (méthode des trapèzes)<br>
+      <code>lisse(y,5)</code> moyenne glissante sur 5 points<br>
+      <code>moy(y)</code> <code>eff(y)</code> <code>max(y)</code> <code>min(y)</code> <code>ecarttype(y)</code> <code>somme(y)</code><br>
+      <code>si(cond, a, b)</code> ex. <code>si(u>0, u, 0)</code><br>
+      <b>Signaux</b> (période 1) : <code>carre(x)</code> <code>triangle(x)</code> <code>dent(x)</code> ; <code>bruit(t)</code> bruit gaussien d'écart-type 1<br>
+      <code>pi</code> <code>e</code> <code>g</code> (9,81)<br>
+      <b>Nouvelle abscisse</b> : <code>t2 = t*1000 [ms]</code> puis choisir t2 comme abscisse dans une fenêtre.<br>
+      <b>Valeurs à la main</b> : <code>R = 1000</code> crée une constante (affichée dans le message).`;
+  },
+  runCalc(text) {
+    const lines = text.split('\n'); const consts = {}; const made = []; const scal = [];
+    const get = name => {
+      if (name in consts) return consts[name];
+      const c = this.curve(name); if (!c) return undefined;
+      const xc = c.x ? this.curve(c.x) : null;
+      return { y: c.y, x: xc ? xc.y : null, xname: c.x };
+    };
+    for (let i = 0; i < lines.length; i++) {
+      let l = lines[i].replace(/\/\/.*$/, '').trim(); if (!l) continue;
+      let unit = ''; const mu = /\[([^\]]*)\]\s*$/.exec(l); if (mu) { unit = mu[1].trim(); l = l.slice(0, mu.index).trim(); }
+      const m = /^([A-Za-z_À-ɏ][A-Za-z0-9_À-ɏ]*)\s*=\s*(.+)$/.exec(l);
+      if (!m) return { err: true, line: i, text: `Ligne ${i + 1} : écrire « Nom = expression »` };
+      const name = m[1];
+      try {
+        const ast = Expr.parse(m[2]);
+        const ctx = { xref: null, xrefName: null, get: n => { const v = get(n); if (v && typeof v === 'object' && !ctx.xrefName && v.xname !== undefined) { ctx.xrefName = v.xname; ctx.xref = v.x; ctx.refName = n; } return v; } };
+        const res = Expr.evaluate(ast, ctx);
+        if (typeof res === 'number') { consts[name] = res; scal.push(name + ' = ' + fmtVal(res, 6) + (unit ? ' ' + unit : '')); if (this.curve(name) && this.curve(name).kind === 'calc' && this.curve(name).y.length === 1) this.removeCurve(name); continue; }
+        if (name === ctx.refName) { /* redéfinition d'une grandeur par elle-même : autorisée */ }
+        const c = this.curve(name);
+        if (c && c.kind === 'acq' && name !== ctx.refName) throw new Error('« ' + name + ' » est une courbe d\'acquisition : choisissez un autre nom');
+        const isNew = !c;
+        this.setCurve(name, { y: res, x: ctx.xrefName && ctx.xrefName !== name ? ctx.xrefName : (c ? c.x : null), unit: unit || (c ? c.unit : ''), kind: c ? c.kind : 'calc' });
+        made.push(name); if (isNew) this._calcNew = name;
+      } catch (e) { this.refresh(); return { err: true, line: i, text: `Ligne ${i + 1} : ${e.message}` }; }
+    }
+    this.refresh(); this.redraw();
+    return { err: false, text: (made.length ? 'Calculé : ' + made.join(', ') : 'Aucune courbe calculée') + (scal.length ? '   |   ' + scal.join('   ') : '') };
+  },
+
+  // ---------- MODÉLISATION ----------
+  openModel(curveName) {
+    const app = this, plot = this.activePlot();
+    const cand = plot && plot.curves.length ? plot.curves : this.order;
+    let cur = curveName || (plot && plot.cursorCurve) || cand[0];
+    this.openRight({
+      title: 'Modélisation',
+      build(b) {
+        b.innerHTML = `<div class="row"><label>Courbe</label><select id="mc">${app.curveOptions(cur)}</select></div>
+          <div class="row"><label>Modèle</label><select id="mm">${Fit.MODELS.map(m => `<option value="${m.id}">${esc(m.nom)}</option>`).join('')}</select></div>
+          <div id="mexpr" class="row" style="display:none"><input id="me" style="width:100%" placeholder="ex. A*exp(-x/tau)+B (variable x)"></div>
+          <div class="hint" id="mform"></div>
+          <label class="small" style="display:block;margin:6px 0"><input type="checkbox" id="mzone" checked> seulement les points visibles (zoom)</label>
+          <div id="mp"></div>
+          <div class="row"><button class="btn pri" id="mgo">Calculer le modèle</button><button class="btn" id="mdel">Effacer</button></div>
+          <div class="res" id="mres">Choisissez une courbe et un modèle.</div>
+          <p class="hint">Ajustement par moindres carrés (Levenberg-Marquardt). Les valeurs initiales peuvent être modifiées si le modèle ne converge pas. Le modèle est ajouté comme courbe « Mod_… ».</p>`;
+        const upd = () => {
+          const m = Fit.MODELS.find(m => m.id === $('#mm', b).value);
+          $('#mexpr', b).style.display = m.params ? 'none' : 'flex';
+          $('#mform', b).textContent = m.params ? 'y = ' + m.expr : '';
+          const ps = m.params || (() => { try { return Expr.freeSymbols($('#me', b).value || '0', 'x'); } catch (e) { return []; } })();
+          $('#mp', b).innerHTML = ps.map(p => `<div class="row"><label>${esc(p)} initial</label><input data-p="${esc(p)}" placeholder="auto"></div>`).join('');
+        };
+        $('#mm', b).onchange = upd; $('#me', b).oninput = upd; upd();
+        $('#mc', b).onchange = e => { cur = e.target.value; };
+        $('#mgo', b).onclick = () => app.doModel(b);
+        $('#mdel', b).onclick = () => { const n = 'Mod_' + $('#mc', b).value; app.removeCurve(n); app.refresh(); };
+      },
+    });
+  },
+  doModel(b) {
+    const name = $('#mc', b).value, c = this.curve(name); if (!c) return;
+    const m = Fit.MODELS.find(m => m.id === $('#mm', b).value);
+    const plot = this.activePlot();
+    const d = this.getCurveXY(name, plot ? plot.xName : null);
+    let xs = [], ys = [];
+    const V = plot && $('#mzone', b).checked && plot.zoomed() ? (([a, c]) => ({ xmin: a, xmax: c }))(plot.xRange()) : null;
+    for (let i = 0; i < Math.min(d.x.length, d.y.length); i++) {
+      const x = d.x[i], y = d.y[i]; if (!isFinite(x) || !isFinite(y)) continue;
+      if (V && (x < V.xmin || x > V.xmax)) continue; xs.push(x); ys.push(y);
+    }
+    if (xs.length < 3) { $('#mres', b).textContent = 'Pas assez de points.'; return; }
+    // limite à 20000 points pour la rapidité
+    if (xs.length > 20000) { const st = Math.ceil(xs.length / 20000); xs = xs.filter((_, i) => i % st === 0); ys = ys.filter((_, i) => i % st === 0); }
+    const init = {}; $$('[data-p]', b).forEach(e => { if (e.value.trim()) init[e.dataset.p] = parseNum(e.value); });
+    try {
+      const r = Fit.runModel(m, xs, ys, 'x', $('#me', b).value, init);
+      const { p, r2, sig, ecart } = r.res;
+      const xc = plot && plot.xName ? this.curve(plot.xName) : this.xCurveOf(name);
+      const xu = xc ? xc.unit : '';
+      let txt = (m.params ? m.nom : 'Modèle') + ' :\n' + name + ' = ' + (r.expr || '').replace(/\bx\b/g, xc ? xc.name : 'x') + '\n\n';
+      r.pnames.forEach((pn, i) => { txt += pn + ' = ' + fmtVal(p[i], 5) + (isFinite(sig[i]) ? '  (± ' + fmtVal(sig[i], 2) + ')' : '') + '\n'; });
+      txt += '\nR² = ' + r2.toFixed(6) + '\nécart-type relatif = ' + ecart.toFixed(3) + ' %\n' + xs.length + ' points utilisés';
+      if (m.id === 'sin' || m.id === 'sinam') { const f = p[r.pnames.indexOf('f')]; txt += '\npériode T = ' + fmtVal(1 / f, 5) + (xu ? ' ' + xu : ''); }
+      if (m.id === 'p1m' || m.id === 'p1d' || m.id === 'exp') { const tau = p[r.pnames.indexOf('tau')]; txt += '\n5τ = ' + fmtVal(5 * tau, 5) + (xu ? ' ' + xu : ''); }
+      if (m.id === 'ord2') { const w0 = p[r.pnames.indexOf('w0')]; txt += '\nf0 = ' + fmtVal(w0 / 2 / Math.PI, 5) + ' ; m = ' + fmtVal(p[1], 4); }
+      $('#mres', b).textContent = txt;
+      $$('[data-p]', b).forEach(e => { const k = r.pnames.indexOf(e.dataset.p); if (k >= 0) e.placeholder = fmtVal(p[k], 5); });
+      // courbe modèle : x dense sur la plage
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), N = 600;
+      const mx = new Float64Array(N), my = new Float64Array(N);
+      for (let i = 0; i < N; i++) { mx[i] = x0 + (x1 - x0) * i / (N - 1); my[i] = r.fn(mx[i], p); }
+      const mn = 'Mod_' + name, mxn = 'Mod_' + name + '_x';
+      this.setCurve(mxn, { y: mx, unit: xu, kind: 'model', x: null, color: '#999999' });
+      this.setCurve(mn, { y: my, unit: c.unit, kind: 'model', x: mxn, color: '#000000', style: 'ligne' });
+      // place la courbe modèle dans la fenêtre (en abscisse propre)
+      if (plot) {
+        if (plot.xName) { /* fenêtre avec abscisse imposée : on bascule en abscisse propre */ plot.xName = null; }
+        if (!plot.curves.includes(mn)) plot.curves.push(mn);
+      }
+      this.refresh(); this.redraw();
+      this.lastModel = { txt };
+    } catch (e) { $('#mres', b).textContent = 'Échec : ' + e.message; }
+  },
+
+  // ---------- FOURIER ----------
+  async openFourier(curveName) {
+    const plot = this.activePlot();
+    const cur = curveName || (plot && plot.cursorCurve) || this.order.find(n => this.curve(n).x);
+    const r = await this.modal('Analyse de Fourier', `<div class="row"><label>Courbe</label><select id="fc">${this.curveOptions(cur)}</select></div>
+      <div class="row"><label>Fenêtre de pondération</label><select id="fw"><option value="rect">rectangulaire</option><option value="hann">Hann</option><option value="hamming">Hamming</option><option value="blackman">Blackman</option></select></div>
+      <div class="row"><label>Tracé du spectre</label><select id="fs"><option value="batons">bâtons</option><option value="ligne">lignes</option></select></div>
+      <label class="small"><input type="checkbox" id="fz"> seulement la zone visible du graphe</label><br>
+      <label class="small"><input type="checkbox" id="fp"> spectre plus fin (bourrage de zéros)</label><br>
+      <label class="small"><input type="checkbox" id="fdb"> amplitude en dB</label><br>
+      <label class="small"><input type="checkbox" id="fph"> spectre de phase (en degrés, référence cosinus)</label>
+      <p class="hint">Amplitudes crête. Pour une bonne mesure, prendre un nombre entier de périodes ou utiliser la fenêtre de Hann. La phase n'est affichée que pour les raies dont l'amplitude dépasse 2 % de la plus grande ; elle est mesurée par rapport au début de la zone analysée.</p>`,
+      [{ label: 'Annuler', value: null }, { label: 'Calculer', pri: true, action: bg => ({ c: $('#fc', bg).value, w: $('#fw', bg).value, st: $('#fs', bg).value, z: $('#fz', bg).checked, p: $('#fp', bg).checked, db: $('#fdb', bg).checked, ph: $('#fph', bg).checked }) }]);
+    if (!r) return;
+    try {
+      let d = this.getCurveXY(r.c, plot ? plot.xName : null); let x = d.x, y = d.y;
+      if (r.z && plot && plot.zoomed()) { const [xa, xb] = plot.xRange(), idx = []; for (let i = 0; i < x.length; i++) if (x[i] >= xa && x[i] <= xb) idx.push(i); x = Float64Array.from(idx, i => x[i]); y = Float64Array.from(idx, i => y[i]); }
+      const s = Num.spectrum(x, y, { window: r.w, zeroPad: r.p });
+      let a = s.a; if (r.db) a = a.map(v => 20 * Math.log10(Math.max(v, 1e-12)));
+      const fn = this.uniqueName('Freq_' + r.c), an = this.uniqueName('Spectre_' + r.c);
+      const xu = (this.xCurveOf(r.c) || {}).unit;
+      const fu = xu === 's' ? 'Hz' : xu === 'ms' ? 'kHz' : (xu ? '1/' + xu : '');
+      this.setCurve(fn, { y: s.f, unit: fu, kind: 'calc', x: null, color: '#888888' });
+      this.setCurve(an, { y: a, unit: r.db ? 'dB' : this.curve(r.c).unit, kind: 'calc', x: fn, color: this.curve(r.c).color });
+      let k = 1; for (let i = 2; i < s.a.length; i++) if (s.a[i] > s.a[k]) k = i;
+      const doc = this.newGraph('Fourier ' + r.c, [an], null, { style: r.st });
+      // vue initiale limitée aux fréquences utiles (double-clic : spectre complet)
+      let kmax = 1; for (let i = 1; i < s.a.length; i++) if (s.a[i] > 0.01 * s.a[k]) kmax = i;
+      const fview = Math.min(s.f[s.f.length - 1], s.f[Math.min(s.f.length - 1, Math.ceil(kmax * 1.3) + 2)]);
+      const zoomF = p => { p.autoscale(); const V = p.getView(); if (fview < 0.6 * V.xmax) { p.auto = false; p.view = Object.assign({}, V, { xmin: 0, xmax: fview }); p.draw(); } };
+      zoomF(doc.plot);
+      if (r.ph) {
+        const amax = s.a[k], pn = this.uniqueName('Phase_' + r.c);
+        this.setCurve(pn, { y: s.ph.map((v, i) => (s.a[i] > 0.02 * amax ? v * 180 / Math.PI : NaN)), unit: '°', kind: 'calc', x: fn, color: '#9467bd' });
+        zoomF(this.newGraph('Phase ' + r.c, [pn], null, { style: r.st === 'batons' ? 'batons' : 'points' }).plot);
+        this.activate(doc);
+      }
+      this.refresh();
+      this.msg(`Pic principal : f = ${fmtSI(s.f[k], fu || 'Hz')}, amplitude ${fmtVal(s.a[k], 4)} ; résolution Δf = ${fmtSI(s.f[1], fu || 'Hz')} ; valeur moyenne = ${fmtVal(s.a[0], 4)}`, 'ok');
+    } catch (e) { this.msg('Fourier : ' + e.message, 'err'); }
+  },
+
+  // ---------- TRAITEMENTS ----------
+  TRAIT: {
+    deriv: { nom: 'Dérivée', pre: 'd', p: null },
+    integ: { nom: 'Intégrale (primitive)', pre: 'I', p: null },
+    lisse: { nom: 'Lissage (moyenne glissante)', pre: 'L', p: 'Nombre de points', def: 5 },
+    pb: { nom: 'Filtre passe-bas 1er ordre', pre: 'PB', p: 'Fréquence de coupure fc (Hz)', def: 100 },
+    ph: { nom: 'Filtre passe-haut 1er ordre', pre: 'PH', p: 'Fréquence de coupure fc (Hz)', def: 100 },
+    pb2: { nom: 'Filtre passe-bas 2e ordre', pre: 'PB2', p: 'Fréquence propre f0 (Hz)', def: 100, q: 0.707 },
+    ph2: { nom: 'Filtre passe-haut 2e ordre', pre: 'PH2', p: 'Fréquence propre f0 (Hz)', def: 100, q: 0.707 },
+    pbd: { nom: 'Filtre passe-bande 2e ordre', pre: 'PBd', p: 'Fréquence centrale f0 (Hz)', def: 100, q: 5 },
+    cbd: { nom: 'Filtre coupe-bande (réjecteur)', pre: 'CB', p: 'Fréquence rejetée f0 (Hz)', def: 50, q: 5 },
+    ech: { nom: 'Échantillonnage à fe (points seuls)', pre: 'E', p: 'Fréquence d\'échantillonnage fe (Hz)', def: 100 },
+    echb: { nom: 'Échantillonnage-blocage à fe (escalier)', pre: 'EB', p: 'Fréquence d\'échantillonnage fe (Hz)', def: 100 },
+    abs: { nom: 'Valeur absolue', pre: 'Abs', p: null },
+    moy: { nom: 'Retirer la valeur moyenne', pre: 'AC', p: null },
+    norm: { nom: 'Normaliser (max = 1)', pre: 'N', p: null },
+  },
+  async openTraitements(curveName, op) {
+    const cur = curveName || this.selCurve || (this.activePlot() || {}).cursorCurve;
+    const T = this.TRAIT;
+    const r = await this.modal('Calculs sur une courbe', `<div class="row"><label>Courbe</label><select id="tc">${this.curveOptions(cur)}</select></div>
+      <div class="row"><label>Opération</label><select id="to" style="width:250px">${Object.entries(T).map(([k, v]) => `<option value="${k}" ${k === op ? 'selected' : ''}>${esc(v.nom)}</option>`).join('')}</select></div>
+      <div class="row" id="rp"><label id="lp">Paramètre</label><input id="tp" value="5"></div>
+      <div class="row" id="rq"><label>Facteur de qualité Q</label><input id="tq" value="0.707"></div>
+      <p class="hint" id="th"></p>
+      <div class="row"><label>Nom du résultat</label><input id="tn" value=""></div>`,
+      [{ label: 'Annuler', value: null }, { label: 'Calculer', pri: true, action: bg => ({ c: $('#tc', bg).value, o: $('#to', bg).value, p: parseNum($('#tp', bg).value), q: parseNum($('#tq', bg).value), n: $('#tn', bg).value.trim() }) }],
+      { onOpen: bg => {
+        const upd = () => {
+          const o = $('#to', bg).value, t = T[o];
+          $('#tn', bg).value = this.uniqueName(t.pre + '_' + $('#tc', bg).value);
+          $('#rp', bg).style.display = t.p ? '' : 'none'; $('#lp', bg).textContent = t.p || ''; if (t.def !== undefined) $('#tp', bg).value = t.def;
+          $('#rq', bg).style.display = t.q ? '' : 'none'; if (t.q) $('#tq', bg).value = t.q;
+          $('#th', bg).textContent = { pb2: 'Q = 0,707 : filtre de Butterworth (pas de résonance). Q > 0,707 : résonance près de f0.', ph2: 'Q = 0,707 : filtre de Butterworth.', pbd: 'Gain maximal 1 à f0 ; bande passante Δf = f0/Q.', cbd: 'Gain nul à f0 ; largeur de la bande rejetée Δf = f0/Q. Utile pour retirer le 50 Hz.', ech: 'Crée une nouvelle courbe (et son temps) ne contenant que les échantillons pris à la fréquence fe : comparer les spectres pour observer le repliement (critère de Shannon fe > 2 fmax).', echb: 'Valeur maintenue entre deux échantillons (bloqueur d\'ordre 0), sur la même abscisse que la courbe d\'origine.', pb: 'Filtre numérique équivalent à un RC (τ = 1/(2π fc)).', ph: 'Filtre numérique équivalent à un CR (τ = 1/(2π fc)).' }[o] || '';
+        };
+        $('#to', bg).onchange = upd; $('#tc', bg).onchange = upd; upd();
+      } });
+    if (!r) return;
+    try {
+      const c = this.curve(r.c); if (!c) throw new Error('courbe introuvable');
+      const d = this.getCurveXY(r.c); let y;
+      const n = Math.min(d.x.length, d.y.length);
+      const fsamp = () => { if (n < 3) throw new Error('pas assez de points'); const fs = (n - 1) / (d.x[n - 1] - d.x[0]); if (!(fs > 0)) throw new Error('abscisse non croissante'); return fs; };
+      const xc = this.xCurveOf(r.c); let unit = c.unit;
+      const name = this.validName(r.n) && !(this.curve(r.n) && this.curve(r.n).kind !== 'calc') ? r.n : this.uniqueName(T[r.o].pre + '_' + r.c);
+      switch (r.o) {
+        case 'deriv': y = Num.deriv(d.x, d.y); unit = c.unit + (xc && xc.unit ? '/' + xc.unit : ''); break;
+        case 'integ': y = Num.integ(d.x, d.y); unit = c.unit + (xc && xc.unit ? '.' + xc.unit : ''); break;
+        case 'lisse': y = Num.smooth(d.y, r.p || 5); break;
+        case 'pb': case 'ph': {
+          y = new Float64Array(n); const tau = 1 / (2 * Math.PI * (r.p || 1)); y[0] = d.y[0];
+          for (let i = 1; i < n; i++) { const dt = d.x[i] - d.x[i - 1], a = dt / (tau + dt); y[i] = y[i - 1] + a * (d.y[i] - y[i - 1]); }
+          if (r.o === 'ph') for (let i = 0; i < n; i++) y[i] = d.y[i] - y[i];
+          break;
+        }
+        case 'pb2': case 'ph2': case 'pbd': case 'cbd': {
+          const fs = fsamp(); if (!(r.p > 0) || r.p >= fs / 2) throw new Error('f0 doit être compris entre 0 et fe/2 = ' + fmtSI(fs / 2, 'Hz'));
+          y = Num.biquad(d.y.subarray(0, n), { pb2: 'lp', ph2: 'hp', pbd: 'bp', cbd: 'notch' }[r.o], r.p, r.q > 0 ? r.q : 0.707, fs);
+          break;
+        }
+        case 'ech': case 'echb': {
+          const fs = fsamp(), fe = r.p; if (!(fe > 0)) throw new Error('fe invalide');
+          if (fe > fs) throw new Error('fe doit être inférieure à la fréquence d\'échantillonnage de la courbe (' + fmtSI(fs, 'Hz') + ')');
+          const x0 = d.x[0], N = Math.floor((d.x[n - 1] - x0) * fe + 1e-9) + 1;
+          const at = t => { let i = Math.min(n - 2, Math.max(0, Math.floor((t - x0) * fs))); while (i < n - 2 && d.x[i + 1] < t) i++; while (i > 0 && d.x[i] > t) i--; const u = (t - d.x[i]) / ((d.x[i + 1] - d.x[i]) || 1); return d.y[i] + u * (d.y[i + 1] - d.y[i]); };
+          if (r.o === 'ech') {
+            const tn = this.uniqueName(name + '_t');
+            this.setCurve(tn, { y: Float64Array.from({ length: N }, (_, k) => x0 + k / fe), unit: xc ? xc.unit : '', kind: 'calc', x: null, color: '#888888' });
+            this.setCurve(name, { y: Float64Array.from({ length: N }, (_, k) => at(x0 + k / fe)), x: tn, unit, kind: 'calc', style: 'lignepoints' });
+            const p = this.targetPlot(r.c); if (!p.curves.includes(name)) { if (p.xName) p.xName = null; p.curves.push(name); p.autoscale(); }
+            this.refresh(); this.redraw(); this.msg(`Courbe ${name} : ${N} échantillons à fe = ${fmtSI(fe, 'Hz')} (Shannon : fréquences < ${fmtSI(fe / 2, 'Hz')})`, 'ok'); return;
+          }
+          const ek = Float64Array.from({ length: N }, (_, k) => at(x0 + k / fe));
+          y = new Float64Array(n); for (let i = 0; i < n; i++) y[i] = ek[Math.min(N - 1, Math.floor((d.x[i] - x0) * fe + 1e-9))];
+          break;
+        }
+        case 'abs': y = d.y.map(Math.abs); break;
+        case 'moy': { const m = Num.mean(d.y); y = d.y.map(v => v - m); break; }
+        case 'norm': { const m = Math.max(...d.y.map(Math.abs)); y = d.y.map(v => v / m); break; }
+      }
+      this.setCurve(name, { y, x: c.x, unit, kind: 'calc' });
+      const p = this.targetPlot(name); if (!p.curves.includes(name)) { p.curves.push(name); p.autoscale(); }
+      this.refresh(); this.redraw(); this.msg('Courbe ' + name + ' calculée', 'ok');
+    } catch (e) { this.msg('Calcul impossible : ' + e.message, 'err'); }
+  },
+
+  // ---------- DIAGRAMME DE BODE ----------
+  async openBode() {
+    const withX = this.order.filter(n => this.curve(n).x);
+    if (withX.length < 2) { this.msg('Il faut deux courbes (entrée et sortie) ayant la même abscisse (temps)', 'err'); return; }
+    const r = await this.modal('Diagramme de Bode à partir de deux voies', `
+      <div class="row"><label>Entrée e(t)</label><select id="be">${this.curveOptions(withX[0], c => c.x)}</select></div>
+      <div class="row"><label>Sortie s(t)</label><select id="bs">${this.curveOptions(withX[1], c => c.x)}</select></div>
+      <div class="row"><label>Méthode</label><select id="bm" style="width:250px"><option value="sin">entrée sinusoïdale : un point du diagramme</option><option value="fft">entrée large bande : diagramme complet (FFT)</option></select></div>
+      <div id="bfft" style="display:none"><div class="row"><label>Seuil sur |E(f)| (% du maximum)</label><input id="bt" value="2" style="width:60px"></div>
+        <label class="small"><input type="checkbox" id="bu" checked> phase « déroulée » (continue)</label></div>
+      <p class="hint" id="bh"></p>`,
+      [{ label: 'Annuler', value: null }, { label: 'Calculer', pri: true, action: bg => ({ e: $('#be', bg).value, s: $('#bs', bg).value, m: $('#bm', bg).value, t: parseNum($('#bt', bg).value), u: $('#bu', bg).checked }) }],
+      { onOpen: bg => { const u = () => { const f = $('#bm', bg).value === 'fft'; $('#bfft', bg).style.display = f ? '' : 'none'; $('#bh', bg).innerHTML = f ? 'L\'entrée doit contenir toutes les fréquences utiles : échelon, impulsion, bruit ou balayage en fréquence (« chirp », voir le générateur). On calcule H(f) = S(f)/E(f) ; les fréquences où E(f) est trop faible sont ignorées.' : 'Les deux signaux sont ajustés par des sinusoïdes de même fréquence : gain G = S<sub>m</sub>/E<sub>m</sub> et déphasage φ = φ<sub>s</sub> − φ<sub>e</sub>. Chaque calcul <b>ajoute un point</b> aux courbes Bpt_f, Bpt_GdB, Bpt_phi : importez les fichiers successifs (une fréquence par fichier) et recommencez.'; }; $('#bm', bg).onchange = u; u(); } });
+    if (!r) return;
+    try {
+      const de = this.getCurveXY(r.e), ds = this.getCurveXY(r.s);
+      const n = Math.min(de.x.length, de.y.length, ds.y.length);
+      if (n < 8) throw new Error('pas assez de points');
+      const x = de.x.subarray(0, n), e = de.y.subarray(0, n), s = ds.y.subarray(0, n);
+      if (r.m === 'fft') {
+        const Se = Num.spectrum(x, e, { window: 'rect' }), Ss = Num.spectrum(x, s, { window: 'rect' });
+        let amax = 0; for (let k = 1; k < Se.a.length; k++) amax = Math.max(amax, Se.a[k]);
+        const thr = (r.t > 0 ? r.t : 2) / 100 * amax, F = [], G = [], P = [];
+        let prev = null, off = 0;
+        for (let k = 1; k < Se.a.length; k++) {
+          if (!(Se.a[k] > thr)) continue;
+          let ph = (Ss.ph[k] - Se.ph[k]) * 180 / Math.PI; ph = ((ph + 180) % 360 + 360) % 360 - 180;
+          if (r.u && prev !== null) { while (ph + off - prev > 180) off -= 360; while (ph + off - prev < -180) off += 360; }
+          ph += off; prev = ph;
+          F.push(Se.f[k]); G.push(20 * Math.log10(Ss.a[k] / Se.a[k])); P.push(ph);
+        }
+        if (F.length < 2) throw new Error('spectre de l\'entrée trop pauvre : utilisez un échelon, un bruit ou un balayage en fréquence');
+        this.setCurve('Bode_f', { y: F, unit: 'Hz', kind: 'calc', x: null, color: '#888888' });
+        this.setCurve('Bode_GdB', { y: G, unit: 'dB', kind: 'calc', x: 'Bode_f', color: '#1f77b4' });
+        this.setCurve('Bode_phi', { y: P, unit: '°', kind: 'calc', x: 'Bode_f', color: '#d62728' });
+        this.showBode('Bode_GdB', 'Bode_phi', 'points');
+        this.msg(`Diagramme de Bode : ${F.length} fréquences entre ${fmtSI(F[0], 'Hz')} et ${fmtSI(F[F.length - 1], 'Hz')}`, 'ok');
+      } else {
+        const mod = Fit.MODELS.find(m => m.id === 'sin');
+        const fe = Fit.runModel(mod, x, e, 'x');
+        const f = Math.abs(fe.res.p[1]); if (!(f > 0)) throw new Error('fréquence de l\'entrée non trouvée');
+        const fitAB = y => { // y ≈ a sin(ωt) + b cos(ωt) + c
+          const w = 2 * Math.PI * f, A = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], B = [0, 0, 0];
+          for (let i = 0; i < n; i++) { const v = [Math.sin(w * x[i]), Math.cos(w * x[i]), 1]; for (let a = 0; a < 3; a++) { B[a] += v[a] * y[i]; for (let b = 0; b < 3; b++) A[a][b] += v[a] * v[b]; } }
+          const sol = Fit.solve(A, B); if (!sol) throw new Error('ajustement impossible'); return { amp: Math.hypot(sol[0], sol[1]), phi: Math.atan2(sol[1], sol[0]) };
+        };
+        const E = fitAB(e), S = fitAB(s);
+        const g = S.amp / E.amp; let ph = (S.phi - E.phi) * 180 / Math.PI; ph = ((ph + 180) % 360 + 360) % 360 - 180;
+        const add = (nm, v, unit, x, color) => { const c = this.curve(nm); const arr = c ? Array.from(c.y) : []; arr.push(v); this.setCurve(nm, { y: arr, unit, kind: 'calc', x, color }); };
+        add('Bpt_f', f, 'Hz', null, '#888888'); add('Bpt_G', g, '', 'Bpt_f', '#2ca02c'); add('Bpt_GdB', 20 * Math.log10(g), 'dB', 'Bpt_f', '#1f77b4'); add('Bpt_phi', ph, '°', 'Bpt_f', '#d62728');
+        // tri par fréquence croissante
+        const F = this.curve('Bpt_f').y, idx = Array.from(F, (_, i) => i).sort((a, b) => F[a] - F[b]);
+        for (const nm of ['Bpt_f', 'Bpt_G', 'Bpt_GdB', 'Bpt_phi']) { const c = this.curve(nm); c.y = Float64Array.from(idx, i => c.y[i]); }
+        this.showBode('Bpt_GdB', 'Bpt_phi', 'lignepoints');
+        this.msg(`f = ${fmtSI(f, 'Hz')} : Em = ${fmtVal(E.amp, 4)}, Sm = ${fmtVal(S.amp, 4)}, G = ${fmtVal(g, 4)} (${fmtVal(20 * Math.log10(g), 4)} dB), φ = ${fmtVal(ph, 4)}° — point n° ${F.length} ajouté`, 'ok');
+      }
+    } catch (e) { this.msg('Bode : ' + e.message, 'err'); }
+  },
+  showBode(gn, pn, style) {
+    for (const [title, n] of [['Bode – gain', gn], ['Bode – phase', pn]]) {
+      let d = this.graphDocs().find(d => d.title === title);
+      if (!d) d = this.newGraph(title, [n], null, { logx: true, style });
+      else { d.plot.curves = d.plot.curves.filter(c => c === gn || c === pn || this.curve(c)); if (!d.plot.curves.includes(n)) d.plot.curves.push(n); d.plot.logx = true; $('.logx', d.el).checked = true; d.plot.autoscale(); }
+    }
+    this.activate(this.graphDocs().find(d => d.title === 'Bode – gain'));
+    this.refresh();
+  },
+  async openStats() {
+    const plot = this.activePlot(); const cur = (plot && plot.cursorCurve) || this.selCurve || this.order[0];
+    const compute = (name, zone) => {
+      const d = this.getCurveXY(name, plot ? plot.xName : null); let x = [], y = [];
+      const V = zone && plot && plot.zoomed() ? (([a, c]) => ({ xmin: a, xmax: c }))(plot.xRange()) : null;
+      for (let i = 0; i < Math.min(d.x.length, d.y.length); i++) { if (!isFinite(d.y[i])) continue; if (V && (d.x[i] < V.xmin || d.x[i] > V.xmax)) continue; x.push(d.x[i]); y.push(d.y[i]); }
+      if (!y.length) return 'Aucun point';
+      const c = this.curve(name), u = c.unit ? ' ' + c.unit : '';
+      const mn = Math.min(...y), mx = Math.max(...y), m = Num.mean(y), rms = Num.rms(y);
+      // période par passages croissants au niveau moyen avec hystérésis
+      const h = (mx - mn) * 0.1; let cr = [], armed = false;
+      for (let i = 1; i < y.length; i++) { if (y[i] < m - h) armed = true; if (armed && y[i - 1] < m && y[i] >= m) { const t = x[i - 1] + (m - y[i - 1]) / (y[i] - y[i - 1]) * (x[i] - x[i - 1]); cr.push(t); armed = false; } }
+      const T = cr.length > 1 ? (cr[cr.length - 1] - cr[0]) / (cr.length - 1) : NaN;
+      const xu = ((plot && plot.xName ? this.curve(plot.xName) : this.xCurveOf(name)) || {}).unit || '';
+      // valeur efficace sur un nombre entier de périodes si possible
+      let rmsT = NaN, moyT = NaN;
+      if (cr.length > 1) { const yy = y.filter((_, i) => x[i] >= cr[0] && x[i] <= cr[cr.length - 1]); rmsT = Num.rms(yy); moyT = Num.mean(yy); }
+      return `${name} — ${y.length} points\n\nminimum      ${fmtVal(mn, 5)}${u}\nmaximum      ${fmtVal(mx, 5)}${u}\ncrête-crête  ${fmtVal(mx - mn, 5)}${u}\nmoyenne      ${fmtVal(m, 5)}${u}\nefficace     ${fmtVal(rms, 5)}${u}\n` +
+        (isFinite(T) ? `\npériode      ${fmtVal(T, 5)} ${xu}\nfréquence    ${fmtVal(1 / T, 5)} ${xu === 's' ? 'Hz' : '1/' + xu}\n(${cr.length - 1} périodes entières)\nmoyenne sur périodes entières  ${fmtVal(moyT, 5)}${u}\nefficace sur périodes entières ${fmtVal(rmsT, 5)}${u}` : '\npériode : non détectée');
+    };
+    await this.modal('Mesures automatiques', `<div class="row"><label>Courbe</label><select id="sc">${this.curveOptions(cur)}</select></div><label class="small"><input type="checkbox" id="sz"> zone visible seulement</label><div class="res" id="sr" style="font:13px/1.6 ui-monospace,Consolas,monospace;white-space:pre;margin-top:8px"></div>`,
+      [{ label: 'Copier', action: bg => { navigator.clipboard.writeText($('#sr', bg).textContent); return false; } }, { label: 'Fermer', pri: true }],
+      { onOpen: bg => { const u = () => { $('#sr', bg).textContent = compute($('#sc', bg).value, $('#sz', bg).checked); }; $('#sc', bg).onchange = u; $('#sz', bg).onchange = u; u(); } });
+  },
+  tangente() {
+    const plot = this.activePlot(); if (!plot || !plot.cursorCurve) { this.msg('Affichez une courbe dans une fenêtre graphique', 'err'); return; }
+    this.setMode('curseur'); this.msg('Cliquez sur la courbe au point voulu : la tangente est tracée');
+    plot.onPick = x => {
+      const d = plot.data(plot.cursorCurve); const i = plot.nearestIndex(d, x); const k = Math.max(1, Math.min(d.x.length - 2, i));
+      const h = Math.max(1, Math.round(d.x.length / 200));
+      const i0 = Math.max(0, k - h), i1 = Math.min(d.x.length - 1, k + h);
+      const a = (d.y[i1] - d.y[i0]) / (d.x[i1] - d.x[i0]), x0 = d.x[i], y0 = d.y[i];
+      plot.extraOverlays = [(ctx, p) => { const [xa, xb] = p.xRange(), N = p.logx ? 200 : 1; ctx.strokeStyle = '#e67e22'; ctx.lineWidth = 1.5; ctx.beginPath(); for (let j = 0; j <= N; j++) { const xx = p.logx ? p.ux(p.tx(xa) + (p.tx(xb) - p.tx(xa)) * j / N) : (j ? xb : xa); const X = p.X(xx), Y = p.Y(y0 + a * (xx - x0)); j ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); } ctx.stroke(); }];
+      plot.onPick = null; plot.draw();
+      this.msg(`Tangente en x = ${fmtVal(x0, 5)} : pente = ${fmtVal(a, 5)} ; ordonnée à l'origine = ${fmtVal(y0 - a * x0, 5)} ; coupe l'axe des abscisses en x = ${fmtVal(x0 - y0 / a, 5)}`, 'ok');
+    };
+  },
+
+
+
+  aide() {
+    this.modal('Aide-mémoire', `<div style="columns:2;column-gap:28px;font-size:13px;line-height:1.5">
+      <b>Données</b><br>Importer (barre d'outils ou glisser-déposer) : CSV, TXT (séparateur et virgule décimale détectés), Excel .xlsx, Regressi .rw3. La première ligne peut donner les noms, la deuxième les unités (ou « nom (unité) »).<br>
+      <b>Créer une courbe</b> (panneau de gauche) : signaux prêts à l'emploi ou formule libre en t, avec bruit possible.<br><br>
+      <b>Fenêtres graphiques</b><br>Glissez une courbe depuis la liste vers le graphe. Molette : zoom (Maj : vertical seul, Ctrl : horizontal seul). Cadre : zoom. Double-clic : calibrage automatique. Clic droit : menu (réticule, curseur, mesure, modélisation…).<br><br>
+      <b>Outils de lecture</b><br>Réticule (coordonnées libres), curseur lié à une courbe (valeurs exactes des points), mesure entre deux points (Δt, Δy, pente, 1/Δt).<br><br>
+      <b>Feuille de calcul (F3)</b><br>Une ligne par formule : <code>P = EA0*EA1/1000 [W]</code>, <code>v = deriv(x)</code>, <code>R = 1000</code>… <b>F2</b> exécute.<br><br>
+      <b>Modélisation (F4)</b><br>Choisissez la courbe et le modèle ; zoomez pour restreindre la zone. Expression libre possible (variable x).<br><br>
+      <b>Fourier (F6)</b><br>Spectre d'amplitude (et de phase) dans une nouvelle fenêtre.<br><br>
+      <b>Traitements</b><br>Dérivée, intégrale, lissage, filtres numériques du 1er et du 2e ordre (passe-bas, passe-haut, passe-bande, coupe-bande), échantillonnage à une fréquence fe choisie (repliement de spectre).<br><br>
+      <b>Bode</b><br>À partir d'une entrée et d'une sortie : un point par fichier (entrée sinusoïdale) ou tout le diagramme d'un coup (entrée large bande : échelon, bruit, balayage). Case « x log » des fenêtres graphiques.<br><br>
+      <b>Pointage vidéo</b><br>Cadence du fichier et cadence de tournage (ralentis), échelle, origine et axe incliné, pointage à la main ou suivi automatique, loupe, vecteurs vitesse et accélération ; ← → pour changer d'image. Les courbes t, x, y (et vx, vy, ax, ay) sont ensuite traitées comme les autres.<br><br>
+      <b>Tableur</b><br>Édition des valeurs, saisie de mesures à la main (Édition ▸ Nouvelle variable), copier-coller avec Excel / LibreOffice.<br><br>
+      <b>Fichiers</b><br>Ctrl+S enregistre toute la session (.json), à rouvrir plus tard (les sessions LaboSignal sont lisibles). Export CSV compatible Excel (« ; » et virgule décimale). Clic droit sur un graphe : copier l'image.</div>`, [{ label: 'Fermer', pri: true }], { width: 'min(900px,94vw)' });
+  },
+});
+
+// ===== Pointage vidéo : manuel ou automatique, repère incliné, loupe, vecteurs =====
+'use strict';
+Object.assign(App, {
+  openVideo(file) {
+    const ex = this.docs.find(d => d.type === 'video');
+    if (ex) { this.activate(ex); if (file) ex.load(file); return ex; }
+    const app = this;
+    const doc = this.addDoc({
+      type: 'video', icon: 'video', title: 'Pointage vidéo',
+      build(el) {
+        el.innerHTML = `<div class="video"><div class="vstage"><video playsinline muted preload="auto"></video><canvas class="ov"></canvas><canvas class="loupe" width="180" height="180"></canvas>
+            <div class="vempty">Ouvrez une vidéo (bouton à droite) ou glissez un fichier vidéo ici.</div><div class="vtag">MP* Malherbe</div></div>
+          <div class="vside">
+            <div class="vsec"><h4>1. Vidéo</h4>
+              <div class="row"><button class="btn pri vopen">Ouvrir une vidéo…</button></div>
+              <div class="row"><label>Cadence du fichier (img/s)</label><input class="fpsf" value="30" style="width:62px"><button class="btn det" title="Mesure la cadence en lisant la vidéo">Détecter</button></div>
+              <div class="row"><label>Cadence de tournage (img/s)</label><input class="fpsr" value="30" style="width:62px"></div>
+              <div class="hint">Ralenti de smartphone : le fichier est souvent à 30 img/s alors que le tournage était à 120 ou 240 img/s. Indiquez la vraie cadence de tournage : les temps en dépendent.</div>
+              <div class="row"><label>Image</label><span class="fr">—</span></div>
+              <div class="row nav"><button class="btn" data-d="-10" title="10 images en arrière">◀◀</button><button class="btn" data-d="-1" title="Image précédente (←)">◀</button><button class="btn" data-d="1" title="Image suivante (→)">▶</button><button class="btn" data-d="10" title="10 images en avant">▶▶</button><button class="btn t0" title="Définit l'image courante comme origine des temps">t = 0 ici</button></div>
+              <input class="seek" type="range" min="0" max="1000" value="0" style="width:100%">
+              <p class="hint vmeta"></p>
+            </div>
+            <div class="vsec"><h4>2. Échelle et repère</h4>
+              <div class="row"><button class="btn ech">Échelle (2 clics)</button><label>longueur</label><input class="len" value="1" style="width:56px"><select class="lu" style="width:52px"><option>m</option><option>cm</option><option>mm</option></select></div>
+              <div class="row"><button class="btn ori">Origine (1 clic)</button><button class="btn axe" title="Cliquez un point de l'axe x : le repère s'incline">Axe x (1 clic)</button></div>
+              <div class="row"><label>Inclinaison de l'axe x (°)</label><input class="ang" value="0" style="width:56px"></div>
+              <div class="row"><label><input type="checkbox" class="yup" checked> axe y vers le haut</label></div>
+            </div>
+            <div class="vsec"><h4>3. Pointage</h4>
+              <div class="row"><label>Objets par image</label><input class="npi" type="number" value="1" min="1" max="4" style="width:50px"></div>
+              <div class="row"><label>Objet courant</label><select class="obj" style="width:80px"></select></div>
+              <div class="row"><label>Avancer de (images)</label><input class="step" type="number" value="1" min="1" max="50" style="width:50px"></div>
+              <div class="row"><button class="btn pri pt">Pointer à la main</button></div>
+              <div class="hint">Chaque clic enregistre l'objet ; l'image avance quand tous les objets sont pointés. Un clic sur une image déjà pointée corrige le point.</div>
+              <div class="row"><button class="btn pri auto">Suivi automatique</button><button class="btn stop" disabled>Arrêter</button></div>
+              <div class="row"><label>Méthode</label><select class="meth" style="width:120px"><option value="motif">motif (forme)</option><option value="couleur">couleur</option></select></div>
+              <div class="row"><label>Taille de l'objet (px)</label><input class="tsz" value="auto" style="width:56px"></div>
+              <div class="row"><label>Zone de recherche (px)</label><input class="rsz" value="auto" style="width:56px"></div>
+              <div class="row"><label>Dernière image</label><input class="fend" value="fin" style="width:56px"></div>
+              <div class="hint">Cliquez « Suivi automatique » puis sur l'objet : il est suivi d'image en image. S'il est perdu, le suivi s'arrête ; cliquez à nouveau sur l'objet pour reprendre. Méthode « couleur » : objet de couleur franche sur fond différent.</div>
+              <div class="row"><button class="btn undo">Annuler le dernier</button><button class="btn clro">Effacer l'objet</button><button class="btn clr">Tout effacer</button></div>
+            </div>
+            <div class="vsec"><h4>4. Affichage</h4>
+              <div class="row"><label><input type="checkbox" class="sTraj" checked> trajectoire</label><label><input type="checkbox" class="sRep" checked> repère</label><label><input type="checkbox" class="sLoupe" checked> loupe</label></div>
+              <div class="row"><label><input type="checkbox" class="sV"> vecteurs vitesse</label><label><input type="checkbox" class="sA"> accélération</label></div>
+              <div class="row"><label>Longueur des flèches</label><input class="vsc" type="range" min="-2" max="2" step="0.05" value="0" style="width:110px"></div>
+              <div class="row"><label>Une flèche toutes les</label><input class="vev" type="number" value="1" min="1" max="20" style="width:50px"><span class="small">images pointées</span></div>
+              <p class="hint vleg"></p>
+            </div>
+            <div class="vsec"><h4>5. Résultats</h4>
+              <div class="row"><label><input type="checkbox" class="mkv" checked> calculer aussi vx, vy, ax, ay</label></div>
+              <div class="row"><button class="btn pri mk">Créer les courbes t, x, y</button></div>
+              <p class="hint vinfo"></p>
+            </div>
+          </div></div>`;
+        this.v = $('video', el); this.cv = $('canvas.ov', el); this.ctx = this.cv.getContext('2d');
+        this.lp = $('canvas.loupe', el); this.lctx = this.lp.getContext('2d');
+        this.grab = document.createElement('canvas'); this.gctx = this.grab.getContext('2d', { willReadFrequently: true });
+        this.pts = new Map(); this.hist = []; this.mode = null; this.ech = null; this.ori = null; this.tmp = []; this.theta = 0;
+        this.frame = 0; this.f0 = 0; this.k = 0; this.mouse = null; this.tracking = false;
+        const q = s => $(s, el);
+        this.q = q;
+        q('.vopen').onclick = async () => { const f = await app.pickFile('video/*,.mp4,.mov,.webm,.avi,.mkv'); if (f) this.load(f); };
+        this.v.onloadedmetadata = () => { this.layout(); this.updObj(); this.goto(0); q('.vempty').style.display = 'none'; this.meta(); };
+        this.v.onerror = () => app.msg('Vidéo illisible par le navigateur (essayez le format MP4/H.264 ou WebM)', 'err');
+        q('.det').onclick = () => this.detectFps();
+        q('.fpsf').onchange = () => { this.goto(this.frame); this.meta(); };
+        q('.fpsr').onchange = () => { this.goto(this.frame); this.draw(); };
+        $$('.nav [data-d]', el).forEach(b => b.onclick = () => this.goto(this.frame + +b.dataset.d));
+        q('.t0').onclick = () => { this.f0 = this.frame; this.goto(this.frame); app.msg('Origine des temps : image ' + this.frame, 'ok'); };
+        q('.seek').oninput = e => this.goto(Math.round(e.target.value / 1000 * this.nmax()));
+        q('.ech').onclick = () => { this.setMode('ech'); this.tmp = []; app.msg('Cliquez sur les deux extrémités de l\'objet de longueur connue'); };
+        q('.ori').onclick = () => { this.setMode('ori'); app.msg('Cliquez sur l\'origine du repère'); };
+        q('.axe').onclick = () => { this.setMode('axe'); app.msg('Cliquez sur un point de l\'axe x (côté des x positifs)'); };
+        q('.ang').onchange = e => { this.theta = (parseNum(e.target.value) || 0) * Math.PI / 180; this.draw(); };
+        q('.yup').onchange = () => this.draw();
+        q('.npi').onchange = () => { this.updObj(); this.draw(); };
+        q('.obj').onchange = () => { this.k = +q('.obj').value; this.draw(); };
+        q('.pt').onclick = () => { this.setMode('pt'); this.k = 0; q('.obj').value = 0; app.msg('Cliquez sur l\'objet ' + (this.npi() > 1 ? '1 ' : '') + '; l\'image avance automatiquement'); };
+        q('.auto').onclick = () => { this.setMode('suivi'); app.msg('Cliquez sur l\'objet ' + (+q('.obj').value + 1) + ' : le suivi démarre'); };
+        q('.stop').onclick = () => { this.tracking = false; };
+        q('.undo').onclick = () => { const k = this.hist.pop(); if (k) this.pts.delete(k); this.draw(); };
+        q('.clro').onclick = () => { const k = +q('.obj').value; for (const [key, p] of [...this.pts]) if (p.k === k) this.pts.delete(key); this.draw(); };
+        q('.clr').onclick = async () => { if (!this.pts.size || await app.modal('Effacer', '<p>Effacer tous les points pointés ?</p>', [{ label: 'Annuler', value: false }, { label: 'Effacer', pri: true, value: true }])) { this.pts.clear(); this.hist = []; this.draw(); } };
+        $$('.sTraj,.sRep,.sV,.sA,.vev,.lu,.len', el).forEach(e => e.onchange = () => this.draw());
+        q('.vsc').oninput = () => this.draw();
+        q('.mk').onclick = () => this.make();
+        this.cv.addEventListener('pointerdown', e => this.click(e));
+        this.cv.addEventListener('pointermove', e => { this.mouse = this.vpos(e); this.drawLoupe(); });
+        this.cv.addEventListener('pointerleave', () => { this.mouse = null; this.lp.style.display = 'none'; });
+        this.cv.addEventListener('wheel', e => { if (!this.v.duration) return; e.preventDefault(); this.goto(this.frame + (e.deltaY > 0 ? 1 : -1)); }, { passive: false });
+        this.ro = new ResizeObserver(() => this.layout()); this.ro.observe(q('.vstage'));
+        this.updObj();
+      },
+      // ---------- outils ----------
+      fpsF() { return parseNum(this.q('.fpsf').value) || 30; },
+      fpsR() { return parseNum(this.q('.fpsr').value) || this.fpsF(); },
+      npi() { return Math.max(1, Math.min(4, +this.q('.npi').value | 0)); },
+      nmax() { return Math.max(0, Math.floor((this.v.duration || 0) * this.fpsF() - 0.5)); },
+      tOf(f) { return (f - this.f0) / this.fpsR(); },
+      key(f, k) { return f + '|' + k; },
+      setMode(m) { this.mode = m; this.cv.style.cursor = m ? 'crosshair' : 'default'; $$('.vside .btn', this.el).forEach(b => b.classList.remove('armed')); const b = { ech: '.ech', ori: '.ori', axe: '.axe', pt: '.pt', suivi: '.auto' }[m]; if (b) this.q(b).classList.add('armed'); },
+      updObj() { const n = this.npi(), s = this.q('.obj'), cur = Math.min(n - 1, +s.value || 0); s.innerHTML = Array.from({ length: n }, (_, i) => `<option value="${i}">objet ${i + 1}</option>`).join(''); s.value = cur; this.k = Math.min(this.k, n - 1); },
+      load(f) {
+        if (this.url) URL.revokeObjectURL(this.url);
+        this.url = URL.createObjectURL(f); this.v.src = this.url; this.fname = f.name; this.pts.clear(); this.hist = []; this.f0 = 0;
+        app.msg('Vidéo chargée : ' + f.name + ' — pensez à vérifier la cadence (bouton « Détecter »)');
+      },
+      meta() { const v = this.v; this.q('.vmeta').textContent = v.videoWidth ? `${this.fname || ''} · ${v.videoWidth}×${v.videoHeight} px · ${v.duration.toFixed(2)} s · ${this.nmax() + 1} images` : ''; },
+      vpos(e) { const r = this.cv.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * this.cv.width, y: (e.clientY - r.top) / r.height * this.cv.height }; },
+      seekTo(f) {
+        return new Promise(res => {
+          const v = this.v, t = Math.min(Math.max(0, v.duration - 1e-4), (f + 0.5) / this.fpsF());
+          if (Math.abs(v.currentTime - t) < 1e-7 && v.readyState >= 2) { res(); return; }
+          let ok = false; const done = () => { if (ok) return; ok = true; v.removeEventListener('seeked', done); res(); };
+          v.addEventListener('seeked', done); v.currentTime = t; setTimeout(done, 2500);
+        });
+      },
+      goto(f) {
+        if (!this.v.duration) return Promise.resolve();
+        const nmax = this.nmax(); this.frame = Math.max(0, Math.min(nmax, Math.round(f)));
+        this.q('.fr').textContent = `${this.frame} / ${nmax}   (t = ${fmtVal(this.tOf(this.frame), 4)} s)`;
+        this.q('.seek').value = nmax ? this.frame / nmax * 1000 : 0;
+        const fr = this.frame;
+        return this.seekTo(fr).then(() => { if (fr === this.frame) this.draw(); });
+      },
+      async detectFps() {
+        const v = this.v; if (!v.duration) { app.msg('Ouvrez d\'abord une vidéo', 'err'); return; }
+        if (!v.requestVideoFrameCallback) { app.msg('Détection impossible avec ce navigateur : saisissez la cadence', 'err'); return; }
+        if (this.tracking || this.detecting) return;
+        app.msg('Mesure de la cadence…'); const keep = this.frame; const times = []; this.detecting = true; this.q('.det').disabled = true;
+        await new Promise(res => {
+          let end = false; const fin = () => { if (!end) { end = true; v.removeEventListener('ended', fin); res(); } };
+          v.addEventListener('ended', fin);
+          const cb = (now, md) => { if (end) return; times.push(md.mediaTime); if (times.length < 45 && !v.ended) v.requestVideoFrameCallback(cb); else fin(); };
+          v.requestVideoFrameCallback(cb); v.currentTime = Math.min(v.duration * 0.3, 1); v.play().catch(fin); setTimeout(fin, 5000);
+        });
+        v.pause(); this.detecting = false; this.q('.det').disabled = false;
+        const d = []; for (let i = 1; i < times.length; i++) { const x = times[i] - times[i - 1]; if (x > 1e-5) d.push(x); }
+        if (d.length < 5) { app.msg('Cadence non mesurable : saisissez-la à la main', 'err'); this.goto(keep); return; }
+        d.sort((a, b) => a - b); let fps = 1 / d[Math.floor(d.length / 2)];
+        { let best = null; for (const s of [24, 25, 29.97, 30, 48, 50, 59.94, 60, 90, 100, 120, 240, 480, 960]) if (Math.abs(fps - s) / s < 0.03 && (best === null || Math.abs(fps - s) < Math.abs(fps - best))) best = s; if (best !== null) fps = best; }
+        const same = Math.abs(this.fpsR() - this.fpsF()) < 1e-9;
+        this.q('.fpsf').value = String(+fps.toFixed(3)).replace('.', ','); if (same) this.q('.fpsr').value = this.q('.fpsf').value;
+        this.meta(); this.goto(keep); app.msg('Cadence du fichier : ' + fmtVal(fps, 5) + ' img/s' + (same ? '' : ' (cadence de tournage inchangée)'), 'ok');
+      },
+      layout() {
+        const st = this.q('.vstage'), W = st.clientWidth, H = st.clientHeight, vw = this.v.videoWidth || 16, vh = this.v.videoHeight || 9;
+        const s = Math.min(W / vw, H / vh); const w = vw * s, h = vh * s; this.disp = s;
+        for (const e of [this.v, this.cv]) { e.style.width = w + 'px'; e.style.height = h + 'px'; e.style.left = (W - w) / 2 + 'px'; e.style.top = (H - h) / 2 + 'px'; }
+        if (this.cv.width !== vw || this.cv.height !== vh) { this.cv.width = vw; this.cv.height = vh; }
+        this.draw();
+      },
+      // ---------- conversions ----------
+      scale() { // mètres par pixel
+        const lu = { m: 1, cm: 0.01, mm: 0.001 }[this.q('.lu').value] || 1, len = (parseNum(this.q('.len').value) || 1) * lu;
+        return this.ech ? len / Math.hypot(this.ech[1][0] - this.ech[0][0], this.ech[1][1] - this.ech[0][1]) : 1;
+      },
+      origin() { return this.ori || [0, this.v.videoHeight || 0]; },
+      toPhys(px, py) {
+        const [ox, oy] = this.origin(), u = px - ox, v = oy - py, c = Math.cos(this.theta), s = Math.sin(this.theta), sc = this.scale();
+        let X = u * c + v * s, Y = -u * s + v * c; if (!this.q('.yup').checked) Y = -Y;
+        return [X * sc, Y * sc];
+      },
+      // ---------- clics ----------
+      click(e) {
+        if (!this.v.videoWidth || e.button !== 0) return;
+        const { x, y } = this.vpos(e);
+        if (this.mode === 'ech') { this.tmp.push([x, y]); if (this.tmp.length === 2) { this.ech = this.tmp.slice(); this.tmp = []; this.setMode(null); app.msg(`Échelle : ${fmtVal(Math.hypot(this.ech[1][0] - this.ech[0][0], this.ech[1][1] - this.ech[0][1]), 4)} px pour ${this.q('.len').value} ${this.q('.lu').value}`, 'ok'); } }
+        else if (this.mode === 'ori') { this.ori = [x, y]; this.setMode(null); app.msg('Origine définie', 'ok'); }
+        else if (this.mode === 'axe') { const [ox, oy] = this.origin(); this.theta = Math.atan2(oy - y, x - ox); this.q('.ang').value = fmtVal(this.theta * 180 / Math.PI, 4); this.setMode(null); app.msg('Axe x incliné de ' + fmtVal(this.theta * 180 / Math.PI, 4) + '°', 'ok'); }
+        else if (this.mode === 'pt') {
+          const npi = this.npi(); this.k = Math.min(this.k, npi - 1);
+          this.setPt(this.frame, this.k, x, y, false); this.k++;
+          if (this.k >= npi) { this.k = 0; this.goto(this.frame + (+this.q('.step').value || 1)); }
+          if (npi > 1) app.msg('Objet ' + (this.k + 1) + ' à pointer');
+          this.q('.obj').value = this.k;
+        } else if (this.mode === 'suivi') {
+          const k = +this.q('.obj').value; this.setPt(this.frame, k, x, y, false); this.setMode(null); this.track(k, x, y);
+        } else { // sans mode : corrige le point le plus proche de l'image courante
+          let best = null, bd = 12 / (this.disp || 1);
+          for (const p of this.pts.values()) if (p.f === this.frame) { const d = Math.hypot(p.px - x, p.py - y); if (d < bd) { bd = d; best = p; } }
+          if (best) { this.setPt(best.f, best.k, x, y, false); app.msg('Point corrigé'); }
+        }
+        this.draw();
+      },
+      setPt(f, k, px, py, auto) { const key = this.key(f, k); this.pts.set(key, { f, k, px, py, auto }); this.hist = this.hist.filter(h => h !== key); this.hist.push(key); },
+      ptsOf(k) { return [...this.pts.values()].filter(p => p.k === k).sort((a, b) => a.f - b.f); },
+
+      // ---------- suivi automatique ----------
+      region(x0, y0, w, h) { // pixels RGB d'une zone de l'image courante (bornée à l'image)
+        const W = this.v.videoWidth, H = this.v.videoHeight;
+        x0 = Math.max(0, Math.min(W - 1, Math.floor(x0))); y0 = Math.max(0, Math.min(H - 1, Math.floor(y0)));
+        w = Math.max(1, Math.min(W - x0, Math.ceil(w))); h = Math.max(1, Math.min(H - y0, Math.ceil(h)));
+        if (this.grab.width < w) this.grab.width = w; if (this.grab.height < h) this.grab.height = h;
+        this.gctx.drawImage(this.v, x0, y0, w, h, 0, 0, w, h);
+        return { x0, y0, w, h, d: this.gctx.getImageData(0, 0, w, h).data };
+      },
+      sizes() {
+        const W = this.v.videoWidth, H = this.v.videoHeight;
+        let S = parseNum(this.q('.tsz').value); if (!(S > 2)) S = Math.max(11, Math.min(61, Math.round(Math.min(W, H) / 22)));
+        S = Math.round(S) | 1;
+        let R = parseNum(this.q('.rsz').value); if (!(R > 1)) R = Math.round(1.5 * S);
+        return { S, R: Math.round(R) };
+      },
+      initTemplate(x, y) {
+        const { S } = this.sizes(), h = S >> 1, r = this.region(x - h, y - h, S, S);
+        const T = new Float32Array(S * S * 3).fill(NaN);
+        for (let j = 0; j < r.h; j++) for (let i = 0; i < r.w; i++) { const ii = r.x0 + i - (Math.floor(x) - h), jj = r.y0 + j - (Math.floor(y) - h); if (ii < 0 || jj < 0 || ii >= S || jj >= S) continue; const o = 4 * (j * r.w + i), q = 3 * (jj * S + ii); T[q] = r.d[o]; T[q + 1] = r.d[o + 1]; T[q + 2] = r.d[o + 2]; }
+        // couleur de référence : disque central
+        let c = [0, 0, 0], n = 0; const rr = Math.max(2, S / 4);
+        for (let jj = 0; jj < S; jj++) for (let ii = 0; ii < S; ii++) if (Math.hypot(ii - h, jj - h) <= rr && isFinite(T[3 * (jj * S + ii)])) { const q = 3 * (jj * S + ii); c[0] += T[q]; c[1] += T[q + 1]; c[2] += T[q + 2]; n++; }
+        this.tpl = { T, S, col: c.map(v => v / Math.max(1, n)), scores: [], n0: null };
+      },
+      matchMotif(px, py) {
+        const { T, S } = this.tpl, h = S >> 1, { R } = this.sizes();
+        const r = this.region(px - h - R - 2, py - h - R - 2, S + 2 * R + 5, S + 2 * R + 5);
+        const st = S > 25 ? 2 : 1;
+        const ssd = (cx, cy, stp) => { // cx, cy : coin du motif dans la zone
+          let s = 0, n = 0;
+          for (let j = 0; j < S; j += stp) { const yy = cy + j; if (yy < 0 || yy >= r.h) continue; for (let i = 0; i < S; i += stp) { const xx = cx + i; if (xx < 0 || xx >= r.w) continue; const q = 3 * (j * S + i); if (!(T[q] === T[q])) continue; const o = 4 * (yy * r.w + xx), a = r.d[o] - T[q], b = r.d[o + 1] - T[q + 1], c = r.d[o + 2] - T[q + 2]; s += a * a + b * b + c * c; n++; } }
+          return n > 4 ? s / (3 * n) : Infinity;
+        };
+        const bx = Math.round(px) - h - r.x0, by = Math.round(py) - h - r.y0;
+        let best = Infinity, ox = 0, oy = 0;
+        for (let dy = -R; dy <= R; dy += 2) for (let dx = -R; dx <= R; dx += 2) { const v = ssd(bx + dx, by + dy, st); if (v < best) { best = v; ox = dx; oy = dy; } }
+        let b2 = Infinity, fx = ox, fy = oy; const grid = {};
+        for (let dy = oy - 2; dy <= oy + 2; dy++) for (let dx = ox - 2; dx <= ox + 2; dx++) { const v = ssd(bx + dx, by + dy, 1); grid[dx + ',' + dy] = v; if (v < b2) { b2 = v; fx = dx; fy = dy; } }
+        const g = (dx, dy) => grid[dx + ',' + dy] !== undefined ? grid[dx + ',' + dy] : ssd(bx + dx, by + dy, 1);
+        const sub = (m, c, p) => { const den = m - 2 * c + p; return isFinite(den) && den > 0 ? Math.max(-0.5, Math.min(0.5, 0.5 * (m - p) / den)) : 0; };
+        const sx = sub(g(fx - 1, fy), b2, g(fx + 1, fy)), sy = sub(g(fx, fy - 1), b2, g(fx, fy + 1));
+        const nx = r.x0 + bx + fx + h + sx + (px - Math.round(px)), ny = r.y0 + by + fy + h + sy + (py - Math.round(py));
+        return { x: nx, y: ny, score: b2, r, cx: bx + fx, cy: by + fy };
+      },
+      matchCouleur(px, py) {
+        const { col, S } = this.tpl, { R } = this.sizes(), tol = 70, half = R + (S >> 1);
+        const r = this.region(px - half, py - half, 2 * half + 1, 2 * half + 1);
+        let sx = 0, sy = 0, n = 0, c = [0, 0, 0];
+        for (let j = 0; j < r.h; j++) for (let i = 0; i < r.w; i++) { const o = 4 * (j * r.w + i), a = r.d[o] - col[0], b = r.d[o + 1] - col[1], cc = r.d[o + 2] - col[2]; if (a * a + b * b + cc * cc < tol * tol) { sx += i; sy += j; n++; c[0] += r.d[o]; c[1] += r.d[o + 1]; c[2] += r.d[o + 2]; } }
+        if (this.tpl.n0 === null) this.tpl.n0 = n;
+        if (n < Math.max(4, 0.25 * this.tpl.n0)) return null;
+        this.tpl.col = col.map((v, q) => 0.8 * v + 0.2 * c[q] / n);
+        return { x: r.x0 + sx / n, y: r.y0 + sy / n, n };
+      },
+      async track(k, x, y) {
+        if (this.tracking || this.detecting) return;
+        await this.seekTo(this.frame);
+        this.initTemplate(x, y);
+        const meth = this.q('.meth').value, step = Math.max(1, +this.q('.step').value || 1);
+        if (meth === 'couleur') this.matchCouleur(x, y);
+        let fend = parseNum(this.q('.fend').value); if (!isFinite(fend)) fend = this.nmax();
+        this.tracking = true; this.q('.stop').disabled = false; this.q('.auto').disabled = true;
+        let last = { x, y }, prev = null, n = 0, lost = false; const t0 = performance.now();
+        try {
+          while (this.tracking) {
+            const nf = this.frame + step; if (nf > Math.min(this.nmax(), fend)) break;
+            await this.goto(nf);
+            const pred = prev ? { x: 2 * last.x - prev.x, y: 2 * last.y - prev.y } : last;
+            let res;
+            if (meth === 'couleur') res = this.matchCouleur(pred.x, pred.y);
+            else {
+              res = this.matchMotif(pred.x, pred.y);
+              const sc = this.tpl.scores, med = sc.length ? sc.slice().sort((a, b) => a - b)[sc.length >> 1] : res.score;
+              if (sc.length >= 3 && res.score > Math.max(5 * med, 900)) res = null;
+              else if (res) { // mise à jour progressive du motif
+                sc.push(res.score); if (sc.length > 25) sc.shift();
+                const { T, S } = this.tpl, rr = res.r;
+                for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) { const xx = res.cx + i, yy = res.cy + j; if (xx < 0 || yy < 0 || xx >= rr.w || yy >= rr.h) continue; const q = 3 * (j * S + i), o = 4 * (yy * rr.w + xx); if (!(T[q] === T[q])) continue; T[q] = 0.85 * T[q] + 0.15 * rr.d[o]; T[q + 1] = 0.85 * T[q + 1] + 0.15 * rr.d[o + 1]; T[q + 2] = 0.85 * T[q + 2] + 0.15 * rr.d[o + 2]; }
+              }
+            }
+            if (!res || res.x < 0 || res.y < 0 || res.x > this.v.videoWidth || res.y > this.v.videoHeight) { lost = true; break; }
+            this.setPt(this.frame, k, res.x, res.y, true); prev = last; last = { x: res.x, y: res.y }; n++;
+            this.draw();
+            if (performance.now() - t0 > 30) await new Promise(r => setTimeout(r, 0));
+          }
+        } finally {
+          this.tracking = false; this.q('.stop').disabled = true; this.q('.auto').disabled = false;
+        }
+        if (lost) { this.setMode('suivi'); app.msg(`Objet perdu à l'image ${this.frame} après ${n} images suivies : cliquez sur l'objet pour reprendre (ou réglez la taille / la zone de recherche)`, 'err'); }
+        else app.msg(`Suivi terminé : ${n} images pointées automatiquement`, 'ok');
+        this.draw();
+      },
+
+      // ---------- dessin ----------
+      vectors(k) { // vitesses et accélérations en pixels par seconde (différences centrées)
+        const P = this.ptsOf(k), t = P.map(p => this.tOf(p.f)), V = [], A = [];
+        for (let i = 0; i < P.length; i++) {
+          V[i] = i > 0 && i < P.length - 1 ? [(P[i + 1].px - P[i - 1].px) / (t[i + 1] - t[i - 1]), (P[i + 1].py - P[i - 1].py) / (t[i + 1] - t[i - 1])] : null;
+        }
+        for (let i = 0; i < P.length; i++) A[i] = i > 1 && i < P.length - 2 && V[i - 1] && V[i + 1] ? [(V[i + 1][0] - V[i - 1][0]) / (t[i + 1] - t[i - 1]), (V[i + 1][1] - V[i - 1][1]) / (t[i + 1] - t[i - 1])] : null;
+        return { P, V, A };
+      },
+      draw() {
+        const c = this.ctx; if (!c) return; const W = this.cv.width, H = this.cv.height; c.clearRect(0, 0, W, H);
+        if (!this.v.videoWidth) return;
+        const R = Math.max(3, W / 260), lw = Math.max(1.2, W / 700); c.lineWidth = lw;
+        const COL = ['#ff3b30', '#2f9bff', '#ff4fd8', '#ffb000'];
+        const arrow = (x, y, dx, dy, col) => { const L = Math.hypot(dx, dy); if (L < 1) return; const hx = dx / L, hy = dy / L, a = Math.min(L * 0.35, 4 * R); c.strokeStyle = c.fillStyle = col; c.lineWidth = 1.6 * lw; c.beginPath(); c.moveTo(x, y); c.lineTo(x + dx, y + dy); c.stroke(); c.beginPath(); c.moveTo(x + dx, y + dy); c.lineTo(x + dx - a * (hx * 0.94 - hy * 0.34), y + dy - a * (hy * 0.94 + hx * 0.34)); c.lineTo(x + dx - a * (hx * 0.94 + hy * 0.34), y + dy - a * (hy * 0.94 - hx * 0.34)); c.closePath(); c.fill(); c.lineWidth = lw; };
+        if (this.ech) { c.strokeStyle = '#00e676'; c.beginPath(); c.moveTo(...this.ech[0]); c.lineTo(...this.ech[1]); c.stroke(); for (const p of this.ech) { c.beginPath(); c.moveTo(p[0] - 2 * R, p[1]); c.lineTo(p[0] + 2 * R, p[1]); c.moveTo(p[0], p[1] - 2 * R); c.lineTo(p[0], p[1] + 2 * R); c.stroke(); } }
+        if (this.tmp.length === 1 && this.mode === 'ech') { c.fillStyle = '#00e676'; c.fillRect(this.tmp[0][0] - R, this.tmp[0][1] - R, 2 * R, 2 * R); }
+        if (this.q('.sRep').checked) {
+          const [ox, oy] = this.origin(), L = 0.14 * Math.min(W, H) + 20, th = this.theta, yup = this.q('.yup').checked;
+          const ex = [Math.cos(th), -Math.sin(th)], ey = yup ? [-Math.sin(th), -Math.cos(th)] : [Math.sin(th), Math.cos(th)];
+          arrow(ox, oy, L * ex[0], L * ex[1], '#ffe600'); arrow(ox, oy, L * ey[0], L * ey[1], '#ffe600');
+          c.font = `${Math.round(4.5 * R)}px system-ui,sans-serif`; c.fillStyle = '#ffe600'; c.textAlign = 'center'; c.textBaseline = 'middle';
+          c.fillText('x', ox + (L + 4 * R) * ex[0], oy + (L + 4 * R) * ex[1]); c.fillText('y', ox + (L + 4 * R) * ey[0], oy + (L + 4 * R) * ey[1]);
+        }
+        const showV = this.q('.sV').checked, showA = this.q('.sA').checked, every = Math.max(1, +this.q('.vev').value || 1), fac = Math.pow(10, +this.q('.vsc').value);
+        let leg = '';
+        for (let k = 0; k < this.npi(); k++) {
+          const { P, V, A } = this.vectors(k); if (!P.length) continue;
+          const col = COL[k % 4];
+          if (this.q('.sTraj').checked) { c.strokeStyle = col; c.globalAlpha = 0.6; c.beginPath(); P.forEach((p, i) => (i ? c.lineTo(p.px, p.py) : c.moveTo(p.px, p.py))); c.stroke(); c.globalAlpha = 1; }
+          for (const p of P) { c.strokeStyle = col; c.beginPath(); if (p.f === this.frame) { c.lineWidth = 2 * lw; c.arc(p.px, p.py, 1.8 * R, 0, 7); c.stroke(); c.lineWidth = lw; } else { c.arc(p.px, p.py, R * 0.8, 0, 7); c.stroke(); } }
+          const sc = this.scale(), unit = this.ech ? 'm' : 'px';
+          if (showV) { const m = Math.max(1e-30, ...V.filter(Boolean).map(v => Math.hypot(v[0], v[1]))), K = 0.12 * Math.min(W, H) / m * fac; V.forEach((v, i) => { if (v && i % every === 0) arrow(P[i].px, P[i].py, K * v[0], K * v[1], '#00e676'); }); if (k === 0 && isFinite(m) && m > 1e-29) leg += `Vitesse (vert) : 1 ${unit}/s ↔ ${fmtVal(K / sc * 1, 3)} px. `; }
+          if (showA) { const m = Math.max(1e-30, ...A.filter(Boolean).map(v => Math.hypot(v[0], v[1]))), K = 0.12 * Math.min(W, H) / m * fac; A.forEach((a, i) => { if (a && i % every === 0) arrow(P[i].px, P[i].py, K * a[0], K * a[1], '#ff9800'); }); if (k === 0 && isFinite(m) && m > 1e-29) leg += `Accélération (orange) : 1 ${unit}/s² ↔ ${fmtVal(K / sc, 3)} px.`; }
+        }
+        this.q('.vleg').textContent = leg ? leg + ' Flèches à l\'échelle de l\'image (px de la vidéo).' : '';
+        const cur = [...this.pts.values()].filter(p => p.f === this.frame).length;
+        this.q('.vinfo').textContent = `${this.pts.size} point(s) pointé(s)` + (this.npi() > 1 ? ` (${Array.from({ length: this.npi() }, (_, k) => this.ptsOf(k).length).join(' + ')})` : '') + ` · image courante : ${cur} point(s)` + (this.ech ? '' : ' · échelle non définie : coordonnées en pixels');
+        this.drawLoupe();
+      },
+      drawLoupe() {
+        const L = this.lp; if (!this.q('.sLoupe').checked || !this.mouse || !this.v.videoWidth) { L.style.display = 'none'; return; }
+        L.style.display = 'block';
+        const S = L.width, z = 4, half = S / (2 * z * (this.disp || 1)), { x, y } = this.mouse, c = this.lctx;
+        const st = this.q('.vstage'), r = this.cv.getBoundingClientRect(), rs = st.getBoundingClientRect();
+        const mx = (x / this.cv.width) * r.width + r.left - rs.left;
+        L.style.left = (mx < S + 30 && (this.mouse.y / this.cv.height) * r.height + r.top - rs.top < S + 30 ? rs.width - S - 8 : 8) + 'px';
+        c.imageSmoothingEnabled = false; c.fillStyle = '#000'; c.fillRect(0, 0, S, S);
+        try { c.drawImage(this.v, x - half, y - half, 2 * half, 2 * half, 0, 0, S, S); c.drawImage(this.cv, x - half, y - half, 2 * half, 2 * half, 0, 0, S, S); } catch (e) { }
+        c.strokeStyle = 'rgba(255,255,255,0.9)'; c.lineWidth = 1; c.beginPath(); c.moveTo(S / 2, 0); c.lineTo(S / 2, S / 2 - 6); c.moveTo(S / 2, S / 2 + 6); c.lineTo(S / 2, S); c.moveTo(0, S / 2); c.lineTo(S / 2 - 6, S / 2); c.moveTo(S / 2 + 6, S / 2); c.lineTo(S, S / 2); c.stroke();
+        c.strokeStyle = '#000'; c.strokeRect(0.5, 0.5, S - 1, S - 1);
+      },
+      // ---------- courbes ----------
+      make() {
+        if (!this.pts.size) { app.msg('Aucun point pointé', 'err'); return; }
+        const npi = Math.max(...[...this.pts.values()].map(p => p.k)) + 1;
+        const frames = [...new Set([...this.pts.values()].map(p => p.f))].sort((a, b) => a - b);
+        const nm = base => { const c = app.curve(base); return !c || c.kind === 'video' ? base : app.uniqueName(base); };
+        const unit = this.ech ? 'm' : 'px', tN = nm('t');
+        app.setCurve(tN, { y: Float64Array.from(frames, f => this.tOf(f)), unit: 's', kind: 'video', x: null, color: '#555555' });
+        const made = [], trajs = [];
+        for (let k = 0; k < npi; k++) {
+          const sx = k ? String(k + 1) : '';
+          const X = [], Y = [];
+          for (const f of frames) { const p = this.pts.get(this.key(f, k)); if (p) { const [a, b] = this.toPhys(p.px, p.py); X.push(a); Y.push(b); } else { X.push(NaN); Y.push(NaN); } }
+          const xn = nm('x' + sx), yn = nm('y' + sx);
+          app.setCurve(xn, { y: X, unit, kind: 'video', x: tN }); app.setCurve(yn, { y: Y, unit, kind: 'video', x: tN });
+          made.push(xn, yn); trajs.push([xn, yn]);
+          if (this.q('.mkv').checked) {
+            const tt = app.curve(tN).y, d = (u, n, un) => { const c = app.setCurve(nm(n), { y: Num.deriv(tt, u), unit: un, kind: 'video', x: tN }); return c; };
+            const vx = d(Float64Array.from(X), 'vx' + sx, unit + '/s'), vy = d(Float64Array.from(Y), 'vy' + sx, unit + '/s');
+            const ax = d(vx.y, 'ax' + sx, unit + '/s²'), ay = d(vy.y, 'ay' + sx, unit + '/s²');
+            [vx, vy, ax, ay].forEach(c => { c.y[0] = c.y[c.y.length - 1] = NaN; }); // dérivées non centrées aux extrémités retirées
+            ax.y[1] = ay.y[1] = ax.y[ax.y.length - 2] = ay.y[ay.y.length - 2] = NaN;
+          }
+        }
+        const upsert = (title, curves, xName, opts) => {
+          let d = app.graphDocs().find(g => g.title === title);
+          if (!d) d = app.newGraph(title, curves, xName, opts);
+          else { d.plot.curves = curves.slice(); d.plot.xName = xName; d.plot.autoscale(); }
+          return d;
+        };
+        trajs.forEach(([xn, yn], k) => upsert('Trajectoire' + (npi > 1 ? ' ' + (k + 1) : ''), [yn], xn, { style: 'lignepoints', equal: true }));
+        upsert('x(t), y(t)', made, null, { style: 'lignepoints' });
+        app.refresh(); app.activate(app.graphDocs().find(g => g.title.startsWith('Trajectoire')));
+        app.msg(`Courbes créées : ${tN}, ${made.join(', ')}${this.q('.mkv').checked ? ', vitesses et accélérations' : ''} — énergie, quantité de mouvement… : feuille de calcul (F3)`, 'ok');
+      },
+      destroy() { if (this.ro) this.ro.disconnect(); this.tracking = false; if (this.url) URL.revokeObjectURL(this.url); },
+    });
+    if (file) doc.load(file);
+    return doc;
+  },
+});
+
+// ===== Lecture des classeurs .xlsx (zip + XML), sans bibliothèque externe =====
+'use strict';
+const Xlsx = {
+  async unzip(buf) {
+    const dv = new DataView(buf), u8 = new Uint8Array(buf);
+    let e = buf.byteLength - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+    if (e < 0) throw new Error('fichier .xlsx illisible (archive zip invalide)');
+    const n = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true); const files = {};
+    const td = new TextDecoder('utf-8');
+    for (let i = 0; i < n; i++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) break;
+      const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lo = dv.getUint32(p + 42, true);
+      files[td.decode(u8.subarray(p + 46, p + 46 + nl))] = { method, csize, lo }; p += 46 + nl + xl + cl;
+    }
+    return {
+      has: name => !!files[name],
+      async text(name) {
+        const f = files[name]; if (!f) return null;
+        const nl = dv.getUint16(f.lo + 26, true), xl = dv.getUint16(f.lo + 28, true), start = f.lo + 30 + nl + xl;
+        const raw = u8.slice(start, start + f.csize);
+        if (f.method === 0) return td.decode(raw);
+        if (f.method !== 8) throw new Error('compression non prise en charge');
+        if (typeof DecompressionStream === 'undefined') throw new Error('navigateur trop ancien pour lire les .xlsx (utilisez Chrome ou Edge récent, ou un fichier .csv)');
+        const ds = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+        return td.decode(await new Response(ds).arrayBuffer());
+      },
+    };
+  },
+  async read(buf) {
+    const z = await Xlsx.unzip(buf), dp = new DOMParser();
+    const xml = async n => { const t = await z.text(n); return t ? dp.parseFromString(t, 'application/xml') : null; };
+    const tags = (d, t) => [...d.getElementsByTagNameNS('*', t)];
+    const shared = [];
+    const ss = await xml('xl/sharedStrings.xml');
+    if (ss) for (const si of tags(ss, 'si')) shared.push(tags(si, 't').filter(t => !t.parentNode || t.parentNode.localName !== 'rPh').map(t => t.textContent).join(''));
+    const wb = await xml('xl/workbook.xml'); if (!wb) throw new Error('classeur .xlsx non reconnu');
+    const rels = await xml('xl/_rels/workbook.xml.rels'), relMap = {};
+    if (rels) for (const r of tags(rels, 'Relationship')) relMap[r.getAttribute('Id')] = r.getAttribute('Target');
+    const sheets = [];
+    for (const sh of tags(wb, 'sheet')) {
+      const rid = sh.getAttribute('r:id') || sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+      let tgt = relMap[rid] || ('worksheets/sheet' + (sheets.length + 1) + '.xml');
+      tgt = tgt.replace(/^\/?xl\//, '').replace(/^\//, '');
+      const d = await xml('xl/' + tgt); const rows = [];
+      if (d) for (const row of tags(d, 'row')) {
+        const ri = (+row.getAttribute('r') || rows.length + 1) - 1, cells = [];
+        let cj = 0;
+        for (const c of tags(row, 'c')) {
+          const ref = c.getAttribute('r'); if (ref) { const m = /^([A-Z]+)/.exec(ref); cj = 0; for (const ch of m[1]) cj = cj * 26 + ch.charCodeAt(0) - 64; cj--; }
+          const t = c.getAttribute('t'), v = tags(c, 'v')[0];
+          let val = '';
+          if (t === 's') val = v ? shared[+v.textContent] || '' : '';
+          else if (t === 'inlineStr') val = tags(c, 't').map(e => e.textContent).join('');
+          else if (t === 'str' || t === 'e') val = v ? v.textContent : '';
+          else if (t === 'b') val = v ? +v.textContent : '';
+          else val = v && v.textContent !== '' ? Number(v.textContent) : '';
+          cells[cj] = val; cj++;
+        }
+        rows[ri] = Array.from(cells, v => (v === undefined ? '' : v));
+      }
+      sheets.push({ name: sh.getAttribute('name') || 'Feuille ' + (sheets.length + 1), rows: Array.from(rows, r => r || []) });
+    }
+    return { sheets };
+  },
+};
+
+// ===== Générateur de courbes (remplace l'acquisition) et panneau de gauche =====
+const Gen = {
+  PRESETS: [
+    { id: 'sinus', nom: 'Sinusoïde', expr: '2*sin(2*pi*100*t)', T: 0.05, N: 2000 },
+    { id: 'carre', nom: 'Créneau', expr: '2*carre(100*t)', T: 0.05, N: 2000 },
+    { id: 'triangle', nom: 'Triangle', expr: '2*triangle(100*t)', T: 0.05, N: 2000 },
+    { id: 'dent', nom: 'Dent de scie', expr: '2*dent(100*t)', T: 0.05, N: 2000 },
+    { id: 'harmo', nom: 'Somme d\'harmoniques', expr: 'sin(2*pi*50*t) + 0.3*sin(2*pi*150*t+1) + 0.1*sin(2*pi*250*t)', T: 0.1, N: 4000 },
+    { id: 'rc', nom: 'Charge d\'un condensateur (RC)', expr: '5*(1-exp(-t/1e-3))*echelon(t)', T: 0.006, N: 1500, t0: -0.001 },
+    { id: 'amort', nom: 'Oscillations amorties', expr: '3*exp(-t/0.01)*cos(2*pi*200*t)', T: 0.05, N: 2000 },
+    { id: 'ord2', nom: 'Réponse indicielle 2e ordre (m = 0,2)', expr: 'echelon(t)*(1-exp(-0.2*w0*t)*(cos(w0*sqrt(1-0.04)*t)+0.2/sqrt(1-0.04)*sin(w0*sqrt(1-0.04)*t)))', T: 0.02, N: 2000, t0: -0.001, consts: 'w0 = 2*pi*500' },
+    { id: 'batt', nom: 'Battements', expr: 'sin(2*pi*100*t) + sin(2*pi*110*t)', T: 0.3, N: 6000 },
+    { id: 'am', nom: 'Modulation d\'amplitude', expr: '(1 + 0.5*cos(2*pi*20*t))*cos(2*pi*500*t)', T: 0.1, N: 5000 },
+    { id: 'chirp', nom: 'Balayage en fréquence (10 Hz → 2 kHz)', expr: 'sin(2*pi*(10*t + (2000-10)/(2*0.2)*t^2))', T: 0.2, N: 20000 },
+    { id: 'impul', nom: 'Impulsion brève', expr: 'si(t>=0, si(t<1e-4, 1, 0), 0)', T: 0.05, N: 5000, t0: -0.001 },
+    { id: 'bruit', nom: 'Bruit blanc gaussien', expr: 'bruit(t)', T: 0.05, N: 5000 },
+    { id: 'sinb', nom: 'Sinusoïde bruitée', expr: '2*sin(2*pi*100*t) + 0.2*bruit(t)', T: 0.05, N: 2000 },
+    { id: 'perso', nom: 'Formule libre…', expr: '', T: 0.05, N: 2000 },
+  ],
+  cfg: { preset: 'sinus', tname: 't', tunit: 's', t0: 0, T: 0.05, N: 2000, yname: 'u', yunit: 'V', expr: '2*sin(2*pi*100*t)', consts: '' },
+  getConfig() { return JSON.parse(JSON.stringify(this.cfg)); },
+  setConfig(c) { Object.assign(this.cfg, c); this.renderPanel(); },
+
+  renderPanel() {
+    const c = this.cfg, L = $('#left');
+    L.innerHTML = `
+      <div class="sec"><h3>Fichiers</h3><div class="body">
+        <div class="btns">
+          <button class="btn pri" data-cmd="importer" title="CSV, TXT, Excel .xlsx, Regressi .rw3">Importer des données…</button>
+          <button class="btn" data-cmd="video">Pointage vidéo…</button>
+          <button class="btn" data-cmd="ouvrir">Ouvrir une session…</button>
+          <button class="btn" data-cmd="enregistrer">Enregistrer la session</button>
+        </div>
+        <div class="hint">On peut aussi glisser un fichier (CSV, TXT, XLSX, vidéo, session .json) sur la fenêtre.</div>
+      </div></div>
+      <div class="sec" id="secGen"><h3>Créer une courbe</h3><div class="body">
+        <div class="row"><label>Signal</label><select id="gP" style="width:160px">${this.PRESETS.map(p => `<option value="${p.id}" ${p.id === c.preset ? 'selected' : ''}>${esc(p.nom)}</option>`).join('')}</select></div>
+        <div class="row"><label>Nom, unité</label><input id="gY" value="${esc(c.yname)}" style="width:70px"><input id="gYu" value="${esc(c.yunit)}" style="width:46px"></div>
+        <div class="row" style="display:block"><label style="display:block;margin-bottom:2px">Formule (variable ${esc(c.tname)})</label><textarea id="gE" spellcheck="false" style="width:100%;height:46px;font:12px ui-monospace,Consolas,monospace;border:1px solid var(--line);border-radius:4px;background:var(--panel2);padding:3px 5px">${esc(c.expr)}</textarea></div>
+        <div class="row" style="display:block"><label style="display:block;margin-bottom:2px">Constantes (facultatif)</label><input id="gC" value="${esc(c.consts)}" placeholder="ex. f = 100 ; A = 2" style="width:100%"></div>
+        <div class="row"><label>Temps : nom, unité</label><input id="gT" value="${esc(c.tname)}" style="width:50px"><input id="gTu" value="${esc(c.tunit)}" style="width:46px"></div>
+        <div class="row"><label>Début</label><input id="gT0" value="${fmtVal(c.t0, 6)}"></div>
+        <div class="row"><label>Durée</label><input id="gD" value="${fmtVal(c.T, 6)}"></div>
+        <div class="row"><label>Nombre de points</label><input id="gN" value="${c.N}"></div>
+        <div class="hint" id="gI"></div>
+        <div class="row"><button class="btn pri" id="gGo">Créer la courbe</button></div>
+        <div class="hint">Fonctions : sin, cos, exp, ln, sqrt, echelon, carre, triangle, dent (période 1), bruit(t) (gaussien, écart-type 1), si(cond, a, b). Durées en unité du temps (ex. 0.05 pour 50 ms). Préfixes acceptés : 50m, 20µ, 1k…</div>
+      </div></div>
+      <div class="sec"><h3>Liste des courbes <span id="nbCourbes"></span></h3><div class="body"><ul id="curveList"></ul><div class="hint">Glissez une courbe dans un graphe · double-clic : l'ajouter à la fenêtre active · clic droit : options.</div></div></div>`;
+    $$('.sec>h3', L).forEach(h => h.onclick = () => h.parentElement.classList.toggle('closed'));
+    const info = () => { const te = c.T / Math.max(1, c.N); $('#gI').textContent = `Te = ${fmtSI(te, c.tunit === 's' ? 's' : c.tunit)} · fe = ${c.tunit === 's' ? fmtSI(1 / te, 'Hz') : fmtVal(1 / te, 4) + ' /' + c.tunit}`; };
+    const rd = () => { c.yname = $('#gY').value.trim(); c.yunit = $('#gYu').value.trim(); c.expr = $('#gE').value; c.consts = $('#gC').value; c.tname = $('#gT').value.trim() || 't'; c.tunit = $('#gTu').value.trim(); c.t0 = parseNum($('#gT0').value) || 0; c.T = parseNum($('#gD').value) || c.T; c.N = Math.max(2, Math.min(1000000, Math.round(parseNum($('#gN').value)) || 1000)); info(); };
+    $$('#secGen input, #secGen textarea').forEach(e => e.onchange = rd);
+    $('#gP').onchange = e => {
+      const p = this.PRESETS.find(p => p.id === e.target.value); c.preset = p.id;
+      if (p.expr) { c.expr = p.expr.replace(/\bt\b/g, c.tname); c.T = p.T; c.N = p.N; c.t0 = p.t0 || 0; c.consts = p.consts || ''; }
+      this.renderPanel();
+    };
+    $('#gGo').onclick = () => { rd(); this.create(); };
+    info(); App.renderCurveList();
+  },
+
+  create() {
+    const c = this.cfg;
+    try {
+      if (!App.validName(c.yname)) throw new Error('nom de courbe invalide (lettres, chiffres, _)');
+      if (!App.validName(c.tname)) throw new Error('nom du temps invalide');
+      if (c.yname === c.tname) throw new Error('la courbe et le temps doivent avoir des noms différents');
+      if (!(c.T > 0)) throw new Error('durée invalide');
+      if (!c.expr.trim()) throw new Error('écrivez une formule');
+      const N = c.N, t = Float64Array.from({ length: N }, (_, i) => c.t0 + c.T * i / N); // Te = durée / nombre de points
+      // le temps : on réutilise la courbe existante si elle est identique, sinon on en crée une nouvelle
+      let tn = c.tname; const old = App.curve(tn);
+      if (old && !(old.y.length === N && Math.abs(old.y[0] - t[0]) < 1e-15 + 1e-12 * c.T && Math.abs(old.y[N - 1] - t[N - 1]) < 1e-12 * c.T + 1e-15)) {
+        const used = [...App.curves.values()].some(k => k.x === tn && k.name !== c.yname);
+        if (used || old.kind !== 'gen') tn = App.uniqueName(c.tname);
+      }
+      const consts = {};
+      for (const part of c.consts.split(/[;\n]/)) {
+        const m = /^\s*([A-Za-z_À-ɏ][A-Za-z0-9_À-ɏ]*)\s*=\s*(.+?)\s*$/.exec(part); if (!m) { if (part.trim()) throw new Error('constante mal écrite : « ' + part.trim() + ' »'); continue; }
+        const v = Expr.evaluate(Expr.parse(m[2]), { get: n => consts[n] }); if (typeof v !== 'number') throw new Error('constante non numérique : ' + m[1]); consts[m[1]] = v;
+      }
+      const ctx = { xref: t, get: n => (n === c.tname ? { y: t, x: null } : n in consts ? consts[n] : (App.curve(n) ? { y: App.curve(n).y, x: null } : undefined)) };
+      let y = Expr.evaluate(Expr.parse(c.expr), ctx);
+      if (typeof y === 'number') y = new Float64Array(N).fill(y);
+      if (y.length !== N) throw new Error('la formule utilise une courbe de longueur différente');
+      App.setCurve(tn, { y: t, unit: c.tunit, kind: 'gen', x: null, color: '#555555' });
+      const exists = !!App.curve(c.yname);
+      if (exists && App.curve(c.yname).kind !== 'gen' && App.curve(c.yname).kind !== 'calc') throw new Error('« ' + c.yname + ' » existe déjà (donnée importée) : choisissez un autre nom');
+      App.setCurve(c.yname, { y, unit: c.yunit, kind: 'gen', x: tn });
+      const p = App.targetPlot(c.yname);
+      if (!p.curves.includes(c.yname)) p.curves.push(c.yname);
+      p.autoscale(); App.refresh();
+      // propose un nom libre pour la prochaine courbe
+      const made = c.yname;
+      if (!exists) { const m = /^(.*?)(\d*)$/.exec(c.yname); c.yname = App.uniqueName(m[1] + ((+m[2] || 1) + 1)); $('#gY').value = c.yname; }
+      App.msg(`Courbe ${made} ${exists ? 'recalculée' : 'créée'} : ${N} points, abscisse ${tn}`, 'ok');
+    } catch (e) { App.msg('Création impossible : ' + e.message, 'err'); }
+  },
+};
+
+// ---------- barre d'outils ----------
+const Toolbar = {
+  render() {
+    const T = $('#toolbar');
+    T.innerHTML = `
+      <button class="tb" data-cmd="nouveau" title="Nouveau (Ctrl+N)">${svg('new')}</button>
+      <button class="tb" data-cmd="ouvrir" title="Ouvrir une session (Ctrl+O)">${svg('open')}</button>
+      <button class="tb" data-cmd="enregistrer" title="Enregistrer la session (Ctrl+S)">${svg('save')}</button>
+      <span class="sep"></span>
+      <button class="tb go" data-cmd="importer" title="Importer des données : CSV, TXT, Excel .xlsx, Regressi">${svg('import')} Importer</button>
+      <button class="tb" data-cmd="video" title="Pointage vidéo">${svg('video')} Vidéo</button>
+      <span class="sep"></span>
+      <button class="tb on" data-mode="zoom" title="Zoom par cadre">${svg('zoom')}</button>
+      <button class="tb" data-mode="pan" title="Déplacer">${svg('pan')}</button>
+      <button class="tb" data-mode="reticule" title="Réticule">${svg('reticule')}</button>
+      <button class="tb" data-mode="curseur" title="Curseur lié à la courbe">${svg('curseur')}</button>
+      <button class="tb" data-mode="mesure" title="Mesure entre deux points">${svg('mesure')}</button>
+      <button class="tb" data-cmd="auto" title="Calibrage automatique">${svg('auto')}</button>
+      <span class="sep"></span>
+      <button class="tb" data-cmd="nouvelleFenetre" title="Nouvelle fenêtre graphique">${svg('graph')}</button>
+      <button class="tb" data-cmd="tableur" title="Tableur (F11)">${svg('table')}</button>
+      <button class="tb" data-cmd="feuilleCalcul" title="Feuille de calcul (F3)">${svg('calc')}</button>
+      <button class="tb" data-cmd="modelisation" title="Modélisation (F4)">${svg('model')}</button>
+      <button class="tb" data-cmd="fourier" title="Analyse de Fourier (F6)">${svg('fourier')}</button>
+      <button class="tb" data-cmd="bode" title="Diagramme de Bode à partir de deux voies">${svg('bode')}</button>
+      <button class="tb" data-cmd="traitements" title="Dérivée, intégrale, lissage, filtres, échantillonnage…">${svg('filtre')}</button>`;
+    $$('[data-mode]', T).forEach(b => b.onclick = () => App.setMode(b.dataset.mode));
+  },
+};
+
+// ---------- commandes ----------
+const Commands = {
+  nouveau: async () => { if (App.order.length && !(await App.modal('Nouveau', '<p>Effacer toutes les courbes et fenêtres ?</p>', [{ label: 'Annuler', value: false }, { label: 'Effacer', pri: true, value: true }]))) return; App.clearAll(); App.calcText = ''; },
+  ouvrir: async () => { const f = await App.pickFile('.json,.lsig'); if (!f) return; try { App.loadSession(JSON.parse(await f.text())); App.msg('Session ouverte : ' + f.name, 'ok'); } catch (e) { App.msg('Session illisible : ' + e.message, 'err'); } },
+  enregistrer: () => App.download('session-' + new Date().toISOString().slice(0, 10) + '.json', App.sessionJSON(), 'application/json'),
+  importer: () => App.importer(),
+  exporterCSV: async () => {
+    if (!App.order.length) { App.msg('Aucune courbe', 'err'); return; }
+    const r = await App.modal('Exporter en CSV', `<p>Courbes à exporter :</p>${App.order.map(n => `<div><label><input type="checkbox" data-n="${esc(n)}" checked> ${esc(n)}</label></div>`).join('')}<div class="row"><label>Format</label><select id="fmt" style="width:220px"><option value="fr">Excel français (; et virgule)</option><option value="int">international (, et point)</option><option value="tab">tabulations</option></select></div>`,
+      [{ label: 'Annuler', value: null }, { label: 'Exporter', pri: true, action: bg => ({ n: $$('[data-n]', bg).filter(e => e.checked).map(e => e.dataset.n), f: $('#fmt', bg).value }) }]);
+    if (!r || !r.n.length) return;
+    const [sep, dec] = r.f === 'fr' ? [';', ','] : r.f === 'int' ? [',', '.'] : ['\t', ','];
+    App.download('courbes.csv', '﻿' + App.exportCSV(r.n, sep, dec), 'text/csv');
+  },
+  copierTableau: () => navigator.clipboard.writeText(App.exportCSV(App.order, '\t', ',')).then(() => App.msg('Données copiées : collez-les dans Excel ou LibreOffice', 'ok'), () => App.msg('Copie refusée par le navigateur', 'err')),
+  exporterPNG: () => App.exportPNG(),
+  copierImage: () => { const p = App.activePlot(); if (!p) return; p.canvas.toBlob(b => navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]).then(() => App.msg('Image copiée : collez-la dans un document', 'ok'), () => App.msg('Copie de l\'image impossible avec ce navigateur', 'err'))); },
+  nouvelleVariable: () => App.nouvelleVariable(),
+  proprietes: () => App.selCurve ? App.curveProps(App.selCurve) : App.msg('Sélectionnez une courbe dans la liste', 'err'),
+  supprimerCourbe: () => { if (App.selCurve) { App.removeCurve(App.selCurve); App.refresh(); } },
+  toutSupprimer: async () => { if (await App.modal('Supprimer', '<p>Supprimer toutes les courbes ?</p>', [{ label: 'Annuler', value: false }, { label: 'Supprimer', pri: true, value: true }])) { for (const n of App.order.slice()) App.removeCurve(n); App.refresh(); } },
+  nouvelleFenetre: () => App.newGraph(),
+  tableur: () => App.openTableur(),
+  feuilleCalcul: () => App.openCalc(),
+  panneauGauche: () => { const L = $('#left'); const hid = L.style.display === 'none'; L.style.display = hid ? '' : 'none'; $('#main').style.gridTemplateColumns = hid ? '' : '0 1fr auto'; setTimeout(() => App.redraw(), 50); },
+  theme: () => { const r = document.documentElement; const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark ? 'light' : 'dark'; try { localStorage.setItem('latispresque-theme', r.dataset.theme); } catch (e) { } App.redraw(); },
+  modelisation: () => App.openModel(),
+  fourier: () => App.openFourier(),
+  bode: () => App.openBode(),
+  traitements: () => App.openTraitements(),
+  filtres: () => App.openTraitements(null, 'pb2'),
+  echantillonnage: () => App.openTraitements(null, 'ech'),
+  statistiques: () => App.openStats(),
+  tangente: () => App.tangente(),
+  generateur: () => { const s = $('#secGen'); if (s) { s.classList.remove('closed'); s.scrollIntoView({ behavior: 'smooth' }); $('#gE').focus(); } },
+  video: () => App.openVideo(),
+  auto: () => { const p = App.activePlot(); if (p) p.autoscale(); },
+  aide: () => App.aide(),
+  apropos: () => App.modal('À propos', `<p><b>LaboAnalyse (latispresque)</b> — traitement de données expérimentales et pointage vidéo dans le navigateur, sans installation. Version allégée de LaboSignal, sans liaison avec une carte d'acquisition.</p><p>MP* Malherbe.</p><p class="hint">Logiciel indépendant, non affilié à Eurosmart. Latis-Pro est une marque de son propriétaire.</p>`),
+};
+
+// ---------- démarrage ----------
+window.addEventListener('DOMContentLoaded', () => {
+  try { const t = localStorage.getItem('latispresque-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) { }
+  Toolbar.render(); Gen.renderPanel();
+  $$('#menubar .menu').forEach(m => {
+    m.querySelector('span').onclick = e => { const open = m.classList.contains('open'); $$('#menubar .menu').forEach(x => x.classList.remove('open')); if (!open) m.classList.add('open'); e.stopPropagation(); };
+    m.onmouseenter = () => { if ($$('#menubar .menu.open').length) { $$('#menubar .menu').forEach(x => x.classList.remove('open')); m.classList.add('open'); } };
+  });
+  document.addEventListener('click', e => {
+    const c = e.target.closest('[data-cmd]'); if (c && Commands[c.dataset.cmd]) { $$('#menubar .menu').forEach(x => x.classList.remove('open')); Commands[c.dataset.cmd](); return; }
+    if (!e.target.closest('.menu')) $$('#menubar .menu').forEach(x => x.classList.remove('open'));
+  });
+  document.addEventListener('keydown', e => {
+    if (e.target.closest && e.target.closest('.modal')) return;
+    const k = e.key, typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+    if (k === 'F3') { e.preventDefault(); App.openCalc(); }
+    else if (k === 'F4') { e.preventDefault(); App.openModel(); }
+    else if (k === 'F6') { e.preventDefault(); App.openFourier(); }
+    else if (k === 'F11') { e.preventDefault(); App.openTableur(); }
+    else if (k === 'F2' && App.active && App.active.type === 'calc') { e.preventDefault(); App.active.run(); }
+    else if (e.ctrlKey && k.toLowerCase() === 's') { e.preventDefault(); Commands.enregistrer(); }
+    else if (e.ctrlKey && k.toLowerCase() === 'o') { e.preventDefault(); Commands.ouvrir(); }
+    else if (e.ctrlKey && k.toLowerCase() === 'n') { e.preventDefault(); Commands.nouveau(); }
+    else if (!typing && App.active && App.active.type === 'video' && (k === 'ArrowRight' || k === 'ArrowLeft')) { e.preventDefault(); App.active.goto(App.active.frame + (k === 'ArrowRight' ? 1 : -1) * (e.shiftKey ? 10 : 1)); }
+    else if (!typing && k === 'Escape' && App.active && App.active.type === 'video') { App.active.tracking = false; App.active.setMode(null); }
+  });
+  // glisser-déposer de fichiers
+  document.addEventListener('dragover', e => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); });
+  document.addEventListener('drop', async e => {
+    if (!e.dataTransfer.files.length) return; e.preventDefault(); const f = e.dataTransfer.files[0];
+    if (/^video\//.test(f.type) || /\.(mp4|mov|webm|avi|mkv|m4v)$/i.test(f.name)) { App.openVideo(f); return; }
+    App.importer(f);
+  });
+  App.newGraph('Fenêtre 1');
+  window.addEventListener('beforeunload', e => { if (App.order.length) { e.preventDefault(); e.returnValue = ''; } });
+  App.dlCap();
+});
+
+</script>
+</body>
+</html>

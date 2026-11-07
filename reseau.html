@@ -1,0 +1,1162 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Réseau de diffraction — MP* Malherbe</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px; color: #222; background: #eef0f3;
+}
+#app { display: flex; height: 100vh; }
+#principal { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0;
+  padding: 8px; gap: 8px; }
+.ligne-zones { display: flex; gap: 8px; min-height: 0; }
+.zone { position: relative; flex: 1; min-height: 0; min-width: 0; background: #fff;
+  border: 1px solid #d5d9df; border-radius: 6px; overflow: hidden; }
+.zone canvas { position: absolute; left: 0; top: 0; touch-action: none; }
+#panneau { width: 340px; flex: none; overflow-y: auto; background: #fff;
+  border-left: 1px solid #d5d9df; padding: 10px 14px 20px; }
+#panneau h1 { font-size: 16px; margin: 4px 0 2px; }
+.retour { font-size: 12px; color: #4a6fa5; text-decoration: none; }
+.retour:hover { text-decoration: underline; }
+.section { margin: 8px 0; padding-bottom: 8px; border-bottom: 1px solid #eceef1; }
+.section:last-child { border-bottom: none; }
+.titre { font-weight: 600; margin-bottom: 4px; color: #333; }
+.choix { display: flex; align-items: center; gap: 6px; padding: 1px 0; cursor: pointer;
+  user-select: none; }
+.choix input { margin: 0 2px 0 0; }
+.choix.off { color: #aaa; cursor: default; }
+.curseur { margin: 7px 0; }
+.curseur .tete { display: flex; justify-content: space-between; align-items: center;
+  gap: 6px; }
+.curseur .valeur { display: flex; align-items: center; gap: 2px; flex: none; }
+.saisie { width: 66px; text-align: right; font: inherit; padding: 1px 4px;
+  border: 1px solid #c9cdd3; border-radius: 3px; }
+.pm { width: 20px; height: 20px; padding: 0; border: 1px solid #c9cdd3;
+  background: #f5f6f8; border-radius: 3px; cursor: pointer; line-height: 1; }
+.pm:hover { background: #e6e9ee; }
+input[type=range] { width: 100%; margin: 3px 0 0; accent-color: #3b6fb6; }
+.boutons { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+button.b { padding: 5px 10px; border: 1px solid #b8bec8; background: #f3f4f6;
+  border-radius: 4px; cursor: pointer; font: inherit; }
+button.b:hover { background: #e4e7ec; }
+button.b.actif { background: #dce7f7; border-color: #7f9fcf; }
+.info { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 4px;
+  padding: 6px 8px; line-height: 1.5; }
+.note { font-size: 11.5px; color: #666; font-style: italic; line-height: 1.4; }
+.dialogue { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: none;
+  align-items: center; justify-content: center; z-index: 10; }
+.dialogue .boite { background: #fff; border-radius: 8px; padding: 16px 20px;
+  min-width: 340px; box-shadow: 0 6px 30px rgba(0,0,0,0.25); }
+.dialogue table td { padding: 3px 6px; }
+.dialogue input[type=text] { width: 80px; font: inherit; padding: 2px 4px; }
+.erreur { color: #c62828; }
+@media (max-width: 900px) {
+  #app { flex-direction: column; height: auto; }
+  #principal { height: 75vh; }
+  #panneau { width: 100%; border-left: none; border-top: 1px solid #d5d9df; }
+}
+.haut { display: flex; justify-content: space-between; align-items: center; }
+.etiquette { font-size: 11.5px; font-weight: 600; color: #fff; background: #3b5f96;
+  border-radius: 10px; padding: 2px 9px; letter-spacing: 0.02em; }
+.filigrane { position: absolute; right: 16px; bottom: 14px; z-index: 5; pointer-events: none;
+  font-size: 13px; font-weight: 700; color: #3b5f96; background: rgba(255,255,255,0.82);
+  border: 1px solid rgba(59,95,150,0.35); border-radius: 12px; padding: 3px 11px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="principal">
+    <div class="zone" id="z_schema" data-mt-nom="Schéma" style="flex: 0.95"></div>
+    <div class="zone" id="z_spectre" data-mt-nom="Spectre" style="flex: 0.9"></div>
+    <div class="zone" id="z_lunette" data-mt-nom="Lunette" style="flex: 1.15"></div>
+  </div>
+  <div id="panneau"></div>
+</div>
+<script>
+"use strict";
+/* ======================================================================
+   Bibliothèque commune aux applets (aucune dépendance externe)
+   - interface: sections, curseurs (−/+, saisie, molette), boutons radio,
+     cases à cocher, boutons
+   - canvas: adaptation à la taille et à la résolution de l'écran,
+     repères gradués, courbes, flèches, légendes
+   - 3D: projection en perspective, rotation à la souris, tri en profondeur
+   ====================================================================== */
+
+// ---------------------------------------------------------------- DOM
+function el(tag, attrs, parent) {
+  const e = document.createElement(tag);
+  if (attrs) {
+    for (const k in attrs) {
+      const v = attrs[k];
+      if (k === "text") e.textContent = v;
+      else if (k === "html") e.innerHTML = v;
+      else if (k === "class") e.className = v;
+      else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v);
+    }
+  }
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+/** Nombre écrit avec une virgule décimale. */
+function fmt(v, d) {
+  if (v === Infinity) return "∞";
+  if (v === -Infinity) return "−∞";
+  if (!isFinite(v)) return "—";
+  let s = v.toFixed(d);
+  if (/^-0(\.0*)?$/.test(s)) s = s.slice(1);
+  return s.replace(".", ",").replace("-", "−");
+}
+
+function section(parent, titre) {
+  const s = el("div", { class: "section" }, parent);
+  if (titre) el("div", { class: "titre", html: titre }, s);
+  return s;
+}
+
+/** Curseur avec boutons −/+, saisie au clavier et molette.
+    o = {label, min, max, val, pas, dec, onchange} */
+function curseur(parent, o) {
+  const ligne = el("div", { class: "curseur" }, parent);
+  const tete = el("div", { class: "tete" }, ligne);
+  el("span", { html: o.label }, tete);
+  const zone = el("span", { class: "valeur" }, tete);
+  const moins = el("button", { class: "pm", text: "−", title: "diminuer" }, zone);
+  const saisie = el("input", { type: "text", class: "saisie" }, zone);
+  const plus = el("button", { class: "pm", text: "+", title: "augmenter" }, zone);
+  const r = el("input", { type: "range", min: o.min, max: o.max, step: "any" }, ligne);
+  const dec = o.dec !== undefined ? o.dec
+    : Math.max(0, -Math.floor(Math.log10(o.pas) + 1e-9));
+  let v = o.val;
+  function borne(x) {
+    x = Math.min(Math.max(x, o.min), o.max);
+    return +(o.min + Math.round((x - o.min) / o.pas) * o.pas).toFixed(10);
+  }
+  function afficher() { r.value = v; saisie.value = fmt(v, dec); }
+  function regler(x, silencieux) {
+    x = borne(x);
+    const change = Math.abs(x - v) > 1e-12;
+    v = x;
+    afficher();
+    if (change && !silencieux && o.onchange) o.onchange(v);
+  }
+  r.addEventListener("input", () => regler(parseFloat(r.value)));
+  saisie.addEventListener("change", () => {
+    const x = parseFloat(saisie.value.replace(",", ".").replace("−", "-"));
+    if (isFinite(x)) regler(x); else afficher();
+  });
+  saisie.addEventListener("keydown", (e) => { if (e.key === "Enter") saisie.blur(); });
+  moins.addEventListener("click", () => regler(v - o.pas));
+  plus.addEventListener("click", () => regler(v + o.pas));
+  r.addEventListener("keydown", (e) => {
+    const sauts = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1,
+                    PageUp: 10, PageDown: -10 };
+    if (e.key in sauts) { e.preventDefault(); regler(v + sauts[e.key] * o.pas); }
+  });
+  ligne.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    regler(v + (e.deltaY < 0 ? 1 : -1) * o.pas * (e.shiftKey ? 10 : 1));
+  }, { passive: false });
+  afficher();
+  return {
+    get: () => v,
+    set: (x, silencieux) => regler(x, silencieux),
+    ligne,
+    montrer: (b) => { ligne.style.display = b ? "" : "none"; },
+  };
+}
+
+/** Groupe de boutons radio. onchange(valeur, indice). */
+function radios(parent, titre, options, actif, onchange) {
+  const s = section(parent, titre);
+  const nom = "r" + Math.random().toString(36).slice(2);
+  const items = options.map((opt, i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "radio", name: nom }, lab);
+    el("span", { html: opt }, lab);
+    if (i === actif) inp.checked = true;
+    inp.addEventListener("change", () => {
+      if (inp.checked && onchange) onchange(opt, i);
+    });
+    return { inp, lab };
+  });
+  return {
+    indice: () => items.findIndex((o) => o.inp.checked),
+    valeur: () => options[items.findIndex((o) => o.inp.checked)],
+    set: (i, silencieux) => {
+      items[i].inp.checked = true;
+      if (!silencieux && onchange) onchange(options[i], i);
+    },
+    desactiver: (i, b) => {
+      items[i].inp.disabled = b;
+      items[i].lab.classList.toggle("off", b);
+    },
+    section: s,
+  };
+}
+
+/** Cases à cocher. options = [[libellé, coché], ...]. onchange(indice, état). */
+function cases(parent, titre, options, onchange) {
+  const s = section(parent, titre);
+  const items = options.map(([texte, coche], i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "checkbox" }, lab);
+    inp.checked = coche;
+    el("span", { html: texte }, lab);
+    inp.addEventListener("change", () => onchange && onchange(i, inp.checked));
+    return inp;
+  });
+  return {
+    get: (i) => items[i].checked,
+    set: (i, b, silencieux) => {
+      items[i].checked = b;
+      if (!silencieux && onchange) onchange(i, b);
+    },
+    section: s,
+  };
+}
+
+function boutons(parent) { return el("div", { class: "boutons" }, parent); }
+function bouton(parent, texte, onclick) {
+  return el("button", { class: "b", html: texte, onclick }, parent);
+}
+
+/** En-tête du panneau de commandes. */
+function entete(panneau, titre) {
+  const haut = el("div", { class: "haut" }, panneau);
+  el("a", { class: "retour", href: "index.html", text: "← Sommaire" }, haut);
+  el("span", { class: "etiquette", text: "MP* Malherbe" }, haut);
+  // filigrane visible en permanence sur la zone de simulation
+  const principal = document.getElementById("principal");
+  if (principal) el("div", { class: "filigrane", text: "MP* Malherbe" }, principal);
+  el("h1", { html: titre }, panneau);
+}
+
+// ---------------------------------------------------------------- canvas
+/** Canvas qui remplit son conteneur et se redessine quand il change de taille. */
+function canevas(conteneur, dessiner) {
+  const cv = el("canvas", null, conteneur);
+  const ctx = cv.getContext("2d");
+  const obj = { cv, ctx, w: 1, h: 1, dessiner };
+  function taille() {
+    const r = conteneur.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    obj.w = Math.max(10, Math.floor(r.width));
+    obj.h = Math.max(10, Math.floor(r.height));
+    cv.width = Math.round(obj.w * dpr);
+    cv.height = Math.round(obj.h * dpr);
+    cv.style.width = obj.w + "px";
+    cv.style.height = obj.h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (obj.dessiner) obj.dessiner(obj);
+  }
+  obj.effacer = (fond) => {
+    ctx.fillStyle = fond || "#fff";
+    ctx.fillRect(0, 0, obj.w, obj.h);
+  };
+  new ResizeObserver(taille).observe(conteneur);
+  taille();
+  return obj;
+}
+
+/** Graduations « rondes » entre a et b (environ n intervalles). */
+function graduations(a, b, n) {
+  const brut = Math.abs(b - a) / Math.max(n, 1);
+  const mag = Math.pow(10, Math.floor(Math.log10(brut)));
+  const r = brut / mag;
+  const pas = (r < 1.5 ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10) * mag;
+  const dec = Math.max(0, -Math.floor(Math.log10(pas) + 1e-9));
+  const vals = [];
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  for (let v = Math.ceil(lo / pas - 1e-9) * pas; v <= hi + pas * 1e-9; v += pas) {
+    vals.push(Math.abs(v) < pas * 1e-9 ? 0 : v);
+  }
+  return { vals, dec, pas };
+}
+
+/** Dessine un repère gradué dans le cadre {x, y, w, h} et renvoie les
+    fonctions de passage X(u), Y(v) (et inverses). */
+function repere(ctx, cadre, xmin, xmax, ymin, ymax, o) {
+  o = o || {};
+  const { x, y, w, h } = cadre;
+  const R = {
+    cadre, xmin, xmax, ymin, ymax,
+    X: (u) => x + (u - xmin) / (xmax - xmin) * w,
+    Y: (v) => y + h - (v - ymin) / (ymax - ymin) * h,
+    invX: (px) => xmin + (px - x) / w * (xmax - xmin),
+    invY: (py) => ymin + (y + h - py) / h * (ymax - ymin),
+  };
+  ctx.save();
+  ctx.fillStyle = o.fond || "#fff";
+  ctx.fillRect(x, y, w, h);
+  const gx = graduations(xmin, xmax, o.nx || Math.max(2, w / 85));
+  const gy = graduations(ymin, ymax, o.ny || Math.max(2, h / 45));
+  ctx.lineWidth = 1;
+  if (o.grille !== false) {
+    ctx.strokeStyle = "#e6e8eb";
+    ctx.beginPath();
+    for (const v of gx.vals) { const p = Math.round(R.X(v)) + 0.5; ctx.moveTo(p, y); ctx.lineTo(p, y + h); }
+    for (const v of gy.vals) { const p = Math.round(R.Y(v)) + 0.5; ctx.moveTo(x, p); ctx.lineTo(x + w, p); }
+    ctx.stroke();
+  }
+  if (o.zero && ymin < 0 && ymax > 0) {
+    ctx.strokeStyle = "#999";
+    ctx.beginPath(); ctx.moveTo(x, R.Y(0)); ctx.lineTo(x + w, R.Y(0)); ctx.stroke();
+  }
+  ctx.strokeStyle = "#666";
+  ctx.strokeRect(x + 0.5, y + 0.5, w, h);
+  ctx.fillStyle = "#333";
+  ctx.font = "11px system-ui, sans-serif";
+  if (o.etiquettesX !== false) {
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (const v of gx.vals) ctx.fillText(fmt(v, gx.dec), R.X(v), y + h + 3);
+  }
+  if (o.etiquettesY !== false) {
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (const v of gy.vals) ctx.fillText(fmt(v, gy.dec), x - 4, R.Y(v));
+  }
+  ctx.font = "12px system-ui, sans-serif";
+  if (o.xlabel) {
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.fillText(o.xlabel, x + w / 2, y + h + 18);
+  }
+  if (o.ylabel) {
+    ctx.save();
+    ctx.translate(x - (o.decY || 38), y + h / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.fillText(o.ylabel, 0, 0);
+    ctx.restore();
+  }
+  if (o.titre) {
+    ctx.font = "bold 12.5px system-ui, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.fillText(o.titre, x + w / 2, y - 5);
+  }
+  ctx.restore();
+  return R;
+}
+
+/** Restreint le dessin au cadre du repère. */
+function clipper(ctx, R) {
+  const c = R.cadre;
+  ctx.beginPath();
+  ctx.rect(c.x, c.y, c.w, c.h);
+  ctx.clip();
+}
+
+/** Courbe y(x); les valeurs non finies interrompent le tracé. */
+function courbe(ctx, R, xs, ys, couleur, lw, tirets) {
+  ctx.save();
+  clipper(ctx, R);
+  ctx.strokeStyle = couleur;
+  ctx.lineWidth = lw || 1.5;
+  ctx.lineJoin = "round";
+  if (tirets) ctx.setLineDash(tirets);
+  ctx.beginPath();
+  let leve = true;
+  for (let i = 0; i < xs.length; i++) {
+    const yv = ys[i];
+    if (!isFinite(yv) || !isFinite(xs[i])) { leve = true; continue; }
+    const px = R.X(xs[i]), py = Math.max(-1e5, Math.min(1e5, R.Y(yv)));
+    if (leve) { ctx.moveTo(px, py); leve = false; } else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Flèche entre deux points (coordonnées écran). */
+function fleche(ctx, x0, y0, x1, y1, couleur, lw, tete) {
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy);
+  ctx.save();
+  ctx.strokeStyle = couleur; ctx.fillStyle = couleur;
+  ctx.lineWidth = lw || 2; ctx.lineCap = "round";
+  if (L < 0.5) { ctx.restore(); return; }
+  const t = Math.min(tete || 10, 0.45 * L);
+  const ux = dx / L, uy = dy / L;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1 - ux * t * 0.8, y1 - uy * t * 0.8);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - ux * t - uy * t * 0.45, y1 - uy * t + ux * t * 0.45);
+  ctx.lineTo(x1 - ux * t + uy * t * 0.45, y1 - uy * t - ux * t * 0.45);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/** Légende: items = [[texte, couleur, tirets|"point"|"bande"], ...]. */
+function legende(ctx, x, y, items, o) {
+  o = o || {};
+  ctx.save();
+  ctx.font = (o.taille || 11.5) + "px system-ui, sans-serif";
+  const larg = Math.max(...items.map((it) => ctx.measureText(it[0]).width)) + 36;
+  const h = items.length * 17 + 8;
+  if (o.droite) x -= larg;
+  ctx.fillStyle = "rgba(255,255,255,0.88)";
+  ctx.strokeStyle = "#ccc";
+  ctx.fillRect(x, y, larg, h);
+  ctx.strokeRect(x + 0.5, y + 0.5, larg, h);
+  items.forEach(([texte, couleur, style], i) => {
+    const yy = y + 12 + 17 * i;
+    ctx.strokeStyle = couleur; ctx.fillStyle = couleur;
+    ctx.lineWidth = 2;
+    if (style === "point") {
+      ctx.beginPath(); ctx.arc(x + 17, yy, 4, 0, 2 * Math.PI); ctx.fill();
+    } else if (style === "bande") {
+      ctx.globalAlpha = 0.35; ctx.fillRect(x + 6, yy - 5, 22, 10); ctx.globalAlpha = 1;
+    } else {
+      ctx.setLineDash(style || []);
+      ctx.beginPath(); ctx.moveTo(x + 6, yy); ctx.lineTo(x + 28, yy); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.fillStyle = "#222";
+    ctx.textBaseline = "middle";
+    ctx.fillText(texte, x + 33, yy);
+  });
+  ctx.restore();
+}
+
+function texte(ctx, s, x, y, o) {
+  o = o || {};
+  ctx.save();
+  ctx.font = (o.gras ? "bold " : "") + (o.taille || 12) + "px system-ui, sans-serif";
+  ctx.fillStyle = o.couleur || "#222";
+  ctx.textAlign = o.align || "left";
+  ctx.textBaseline = o.base || "alphabetic";
+  ctx.fillText(s, x, y);
+  ctx.restore();
+}
+
+/** Teinte HSV (h dans [0,1[) -> "rgb(...)" ; utilisée pour la phase. */
+function couleurPhase(h) {
+  h = ((h % 1) + 1) % 1;
+  const i = Math.floor(h * 6), f = h * 6 - i;
+  const q = 1 - f, t = f;
+  const [r, g, b] = [[1, t, 0], [q, 1, 0], [0, 1, t], [0, q, 1], [t, 0, 1], [1, 0, q]][i % 6];
+  return [Math.round(255 * r), Math.round(255 * g), Math.round(255 * b)];
+}
+
+/** Couleur RVB (0..1) associée à une longueur d'onde en nm (D. Bruton). */
+function lambdaVersRGB(lam) {
+  let r = 0, g = 0, b = 0;
+  if (lam >= 380 && lam < 440) { r = -(lam - 440) / 60; b = 1; }
+  else if (lam < 490) { g = (lam - 440) / 50; b = 1; }
+  else if (lam < 510) { g = 1; b = -(lam - 510) / 20; }
+  else if (lam < 580) { r = (lam - 510) / 70; g = 1; }
+  else if (lam < 645) { r = 1; g = -(lam - 645) / 65; }
+  else if (lam <= 780) { r = 1; }
+  let f = 1;
+  if (lam >= 380 && lam < 420) f = 0.3 + 0.7 * (lam - 380) / 40;
+  else if (lam > 700 && lam <= 780) f = 0.3 + 0.7 * (780 - lam) / 80;
+  if (lam < 380 || lam > 780) f = 0;
+  return [r * f, g * f, b * f];
+}
+
+// ---------------------------------------------------------------- 3D
+/** Rotation de la vue à la souris (glisser) et zoom (molette).
+    v = {azim, elev, zoom} en degrés. */
+function vue3D(cv, v, redessiner) {
+  let prec = null;
+  cv.style.cursor = "grab";
+  cv.addEventListener("pointerdown", (e) => {
+    prec = [e.clientX, e.clientY];
+    cv.setPointerCapture(e.pointerId);
+    cv.style.cursor = "grabbing";
+  });
+  cv.addEventListener("pointermove", (e) => {
+    if (!prec) return;
+    v.azim -= (e.clientX - prec[0]) * 0.4;
+    v.elev = Math.max(-89, Math.min(89, v.elev + (e.clientY - prec[1]) * 0.4));
+    prec = [e.clientX, e.clientY];
+    redessiner();
+  });
+  const fin = () => { prec = null; cv.style.cursor = "grab"; };
+  cv.addEventListener("pointerup", fin);
+  cv.addEventListener("pointercancel", fin);
+  cv.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    v.zoom = Math.max(0.3, Math.min(5, v.zoom * Math.exp(-e.deltaY * 0.001)));
+    redessiner();
+  }, { passive: false });
+}
+
+/** Projection perspective. Repère direct (X, Y, Z), Z vers le haut.
+    Renvoie p -> [xécran, yécran, profondeur] (profondeur > 0 : vers l'œil). */
+function projection3D(v, w, h, centre, echelle) {
+  const a = v.azim * Math.PI / 180, e = v.elev * Math.PI / 180;
+  const ca = Math.cos(a), sa = Math.sin(a), ce = Math.cos(e), se = Math.sin(e);
+  const u = [ce * ca, ce * sa, se];          // vers l'observateur
+  const r = [-sa, ca, 0];                     // droite de l'écran
+  const hz = [-se * ca, -se * sa, ce];        // haut de l'écran
+  const s = echelle * v.zoom;
+  const dist = 9 * echelle;                   // distance de l'œil (pixels)
+  return function (p) {
+    const x = p[0] - centre[0], y = p[1] - centre[1], z = p[2] - centre[2];
+    const sx = (x * r[0] + y * r[1]) * s;
+    const sy = (x * hz[0] + y * hz[1] + z * hz[2]) * s;
+    const d = (x * u[0] + y * u[1] + z * u[2]) * s;
+    const f = dist / (dist - d);
+    return [w / 2 + sx * f, h / 2 - sy * f, d];
+  };
+}
+
+/** Rendu d'une liste de primitives triées de l'arrière vers l'avant.
+    {type: "ligne"|"poly"|"texte"|"point", pts, prof, couleur, lw, alpha, ...} */
+function rendre(ctx, prims) {
+  prims.sort((p, q) => p.prof - q.prof);
+  for (const p of prims) {
+    ctx.save();
+    ctx.globalAlpha = p.alpha === undefined ? 1 : p.alpha;
+    if (p.type === "ligne") {
+      ctx.strokeStyle = p.couleur; ctx.lineWidth = p.lw || 1;
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+      if (p.tirets) ctx.setLineDash(p.tirets);
+      ctx.beginPath();
+      ctx.moveTo(p.pts[0][0], p.pts[0][1]);
+      for (let i = 1; i < p.pts.length; i++) ctx.lineTo(p.pts[i][0], p.pts[i][1]);
+      ctx.stroke();
+    } else if (p.type === "fleche") {
+      fleche(ctx, p.pts[0][0], p.pts[0][1], p.pts[1][0], p.pts[1][1], p.couleur,
+             p.lw || 2, p.tete || 9);
+    } else if (p.type === "poly") {
+      ctx.fillStyle = p.couleur;
+      ctx.beginPath();
+      ctx.moveTo(p.pts[0][0], p.pts[0][1]);
+      for (let i = 1; i < p.pts.length; i++) ctx.lineTo(p.pts[i][0], p.pts[i][1]);
+      ctx.closePath();
+      ctx.fill();
+      if (p.bord) { ctx.globalAlpha = 0.7; ctx.strokeStyle = p.bord; ctx.lineWidth = 1; ctx.stroke(); }
+    } else if (p.type === "texte") {
+      ctx.fillStyle = p.couleur || "#222";
+      ctx.font = (p.gras ? "bold " : "") + (p.taille || 13) + "px system-ui, sans-serif";
+      ctx.textAlign = p.align || "center"; ctx.textBaseline = "middle";
+      ctx.fillText(p.texte, p.pts[0][0], p.pts[0][1]);
+    } else if (p.type === "point") {
+      ctx.fillStyle = p.couleur;
+      ctx.beginPath(); ctx.arc(p.pts[0][0], p.pts[0][1], p.r || 3, 0, 2 * Math.PI); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+// ---------------------------------------------------------------- animation
+/** Boucle d'animation: pas(dt en s) appelée à chaque image. */
+function boucle(pas) {
+  let t0 = null;
+  function image(t) {
+    const dt = t0 === null ? 0 : Math.min(0.1, (t - t0) / 1000);
+    t0 = t;
+    pas(dt);
+    requestAnimationFrame(image);
+  }
+  requestAnimationFrame(image);
+}
+
+// ---------------------------------------------------------------- outils numériques
+/** Un pas de Runge-Kutta 4 pour dy/dt = f(t, y) (y: tableau). */
+function rk4(f, t, y, h) {
+  const n = y.length;
+  const k1 = f(t, y);
+  const y2 = y.map((v, i) => v + 0.5 * h * k1[i]);
+  const k2 = f(t + 0.5 * h, y2);
+  const y3 = y.map((v, i) => v + 0.5 * h * k2[i]);
+  const k3 = f(t + 0.5 * h, y3);
+  const y4 = y.map((v, i) => v + h * k3[i]);
+  const k4 = f(t + h, y4);
+  const r = new Array(n);
+  for (let i = 0; i < n; i++) r[i] = y[i] + h * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]) / 6;
+  return r;
+}
+
+/** Intégrales elliptiques complètes K(k) et E(k) (moyenne arithmético-géométrique). */
+function elliptiques(k) {
+  let a = 1, b = Math.sqrt(Math.max(0, 1 - k * k)), c = k, somme = 0.5 * c * c, p = 1;
+  for (let i = 0; i < 40 && Math.abs(c) > 1e-15; i++) {
+    const an = 0.5 * (a + b);
+    c = 0.5 * (a - b);
+    b = Math.sqrt(a * b);
+    a = an;
+    p *= 2;
+    somme += 0.5 * p * c * c;
+  }
+  const K = Math.PI / (2 * a);
+  return [K, K * (1 - somme)];
+}
+
+/** Lignes de niveau (carrés marchants) d'une grille V (nx × ny, ligne j = j-ième y).
+    Niveaux k·pas (|k·pas| ≤ vmax). Renvoie une liste de {k, seg} avec seg =
+    [i1, j1, i2, j2, ...] en coordonnées de grille (réelles). */
+function isolignes(V, nx, ny, pas, vmax) {
+  const parNiveau = new Map();
+  for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+    const a = V[j * nx + i], b = V[j * nx + i + 1], c = V[(j + 1) * nx + i + 1], d = V[(j + 1) * nx + i];
+    if (!(isFinite(a) && isFinite(b) && isFinite(c) && isFinite(d))) continue;
+    const mn = Math.max(Math.min(a, b, c, d), -vmax), mx = Math.min(Math.max(a, b, c, d), vmax);
+    const k0 = Math.ceil(mn / pas), k1 = Math.floor(mx / pas);
+    for (let k = k0; k <= k1; k++) {
+      const L = k * pas;
+      const idx = (a > L ? 1 : 0) | (b > L ? 2 : 0) | (c > L ? 4 : 0) | (d > L ? 8 : 0);
+      if (idx === 0 || idx === 15) continue;
+      let seg = parNiveau.get(k);
+      if (!seg) { seg = []; parNiveau.set(k, seg); }
+      const t = (u, v) => (L - u) / (v - u);
+      const bas = () => [i + t(a, b), j], droite = () => [i + 1, j + t(b, c)];
+      const haut = () => [i + t(d, c), j + 1], gauche = () => [i, j + t(a, d)];
+      const aj = (p, q) => seg.push(p[0], p[1], q[0], q[1]);
+      switch (idx) {
+        case 1: case 14: aj(bas(), gauche()); break;
+        case 2: case 13: aj(bas(), droite()); break;
+        case 3: case 12: aj(gauche(), droite()); break;
+        case 4: case 11: aj(droite(), haut()); break;
+        case 6: case 9: aj(bas(), haut()); break;
+        case 7: case 8: aj(gauche(), haut()); break;
+        case 5: case 10: {
+          const centre = (a + b + c + d) / 4 > L;
+          if ((idx === 5) === centre) { aj(bas(), droite()); aj(gauche(), haut()); }
+          else { aj(bas(), gauche()); aj(droite(), haut()); }
+        }
+      }
+    }
+  }
+  return [...parNiveau.entries()].map(([k, seg]) => ({ k, seg }));
+}
+
+/** Trace une grille de valeurs comme image: couleur(v) -> [r, g, b, a] (0..255).
+    La grille (nx × ny) couvre le rectangle écran (x, y, w, h), ligne j = 0 en bas. */
+function carteCouleur(ctx, V, nx, ny, couleur, x, y, w, h) {
+  const off = document.createElement("canvas");
+  off.width = nx; off.height = ny;
+  const oc = off.getContext("2d"), img = oc.createImageData(nx, ny);
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const c = couleur(V[j * nx + i]), d = ((ny - 1 - j) * nx + i) * 4;
+    img.data[d] = c[0]; img.data[d + 1] = c[1]; img.data[d + 2] = c[2]; img.data[d + 3] = c[3] === undefined ? 255 : c[3];
+  }
+  oc.putImageData(img, 0, 0);
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(off, x, y, w, h);
+  ctx.restore();
+}
+
+/** Palette divergente bleu-blanc-rouge pour u dans [−1, 1]. */
+function divergente(u) {
+  u = Math.max(-1, Math.min(1, u));
+  if (u >= 0) return [255, Math.round(255 * (1 - 0.8 * u)), Math.round(255 * (1 - 0.85 * u))];
+  return [Math.round(255 * (1 + 0.85 * u)), Math.round(255 * (1 + 0.6 * u)), 255];
+}
+/** Palette séquentielle (noir -> jaune clair) pour u dans [0, 1]. */
+function sequentielle(u) {
+  u = Math.max(0, Math.min(1, u));
+  return [Math.round(255 * Math.min(1, 1.6 * u)), Math.round(255 * Math.max(0, Math.min(1, 1.8 * u - 0.45))),
+          Math.round(255 * Math.max(0, 2.2 * u - 1.2) * 0.9 + 40 * (1 - u))];
+}
+</script>
+<script>
+/* ======================================================================
+   Réseau plan par transmission: pas a (n traits par mm), N traits éclairés,
+   traits transparents de largeur b, incidence i.
+   Formule des réseaux: sin θ_p − sin i = p λ / a.
+   Intensité diffractée (sources incohérentes entre longueurs d'onde):
+       I(θ) = sinc²(π b s/λ) · [sin(Nπ a s/λ) / (N sin(π a s/λ))]²,  s = sin θ − sin i
+   Les maxima principaux ont pour hauteur l'enveloppe sinc²; leur demi-largeur
+   angulaire est λ/(N a cos θ_p). Pouvoir de résolution dans l'ordre p: R = |p| N.
+   ====================================================================== */
+const SOURCES = {
+  "Lampe à sodium (doublet)": [[589.0, 1], [589.6, 0.5]],
+  "Lampe à mercure": [[404.7, 0.45], [435.8, 1], [546.1, 1], [577.0, 0.55], [579.1, 0.55]],
+  "Lampe à hydrogène (Balmer)": [[656.3, 1], [486.1, 0.55], [434.0, 0.3], [410.2, 0.2]],
+  "Lumière blanche": "blanc",
+  "Monochromatique (λ réglable)": null,
+};
+const NOMS = { 589.0: "D2", 589.6: "D1", 656.3: "Hα", 486.1: "Hβ", 434.0: "Hγ", 410.2: "Hδ" };
+const etat = { source: "Lampe à sodium (doublet)", lam: 550, n: 600, N: 3000, rb: 0.3, inc: 0, p: 1,
+               auto: true, fen: 1, contraste: true };
+
+const pasA = () => 1e6 / etat.n;                         // pas en nm
+const sinI = () => Math.sin(etat.inc * Math.PI / 180);
+const blanc = () => SOURCES[etat.source] === "blanc";
+function raies(dense) {
+  const s = SOURCES[etat.source];
+  if (s === null) return [[etat.lam, 1]];
+  if (s === "blanc") { const n = dense ? 401 : 201; return Array.from({ length: n }, (_, i) => [380 + 400 * i / (n - 1), 1]); }
+  return s;
+}
+/** Angle (degrés) de l'ordre p pour λ, ou null si l'ordre n'existe pas. */
+function thetaOrdre(p, lam) {
+  const s = sinI() + p * lam / pasA();
+  return Math.abs(s) <= 1 ? Math.asin(s) * 180 / Math.PI : null;
+}
+function enveloppe(thDeg, lam) {
+  const s = Math.sin(thDeg * Math.PI / 180) - sinI(), u = Math.PI * etat.rb * pasA() * s / lam;
+  return u === 0 ? 1 : (Math.sin(u) / u) ** 2;
+}
+function intensite(thDeg, lam) {
+  const s = Math.sin(thDeg * Math.PI / 180) - sinI(), x = pasA() * s / lam;
+  const den = etat.N * Math.sin(Math.PI * x);
+  const f = Math.abs(den) < 1e-12 ? 1 : (Math.sin(etat.N * Math.PI * x) / den) ** 2;
+  return enveloppe(thDeg, lam) * f;
+}
+const rgbTexte = (c, a) => `rgba(${Math.round(255 * c[0])},${Math.round(255 * c[1])},${Math.round(255 * c[2])},${a === undefined ? 1 : a})`;
+const pMax = () => Math.ceil(2 * pasA() / 300) + 1;
+
+// ------------------------------------------------------------- schéma du montage
+function dessinerSchema(o) {
+  const ctx = o.ctx;
+  o.effacer();
+  const gx = o.w * 0.3, gy = o.h * 0.52, R = Math.min(o.w * 0.62, o.h * 0.42);
+  texte(ctx, "Montage (vu de dessus)", 12, 20, { gras: true });
+  const i = etat.inc * Math.PI / 180, L = Math.min(gx - 60, 220);
+  // faisceau incident parallèle
+  for (const d of [-14, 0, 14]) {
+    const ox = -Math.sin(i) * d, oy = -Math.cos(i) * d;
+    fleche(ctx, gx - L * Math.cos(i) + ox, gy + L * Math.sin(i) + oy, gx - 4 * Math.cos(i) + ox, gy + 4 * Math.sin(i) + oy, "#aaa", 1.5, 8);
+  }
+  ctx.save();
+  ctx.translate(gx - (L + 10) * Math.cos(i), gy + (L + 10) * Math.sin(i)); ctx.rotate(-i);
+  ctx.fillStyle = "#555"; ctx.fillRect(-12, -22, 12, 44);
+  ctx.restore();
+  {  // libellé de l'incidence: version courte s'il déborderait sur le réseau (écran étroit)
+    const long = "lumière incidente (i = " + fmt(etat.inc, 1) + "°)", court = "i = " + fmt(etat.inc, 1) + "°";
+    ctx.save(); ctx.font = "11px system-ui";
+    const lib = ctx.measureText(long).width <= L - 14 ? long : court;
+    ctx.restore();
+    texte(ctx, lib, gx - L, gy + 52, { taille: 11, couleur: "#666" });
+  }
+  // réseau
+  ctx.save();
+  ctx.strokeStyle = "#333"; ctx.lineWidth = 4; ctx.setLineDash([3, 2]);
+  ctx.beginPath(); ctx.moveTo(gx, gy - 60); ctx.lineTo(gx, gy + 60); ctx.stroke(); ctx.setLineDash([]);
+  ctx.restore();
+  texte(ctx, "réseau", gx, gy + 76, { align: "center", taille: 11, couleur: "#333" });
+  ctx.save(); ctx.strokeStyle = "#bbb"; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx + R * 1.08, gy); ctx.stroke(); ctx.restore();
+  texte(ctx, "normale", gx + R * 1.08, gy + 14, { align: "right", taille: 10, couleur: "#999" });
+  // rayons diffractés
+  const lams = blanc() ? Array.from({ length: 9 }, (_, k) => [400 + 45 * k, 1]) : raies();
+  ctx.save();
+  for (let p = -pMax(); p <= pMax(); p++) {
+    for (const [lam] of lams) {
+      const th = thetaOrdre(p, lam);
+      if (th === null) continue;
+      const t = th * Math.PI / 180, c = lambdaVersRGB(lam);
+      ctx.strokeStyle = rgbTexte(c.map((v) => Math.min(1, v * 1.1)), p === etat.p ? 1 : 0.5);
+      ctx.lineWidth = p === etat.p ? 2.4 : 1.3;
+      ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx + R * Math.cos(t), gy - R * Math.sin(t)); ctx.stroke();
+    }
+    const th = thetaOrdre(p, blanc() ? 580 : lams[0][0]);
+    if (th !== null) {
+      const t = th * Math.PI / 180;
+      texte(ctx, "p = " + p, gx + (R + 24) * Math.cos(t), gy - (R + 24) * Math.sin(t) + 4,
+            { align: "center", taille: 12, gras: p === etat.p, couleur: p === etat.p ? "#c62828" : "#444" });
+    }
+  }
+  ctx.strokeStyle = "#e3e3e3"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(gx, gy, R, -Math.PI / 2, Math.PI / 2); ctx.stroke();
+  const thp = thetaOrdre(etat.p, blanc() ? 580 : lams[0][0]);
+  if (thp !== null && etat.p !== 0) {
+    const t = thp * Math.PI / 180;
+    ctx.strokeStyle = "#c62828"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(gx, gy, R * 0.3, Math.min(0, -t), Math.max(0, -t)); ctx.stroke();
+    texte(ctx, "θ = " + fmt(thp, 2) + "°", gx + R * 0.34 * Math.cos(t / 2) + 4, gy - R * 0.34 * Math.sin(t / 2) + (t > 0 ? -2 : 12),
+          { taille: 12, couleur: "#c62828" });
+  }
+  ctx.restore();
+  texte(ctx, "Les rayons de l'ordre observé sont en trait épais", 12, o.h - 10, { taille: 11, couleur: "#888" });
+  if (blanc() && o.w > 700) dessinerSpectreSource(ctx, o.w * 0.62, 40, o.w * 0.35, o.h - 100);
+}
+
+// ------------------------------------------------------------- lumière blanche (continuum)
+// Pour un spectre continu, la direction θ reçoit dans l'ordre p la longueur
+// d'onde λ = a (sin θ − sin i)/p, avec une densité angulaire dλ/dθ = a cos θ/|p|:
+//     dI/dθ ∝ S(λ) W(λ) · sinc²(π b p/a) · a cos θ/|p|
+// S: spectre de la source (corps noir de température T, ou uniforme);
+// W: réponse du détecteur (sensibilité de l'œil V(λ), ou détecteur idéal W = 1).
+const SPECTRES = ["Intensité perçue par l'œil (corps noir × V(λ))", "Intensité énergétique (corps noir, détecteur idéal)",
+                  "Modèle simple: spectre uniforme de 380 à 780 nm"];
+etat.spectre = 0; etat.T = 2800;
+/** Sensibilité photopique de l'œil (approximation gaussienne de la courbe CIE). */
+const V = (l) => 1.019 * Math.exp(-285.4 * (l / 1000 - 0.559) ** 2);
+function planck(l) { const x = 1.4388e7 / (l * etat.T); return x > 700 ? 0 : Math.pow(l / 1000, -5) / Math.expm1(x); }
+function domaine() { return etat.spectre === 1 ? [300, 1100] : [380, 780]; }
+/** Poids spectral du profil d'intensité (normalisé à 1 au maximum). */
+function poids() {
+  const [l0, l1] = domaine(), n = 801, ls = [], w = [];
+  for (let i = 0; i < n; i++) {
+    const l = l0 + (l1 - l0) * i / (n - 1);
+    ls.push(l);
+    w.push(etat.spectre === 2 ? 1 : planck(l) * (etat.spectre === 0 ? V(l) : 1));
+  }
+  const m = Math.max(...w);
+  return { l0, l1, n, ls, w: w.map((v) => v / m) };
+}
+/** Couleur vue par l'œil pour la longueur d'onde l, pondérée par l'énergie émise. */
+const teinte = (l) => { const c = lambdaVersRGB(l), m = Math.max(...c); return m > 0 ? c.map((v) => v / m) : [0, 0, 0]; };
+const BAL = (() => {     // balance des blancs: mélange d'égale énergie vu par l'œil = blanc
+  const s = [0, 0, 0];
+  for (let l = 380; l <= 780; l++) { const c = teinte(l), v = V(l); for (let q = 0; q < 3; q++) s[q] += c[q] * v; }
+  const m = Math.max(...s);
+  return s.map((v) => v / m);
+})();
+/** Couleur vue pour la longueur d'onde l (teinte × sensibilité de l'œil × spectre).
+    La balance des blancs ne s'applique qu'aux mélanges (ordre 0), pas aux couleurs pures. */
+function couleurVue(l) {
+  if (l < 380 || l > 780) return [0, 0, 0];
+  const S = etat.spectre === 2 ? 1 : planck(l) / planck(560);
+  return teinte(l).map((x) => x * V(l) * S);
+}
+let cacheP = null, cleP = "";
+function spectreSource() {
+  const cle = etat.spectre + "/" + etat.T;
+  if (cle !== cleP) { cacheP = poids(); cleP = cle; }
+  return cacheP;
+}
+const interp = (P, l) => {
+  if (l < P.l0 || l > P.l1) return 0;
+  const f = (l - P.l0) / (P.l1 - P.l0) * (P.n - 1), i = Math.min(P.n - 2, Math.floor(f)), s = f - i;
+  return P.w[i] * (1 - s) + P.w[i + 1] * s;
+};
+/** Lumière blanche reçue par colonne (nb colonnes de θ0 à θ1); en zoom (exact),
+    l'ordre 0 est calculé avec son profil réel. */
+function continuumColonnes(nb, th0, th1, exact) {
+  const P = spectreSource(), buf = new Float64Array(3 * nb), tot = new Float64Array(nb), vis = new Float64Array(nb);
+  const dth = (th1 - th0) / nb * Math.PI / 180, a = pasA();
+  const pmax = Math.ceil(2 * a / P.l0) + 1;
+  for (let k = 0; k < nb; k++) {
+    const th = th0 + (th1 - th0) * (k + 0.5) / nb, s = Math.sin(th * Math.PI / 180) - sinI();
+    const dl = a * Math.cos(th * Math.PI / 180) * dth;          // nm de spectre par colonne (ordre 1)
+    for (let p = 1; p <= pmax; p++) for (const sg of [1, -1]) {
+      const lam = sg * a * s / p;
+      if (lam < P.l0 || lam > P.l1) continue;
+      const e = enveloppe(th, lam) * dl / p, c = couleurVue(lam), wi = e * interp(P, lam);
+      for (let q = 0; q < 3; q++) buf[3 * k + q] += e * c[q];
+      tot[k] += wi;
+      if (lam >= 380 && lam <= 780) vis[k] += wi;
+    }
+  }
+  // ordre 0: tout le spectre dans la même direction
+  const th0r = Math.asin(sinI()) * 180 / Math.PI;
+  if (th0r >= th0 && th0r <= th1) {
+    if (exact) {
+      for (let l = P.l0; l <= P.l1; l += 10) {
+        const c = couleurVue(l).map((x, q) => x / BAL[q]), w = interp(P, l);
+        for (let k = 0; k < nb; k++) {
+          const th = th0 + (th1 - th0) * (k + 0.5) / nb, I = 10 * intensite(th, l);
+          for (let q = 0; q < 3; q++) buf[3 * k + q] += I * c[q];
+          tot[k] += I * w;
+          if (l >= 380 && l <= 780) vis[k] += I * w;
+        }
+      }
+    } else {
+      const k = Math.min(nb - 1, Math.floor((th0r - th0) / (th1 - th0) * nb));
+      for (let l = P.l0; l <= P.l1; l++) {
+        const c = couleurVue(l).map((x, q) => x / BAL[q]);
+        for (let q = 0; q < 3; q++) buf[3 * k + q] += c[q];
+        tot[k] += interp(P, l);
+        if (l >= 380 && l <= 780) vis[k] += interp(P, l);
+      }
+    }
+  }
+  return { buf, tot, vis };
+}
+
+/** Petit graphe du spectre de la source (lumière blanche). */
+function dessinerSpectreSource(ctx, x, y, w, h) {
+  const P = spectreSource();
+  const R = repere(ctx, { x, y, w, h }, P.l0, P.l1, 0, 1.1,
+    { xlabel: "λ (nm)", etiquettesY: false, ny: 1, nx: 5, titre: "Spectre utilisé: " + ["S(λ)·V(λ)", "S(λ) (corps noir)", "uniforme"][etat.spectre] });
+  ctx.save(); clipper(ctx, R);
+  for (let i = 0; i < P.n - 1; i++) {
+    const l = P.ls[i], c = teinte(l);
+    ctx.fillStyle = l >= 380 && l <= 780 ? rgbTexte(c.map((v) => 0.25 + 0.6 * v)) : "#bbb";
+    ctx.fillRect(R.X(l), R.Y(P.w[i]), R.X(P.ls[i + 1]) - R.X(l) + 0.6, R.Y(0) - R.Y(P.w[i]));
+  }
+  ctx.restore();
+  courbe(ctx, R, P.ls, P.w, "#222", 1.3);
+  if (etat.spectre === 0) {
+    const ls = P.ls, vs = ls.map((l) => V(l) / 1.019);
+    courbe(ctx, R, ls, vs, "#888", 1, [4, 3]);
+    texte(ctx, "V(λ)", R.X(559) + 4, R.Y(1) - 4, { taille: 10, couleur: "#777" });
+  }
+  if (etat.spectre === 1) {
+    ctx.save(); ctx.fillStyle = "rgba(0,0,0,0.06)";
+    ctx.fillRect(R.X(P.l0), R.cadre.y, R.X(380) - R.X(P.l0), R.cadre.h);
+    ctx.fillRect(R.X(780), R.cadre.y, R.X(P.l1) - R.X(780), R.cadre.h);
+    ctx.restore();
+    texte(ctx, "UV", R.X(340), R.cadre.y + 12, { align: "center", taille: 10, couleur: "#777" });
+    texte(ctx, "IR (invisible)", R.X(940), R.cadre.y + 12, { align: "center", taille: 10, couleur: "#777" });
+  }
+}
+
+// ------------------------------------------------------------- spectre observé
+/** Lumière reçue par colonne de pixels: les maxima principaux sont placés
+    analytiquement (hauteur = enveloppe), donc visibles quelle que soit leur finesse. */
+function spectreColonnes(nb, th0, th1) {
+  if (blanc()) return continuumColonnes(nb, th0, th1, false).buf;
+  const buf = new Float64Array(3 * nb), lams = raies(), ref = [0, 0, 0];
+  for (const [lam, w] of lams) {
+    const c = lambdaVersRGB(lam);
+    for (let q = 0; q < 3; q++) ref[q] += c[q] * w;
+    for (let p = -pMax(); p <= pMax(); p++) {
+      const th = thetaOrdre(p, lam);
+      if (th === null || th < th0 || th > th1) continue;
+      const k = Math.min(nb - 1, Math.floor((th - th0) / (th1 - th0) * nb)), e = w * enveloppe(th, lam);
+      for (let q = 0; q < 3; q++) buf[3 * k + q] += e * c[q];
+    }
+  }
+  if (blanc()) for (let k = 0; k < nb; k++) for (let q = 0; q < 3; q++) buf[3 * k + q] /= ref[q] / lams.length;
+  return buf;
+}
+function toneMap(buf, nb, vref) {
+  const col = [];
+  for (let k = 0; k < nb; k++) {
+    const v = Math.max(buf[3 * k], buf[3 * k + 1], buf[3 * k + 2]);
+    if (v <= 0) { col.push(null); continue; }
+    const lum = Math.min(1, etat.contraste ? Math.pow(v / vref, 0.45) : v / vref);
+    col.push([buf[3 * k] / v * lum, buf[3 * k + 1] / v * lum, buf[3 * k + 2] / v * lum]);
+  }
+  return col;
+}
+function dessinerSpectre(o) {
+  const ctx = o.ctx;
+  o.effacer();
+  const x0 = 50, w = o.w - 70, yb = 46, hb = Math.max(40, o.h - 100);
+  texte(ctx, "Spectre observé au goniomètre (θ de −90° à +90°)", 12, 20, { gras: true });
+  ctx.fillStyle = "#000"; ctx.fillRect(x0, yb, w, hb);
+  const nb = Math.round(w), buf = spectreColonnes(nb, -90, 90);
+  const th0 = Math.asin(sinI()) * 180 / Math.PI;
+  // référence de luminosité: ordres non nuls (l'ordre 0, qui cumule tout, peut saturer)
+  let vref = 0, vtot = 0;
+  for (let k = 0; k < nb; k++) {
+    const th = -90 + 180 * (k + 0.5) / nb, v = Math.max(buf[3 * k], buf[3 * k + 1], buf[3 * k + 2]);
+    vtot = Math.max(vtot, v);
+    if (Math.abs(th - th0) > 0.5) vref = Math.max(vref, v);
+  }
+  const cols = toneMap(buf, nb, vref || vtot || 1);
+  const raiesFines = !blanc();
+  cols.forEach((c, k) => {
+    if (!c) return;
+    if (raiesFines) {
+      ctx.fillStyle = rgbTexte(c, 0.3); ctx.fillRect(x0 + k - 3, yb, 7, hb);
+      ctx.fillStyle = rgbTexte(c); ctx.fillRect(x0 + k - 1, yb, 3, hb);
+    } else { ctx.fillStyle = rgbTexte(c); ctx.fillRect(x0 + k, yb, 1.3, hb); }
+  });
+  const X = (th) => x0 + (th + 90) / 180 * w;
+  // repères des ordres
+  ctx.save();
+  const libelles = [];                                       // intervalles [g, d] déjà occupés
+  const libre = (g, d) => libelles.every(([u, v]) => d + 4 < u || g - 4 > v);
+  const ordres = [];
+  for (let p = -pMax(); p <= pMax(); p++) ordres.push(p);
+  ordres.sort((u, v) => (v === etat.p) - (u === etat.p) || Math.abs(u) - Math.abs(v));
+  for (const p of ordres) {
+    const ths = raies().map(([l]) => thetaOrdre(p, l)).filter((t) => t !== null);
+    if (!ths.length) continue;
+    const a = Math.min(...ths), b = Math.max(...ths);
+    ctx.strokeStyle = p === etat.p ? "#c62828" : "#777"; ctx.fillStyle = ctx.strokeStyle; ctx.lineWidth = p === etat.p ? 2 : 1;
+    ctx.beginPath(); ctx.moveTo(X(a) - 2, yb - 4); ctx.lineTo(X(a) - 2, yb - 9); ctx.lineTo(X(b) + 2, yb - 9); ctx.lineTo(X(b) + 2, yb - 4); ctx.stroke();
+    ctx.font = (p === etat.p ? "bold " : "") + "12px system-ui"; ctx.textAlign = "center";
+    const xm = (X(a) + X(b)) / 2, lt = ctx.measureText("ordre " + p).width;
+    const g = Math.max(2, Math.min(xm - lt / 2, o.w - 2 - lt)), d = g + lt;
+    if (p === etat.p || libre(g, d)) { ctx.fillText("ordre " + p, g + lt / 2, yb - 13); libelles.push([g, d]); }
+  }
+  ctx.restore();
+  // étiquettes des raies dans les ordres ±1
+  if (!blanc()) {
+    ctx.save(); ctx.font = "10.5px system-ui"; ctx.fillStyle = "#e0e0e0"; ctx.textAlign = "left";
+    const items = [];
+    for (const p of [1, -1]) for (const [lam] of raies()) { const th = thetaOrdre(p, lam); if (th !== null) items.push([X(th), lam]); }
+    items.sort((u, v) => u[0] - v[0]);
+    let derniere = -1e9;
+    for (const [x, lam] of items) {
+      if (x - derniere < 13) continue;
+      ctx.save(); ctx.translate(x + 6, yb + hb - 6); ctx.rotate(-Math.PI / 2);
+      ctx.fillText(fmt(lam, 1) + " nm" + (NOMS[lam] ? " (" + NOMS[lam] + ")" : ""), 0, 0); ctx.restore();
+      derniere = x;
+    }
+    ctx.restore();
+  }
+  // axe θ
+  ctx.save(); ctx.fillStyle = "#333"; ctx.strokeStyle = "#666"; ctx.font = "11px system-ui"; ctx.textAlign = "center";
+  const largLib = ctx.measureText("−90°").width + 8;           // place d'un libellé
+  const pasLib = [10, 30, 45, 90].find((d) => w * d / 180 >= largLib) || 90;
+  for (let t = -90; t <= 90; t += 10) {
+    const lib = t % pasLib === 0;
+    ctx.beginPath(); ctx.moveTo(X(t), yb + hb); ctx.lineTo(X(t), yb + hb + (lib ? 5 : 3)); ctx.stroke();
+    if (lib) ctx.fillText(fmt(t, 0) + "°", X(t), yb + hb + 16);
+  }
+  ctx.fillText("angle de diffraction θ", x0 + w / 2, yb + hb + 31);
+  ctx.restore();
+  // champ de la lunette
+  const [t0, t1] = fenetreLunette();
+  if (t0 !== null) {
+    ctx.save(); ctx.strokeStyle = "#ff5252"; ctx.lineWidth = 2;
+    const xa = X(t0), xb = Math.max(X(t1), xa + 4);
+    ctx.strokeRect(xa - 2, yb - 1, xb - xa + 4, hb + 2);
+    ctx.restore();
+  }
+}
+
+// ------------------------------------------------------------- lunette (zoom sur un ordre)
+function fenetreLunette() {
+  const p = etat.p, ls = raies().map((r) => r[0]);
+  const ths = ls.map((l) => thetaOrdre(p, l)).filter((t) => t !== null);
+  if (!ths.length) return [null, null];
+  const c0 = (Math.min(...ths) + Math.max(...ths)) / 2;
+  if (!etat.auto) return [c0 - etat.fen / 2, c0 + etat.fen / 2];
+  const cosT = Math.max(0.05, Math.cos(c0 * Math.PI / 180));
+  const demi = Math.max(...ls) / (etat.N * pasA() * cosT) * 180 / Math.PI;   // demi-largeur d'un pic (°)
+  const etendue = p === 0 ? 0 : Math.max(...ths) - Math.min(...ths);
+  const lw = Math.max(etendue * (blanc() ? 1.15 : 1.6), etendue + 12 * demi, 14 * demi);
+  return [c0 - lw / 2, c0 + lw / 2];
+}
+function dessinerLunette(o) {
+  const ctx = o.ctx;
+  o.effacer();
+  const [t0, t1] = fenetreLunette();
+  texte(ctx, `Lunette pointée sur l'ordre p = ${etat.p}` + (t0 === null ? ": cet ordre n'existe pas (|sin θ| > 1)" : ""), 12, 20, { gras: true });
+  if (t0 === null) return;
+  const x0 = 58, w = o.w - 78, yb = 32, hb = Math.max(30, (o.h - 104) * 0.34), yc = yb + hb + 12, hc = o.h - yc - 60;
+  const nb = Math.round(w), lams = blanc() ? [] : raies(true);
+  let buf = new Float64Array(3 * nb), tot = new Float64Array(nb);
+  const ref = [0, 0, 0];
+  const prof = !blanc() ? lams.map(() => new Float64Array(nb)) : null;
+  let vis = null;
+  if (blanc()) ({ buf, tot, vis } = continuumColonnes(nb, t0, t1, true));
+  lams.forEach(([lam, wt], j) => {
+    const c = lambdaVersRGB(lam);
+    for (let q = 0; q < 3; q++) ref[q] += c[q] * wt;
+    for (let k = 0; k < nb; k++) {
+      const th = t0 + (t1 - t0) * (k + 0.5) / nb, I = wt * intensite(th, lam);
+      for (let q = 0; q < 3; q++) buf[3 * k + q] += I * c[q];
+      tot[k] += I;
+      if (prof) prof[j][k] = I;
+    }
+  });
+  let vmax = 0; for (let k = 0; k < 3 * nb; k++) vmax = Math.max(vmax, buf[k]);
+  // image vue dans la lunette
+  ctx.fillStyle = "#000"; ctx.fillRect(x0, yb, w, hb);
+  toneMap(buf, nb, vmax || 1).forEach((c, k) => { if (c) { ctx.fillStyle = rgbTexte(c); ctx.fillRect(x0 + k, yb, 1.3, hb); } });
+  if (!blanc()) for (const [lam] of lams) {
+    const th = thetaOrdre(etat.p, lam);
+    if (th === null || th < t0 || th > t1) continue;
+    texte(ctx, fmt(lam, 1) + " nm", x0 + (th - t0) / (t1 - t0) * w, yb + 13, { align: "center", taille: 11, couleur: "#fff" });
+  }
+  // profil d'intensité
+  let imax = 0; for (const v of tot) imax = Math.max(imax, v);
+  const R = repere(ctx, { x: x0, y: yc, w, h: hc }, t0, t1, 0, 1.08 * (imax || 1),
+    { ylabel: "intensité", etiquettesY: false, ny: 2 });
+  const ths = Array.from({ length: nb }, (_, k) => t0 + (t1 - t0) * (k + 0.5) / nb);
+  if (prof) {
+    lams.forEach(([lam], j) => courbe(ctx, R, ths, Array.from(prof[j]), rgbTexte(lambdaVersRGB(lam).map((v) => v * 0.85)), 1.6));
+    if (lams.length > 1) courbe(ctx, R, ths, Array.from(tot), "#222", 1.3, [5, 3]);
+  } else {
+    // spectre continu: part visible coloriée, part invisible (UV, IR) en gris
+    ctx.save(); clipper(ctx, R);
+    for (let k = 0; k < nb; k++) {
+      const x = R.X(ths[k]) - 0.6;
+      if (tot[k] > vis[k]) { ctx.fillStyle = "#c8c8c8"; ctx.fillRect(x, R.Y(tot[k]), 1.4, R.Y(vis[k]) - R.Y(tot[k])); }
+      const v = Math.max(buf[3 * k], buf[3 * k + 1], buf[3 * k + 2]);
+      if (v <= 0 || vis[k] <= 0) continue;
+      ctx.fillStyle = rgbTexte([buf[3 * k] / v, buf[3 * k + 1] / v, buf[3 * k + 2] / v].map((x) => 0.85 * x));
+      ctx.fillRect(x, R.Y(vis[k]), 1.4, R.Y(0) - R.Y(vis[k]));
+    }
+    ctx.restore();
+    if (etat.spectre === 1) legende(ctx, R.cadre.x + R.cadre.w - 6, R.cadre.y + 6,
+      [["rayonnement visible", "#e0a020", "bande"], ["UV ou infrarouge (invisible)", "#999", "bande"]], { droite: true });
+    courbe(ctx, R, ths, Array.from(tot), "#333", 1.2);
+  }
+  texte(ctx, "θ (°)", 6, yc + hc + 15, { taille: 11 });          // à gauche: ne gêne pas les graduations
+  // graduation en longueur d'onde (ordre non nul)
+  if (etat.p !== 0) {
+    const lamDe = (th) => pasA() * (Math.sin(th * Math.PI / 180) - sinI()) / etat.p;
+    const l0 = lamDe(t0), l1 = lamDe(t1), g = graduations(Math.min(l0, l1), Math.max(l0, l1), Math.max(2, w / 90));
+    ctx.save(); ctx.fillStyle = "#7b1fa2"; ctx.strokeStyle = "#7b1fa2"; ctx.font = "11px system-ui"; ctx.textAlign = "center";
+    const yl = yc + hc + 34;
+    for (const lv of g.vals) {
+      const s = sinI() + etat.p * lv / pasA();
+      if (Math.abs(s) > 1) continue;
+      const x = R.X(Math.asin(s) * 180 / Math.PI);
+      if (x < x0 - 1 || x > x0 + w + 1) continue;
+      ctx.beginPath(); ctx.moveTo(x, yl - 12); ctx.lineTo(x, yl - 7); ctx.stroke();
+      ctx.fillText(fmt(lv, g.dec), x, yl + 3);
+    }
+    ctx.textAlign = "left"; ctx.fillText("λ (nm)", 6, yl + 3);
+    ctx.restore();
+  }
+  if (etat.source.startsWith("Lampe à sodium") && etat.p !== 0) {
+    const ok = 589.3 / (Math.abs(etat.p) * etat.N) < 0.6;
+    texte(ctx, ok ? "doublet résolu" : "doublet non résolu (une seule raie)", o.w - 16, 20,
+          { align: "right", gras: true, taille: 13, couleur: ok ? "#2e7d32" : "#c62828" });
+  }
+}
+
+// ------------------------------------------------------------- interface
+const panneau = document.getElementById("panneau");
+entete(panneau, "Réseau de diffraction");
+const cvS = canevas(document.getElementById("z_schema"), dessinerSchema);
+const cvP = canevas(document.getElementById("z_spectre"), dessinerSpectre);
+const cvL = canevas(document.getElementById("z_lunette"), dessinerLunette);
+radios(panneau, "Source", Object.keys(SOURCES), 0, (lab) => { etat.source = lab; maj(); });
+const rSpec = radios(panneau, "Spectre de la lumière blanche", SPECTRES, 0, (_, i) => { etat.spectre = i; maj(); });
+const cT = curseur(rSpec.section, { label: "température du corps noir T (K)", min: 1500, max: 7000, val: etat.T, pas: 50,
+  onchange: (v) => { etat.T = v; maj(); } });
+const sR = section(panneau, "Réseau et éclairage");
+const mk = (sec, cle, label, min, max, pas) => curseur(sec, { label, min, max, val: etat[cle], pas, onchange: (v) => { etat[cle] = v; maj(); } });
+const cLam = mk(sR, "lam", "λ (nm)", 380, 780, 1);
+mk(sR, "n", "nombre de traits par mm", 50, 1200, 10);
+const cN = mk(sR, "N", "nombre N de traits éclairés", 2, 30000, 1);
+const bN = boutons(sR);
+for (const v of [5, 50, 300, 1000, 3000, 20000]) bouton(bN, "N = " + v, () => { etat.N = v; cN.set(v, true); maj(); });
+mk(sR, "rb", "largeur d'un trait / pas (b/a)", 0.05, 1, 0.01);
+mk(sR, "inc", "angle d'incidence i (°)", -60, 60, 0.5);
+const sL = section(panneau, "Lunette");
+mk(sL, "p", "ordre observé p", -6, 6, 1);
+cases(sL, null, [["cadrage automatique", true]], (i, b) => { etat.auto = b; maj(); });
+const cF = mk(sL, "fen", "largeur du champ (°)", 0.005, 40, 0.005);
+cases(panneau, "Affichage", [["contraste renforcé (raies faibles plus visibles)", true]], (i, b) => { etat.contraste = b; maj(); });
+const info = el("div", { class: "info" }, panneau);
+el("p", { class: "note", html:
+  "Formule des réseaux: sin θ<sub>p</sub> − sin i = pλ/a. Pouvoir de résolution: R = |p| N; le doublet " +
+  "du sodium (Δλ = 0,6 nm) est résolu si |p| N > 589/0,6 ≈ 1000. Essayer N = 300 puis N = 3000 dans l'ordre 1, " +
+  "ou N = 300 dans les ordres 1, 2 et 3.<br>Lumière blanche: le profil d'intensité suit le spectre de la source " +
+  "pondéré par la réponse du détecteur (graphe en haut à droite), divisé par |p| (dispersion) et multiplié par " +
+  "l'enveloppe de diffraction; les ordres qui se recouvrent s'additionnent. L'ordre 0 n'est pas dispersé; le violet " +
+  "est moins dévié que le rouge, les spectres d'ordres 2 et 3 se recouvrent.<br>Si a/b est entier, les ordres " +
+  "multiples de a/b disparaissent (zéros de l'enveloppe de diffraction)." }, panneau);
+
+function maj() {
+  cLam.montrer(SOURCES[etat.source] === null);
+  rSpec.section.style.display = blanc() ? "" : "none";
+  cT.montrer(etat.spectre !== 2);
+  cF.montrer(!etat.auto);
+  const a = pasA(), ls = raies().map((r) => r[0]);
+  const lr = blanc() ? 580 : ls[0];
+  const pmin = Math.ceil((-1 - sinI()) * a / lr), pmx = Math.floor((1 - sinI()) * a / lr);
+  let s = `pas a = 1/n = ${fmt(a / 1000, 3)} µm<br>ordres existant pour λ = ${fmt(lr, 1)} nm: p de ${fmt(pmin, 0)} à ${fmt(pmx, 0)}`;
+  const th = thetaOrdre(etat.p, lr);
+  if (th !== null) s += `<br>ordre ${etat.p}: θ = ${fmt(th, 3)}° pour λ = ${fmt(lr, 1)} nm`;
+  if (etat.p !== 0) {
+    const R = Math.abs(etat.p) * etat.N;
+    s += `<br>pouvoir de résolution R = |p| N = ${R}<br>plus petit écart résolu: Δλ = λ/R = ${fmt(lr / R, lr / R < 0.1 ? 4 : 3)} nm`;
+    if (th !== null) s += `<br>dispersion angulaire dθ/dλ = |p|/(a cos θ) = ${fmt(Math.abs(etat.p) / (a * Math.cos(th * Math.PI / 180)) * 180 / Math.PI * 1e3, 2)} millidegrés par nm`;
+  }
+  const r = 1 / etat.rb;
+  if (Math.abs(r - Math.round(r)) < 1e-6 && Math.round(r) > 1) s += `<br>a/b = ${Math.round(r)}: ordres manquants p = ±${Math.round(r)}, ±${2 * Math.round(r)}…`;
+  info.innerHTML = s;
+  dessinerSchema(cvS); dessinerSpectre(cvP); dessinerLunette(cvL);
+}
+maj();
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

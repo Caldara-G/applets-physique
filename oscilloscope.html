@@ -1,0 +1,1749 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Oscilloscope et GBF — MP* Malherbe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+/* Banc de TP: oscilloscope en haut, GBF et montage en dessous; instruments à l'échelle, page dans le style du sommaire. */
+:root {
+  --page: #eef0f3; --carte: #fff; --texte: #222; --doux: #555; --bord: #d5d9df;
+  --bleu: #3b5f96; --lien: #4a6fa5; --accent: #3b6fb6;
+  --plastique-h: #d6d8db; --plastique-b: #c2c5c9; --cadre: #2c2f34; --zone: #cfd2d6;
+  --touche-h: #f6f6f7; --touche-b: #d9dbdf; --touche-bord: #9da2a8; --encre: #23262b;
+  --c1: #f2e23c; --c2: #4ddc50; --cm: #d983f5;
+  --f-ecran: "Roboto Condensed", "Arial Narrow", Arial, sans-serif;
+  --f-chiffres: "Roboto Mono", Consolas, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif; font-size: 14px;
+  color: var(--texte); background: var(--page); }
+main { max-width: 1240px; margin: 0 auto; padding-block: 12px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.haut { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.haut .g { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.haut h1 { font-size: 19px; margin: 0; text-wrap: balance; }
+.retour { font-size: 13px; color: var(--lien); text-decoration: none; }
+.retour:hover { text-decoration: underline; }
+.etiquette { font-size: 12px; font-weight: 600; color: #fff; background: var(--bleu); border-radius: 10px; padding: 2px 10px; letter-spacing: 0.02em; }
+
+.banc { display: flex; flex-direction: column; gap: 14px; }
+.rangee { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.casier { width: 100%; position: relative; overflow: hidden; }
+.casier.o { max-width: 1200px; margin: 0 auto; }
+.casier.g { flex: 1 1 560px; max-width: 660px; }
+.inst { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+
+/* ---------- boîtiers ---------- */
+.boitier { background: linear-gradient(180deg, var(--plastique-h), var(--plastique-b)); border: 1px solid #9a9ea3;
+  border-radius: 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.6); }
+.cadre { position: absolute; background: var(--cadre); border-radius: 10px; box-shadow: inset 0 2px 6px rgba(0,0,0,0.6); }
+.marque { position: absolute; left: 16px; top: 5px; font: 12px var(--f-ecran); color: #c3c7cc; letter-spacing: 0.03em; }
+.marque b { color: #fff; font-weight: 700; letter-spacing: 0.06em; }
+canvas.ecran { position: absolute; display: block; background: #000; border-radius: 2px; touch-action: none; }
+.softs { position: absolute; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; }
+.softs button { margin: 0 14px; height: 18px; border-radius: 4px; border: 1px solid #111;
+  background: linear-gradient(#80858c, #5d6268); cursor: pointer; padding: 0; }
+.softs button:active { background: #4d5157; }
+.panneau { position: absolute; display: flex; flex-direction: column; gap: 8px; }
+.zone { background: rgba(255,255,255,0.18); border: 1px solid rgba(0,0,0,0.13); border-radius: 8px; padding: 5px 8px 7px; }
+.zt { font: 700 10.5px var(--f-ecran); text-transform: uppercase; letter-spacing: 0.08em; color: #4b5057; margin-bottom: 4px; }
+.lig { display: flex; gap: 8px; align-items: center; }
+.col { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.kl { font: 11px var(--f-ecran); color: #3c4046; white-space: nowrap; }
+
+button.tk { font: 11.5px var(--f-ecran); color: var(--encre); background: linear-gradient(var(--touche-h), var(--touche-b));
+  border: 1px solid var(--touche-bord); border-radius: 5px; padding: 4px 6px; cursor: pointer; line-height: 1.15;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.28); white-space: nowrap; }
+button.tk:active { transform: translateY(1px); box-shadow: none; }
+button.tk.on { background: linear-gradient(#fffbe4, #f1e3a8); border-color: #b49a3c; }
+button.tk.ch1.on { background: linear-gradient(#fff6a0, var(--c1)); border-color: #a99a10; }
+button.tk.ch2.on { background: linear-gradient(#b9f7ba, var(--c2)); border-color: #2c962e; }
+button.tk.chm.on { background: linear-gradient(#f2d2fb, var(--cm)); border-color: #8d4fa6; }
+button:focus-visible, .knob:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.led { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #6d7176; margin-right: 5px; vertical-align: 1px; }
+.led.vert { background: #35e04a; box-shadow: 0 0 5px #35e04a; }
+.led.rouge { background: #ff4242; box-shadow: 0 0 5px #ff4242; }
+.led.jaune { background: #ffd23a; box-shadow: 0 0 5px #ffd23a; }
+
+.knob { position: relative; width: var(--d); height: var(--d); border-radius: 50%; flex: none; cursor: grab; touch-action: none;
+  background: repeating-conic-gradient(#383b40 0 6deg, #4a4e54 6deg 12deg);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(0,0,0,0.5); }
+.knob .cap { position: absolute; inset: 9%; border-radius: 50%; background: radial-gradient(circle at 38% 30%, #757a81, #2e3136 72%);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.25); }
+.knob .cap::after { content: ""; position: absolute; left: 50%; top: 7%; width: 3px; height: 26%; margin-left: -1.5px;
+  background: #e9e9e9; border-radius: 2px; }
+.knob.pousse .cap { filter: brightness(1.35); }
+.bnc { width: 34px; height: 34px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle, #1b1b1b 0 16%, #d3d4d6 18% 38%, #8b8f94 40% 58%, #e3e4e6 60% 68%, #a6aaaf 70%);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+
+/* ---------- oscilloscope ---------- */
+.o-cadre { left: 14px; top: 12px; width: 792px; height: 536px; }
+.o-cadre canvas { left: 16px; top: 24px; width: 760px; height: 480px; }
+.o-cadre .softs { left: 16px; top: 510px; width: 760px; }
+.o-panneau { left: 822px; top: 12px; width: 366px; height: 536px; }
+.kgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; flex: 1; }
+.kgrid .tk { width: 100%; }
+.rs { width: 78px; }
+.vert { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: start; }
+.vert .tk.chk { width: 64px; font-weight: 700; font-size: 13px; }
+.vmid { display: flex; flex-direction: column; gap: 6px; padding-top: 2px; }
+.bnc-legende { font: 10px var(--f-ecran); color: #4b5057; text-align: center; line-height: 1.2; }
+
+/* ---------- GBF ---------- */
+.g-cadre { left: 14px; top: 12px; width: 350px; height: 306px; }
+.g-cadre canvas { left: 15px; top: 24px; width: 320px; height: 220px; }
+.g-cadre .softs { left: 15px; top: 252px; width: 320px; }
+.g-cadre .softs button { margin: 0 6px; }
+.g-panneau { left: 378px; top: 12px; width: 268px; height: 306px; }
+.g-feat { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.g-mid { display: flex; gap: 10px; align-items: flex-start; }
+.g-pad { display: grid; grid-template-columns: repeat(3, 40px); gap: 4px; }
+.g-pad .tk { font-family: var(--f-chiffres); font-size: 13px; padding: 4px 0; }
+.g-fl { display: flex; gap: 6px; }
+.g-fl .tk { width: 30px; padding: 3px 0; }
+.g-bas { display: flex; gap: 14px; align-items: center; }
+
+/* ---------- montage ---------- */
+.montage { flex: 1 1 380px; min-width: 0; background: var(--carte); border: 1px solid var(--bord); border-radius: 8px; padding: 12px 14px 14px;
+  display: flex; flex-direction: column; gap: 10px; }
+.montage h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--lien); margin: 0; }
+.schema { overflow-x: auto; }
+.schema svg { display: block; width: 100%; max-width: 520px; height: auto; }
+.puces { display: flex; flex-wrap: wrap; gap: 5px; }
+.puces button { font: inherit; font-size: 12.5px; padding: 4px 9px; border: 1px solid #b8bec8; background: #f3f4f6; border-radius: 14px; cursor: pointer; }
+.puces button:hover { background: #e4e7ec; }
+.puces button.actif { background: #dce7f7; border-color: #7f9fcf; color: #1f3f73; font-weight: 600; }
+.regl { display: grid; grid-template-columns: 22px 1fr 92px; gap: 8px; align-items: center; }
+.regl label { font-weight: 600; font-style: italic; font-family: Georgia, serif; font-size: 15px; }
+.regl input[type=range] { width: 100%; accent-color: var(--accent); }
+.regl input[type=text] { width: 100%; font: 13px var(--f-chiffres); padding: 2px 5px; border: 1px solid #c9cdd3; border-radius: 3px; text-align: right; }
+.sondes { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; font-size: 13px; }
+.seg { display: inline-flex; border: 1px solid #b8bec8; border-radius: 5px; overflow: hidden; vertical-align: middle; margin-left: 6px; }
+.seg button { font: inherit; font-size: 12.5px; border: 0; background: #f3f4f6; padding: 3px 9px; cursor: pointer; }
+.seg button + button { border-left: 1px solid #b8bec8; }
+.seg button.actif { background: #dce7f7; color: #1f3f73; font-weight: 600; }
+.theo { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 4px; padding: 6px 9px; line-height: 1.5; font-size: 13px; }
+.note { font-size: 12px; color: #666; line-height: 1.45; }
+.chk { display: flex; gap: 6px; align-items: center; font-size: 13px; cursor: pointer; }
+
+details.aide { margin-top: 16px; background: var(--carte); border: 1px solid var(--bord); border-radius: 8px; padding: 10px 14px; }
+details.aide summary { cursor: pointer; font-weight: 600; color: #1f3f73; }
+details.aide ul { margin: 8px 0 2px; padding-left: 20px; line-height: 1.55; max-width: 72ch; }
+details.aide li { margin-bottom: 3px; }
+@media (prefers-reduced-motion: reduce) { button.tk:active { transform: none; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="haut">
+    <div class="g">
+      <a class="retour" href="index.html">← Sommaire</a>
+      <h1>Oscilloscope et GBF</h1>
+    </div>
+    <span class="etiquette">MP* Malherbe</span>
+  </div>
+
+  <div class="banc">
+    <!-- ============ OSCILLOSCOPE ============ -->
+    <div class="casier o" data-mt-vue="Oscilloscope" data-mt-paysage><div class="inst boitier" id="instO" data-w="1200" data-h="560" style="width:1200px;height:560px">
+      <div class="cadre o-cadre">
+        <div class="marque"><b>DSO-X 2002A</b> · oscilloscope numérique · 70 MHz · 2 GSa/s · émulation</div>
+        <canvas class="ecran" id="ecran" aria-label="Écran de l'oscilloscope"></canvas>
+        <div class="softs" id="oSofts"></div>
+      </div>
+      <div class="panneau o-panneau">
+        <div class="zone">
+          <div class="zt">Commandes</div>
+          <div class="lig">
+            <div class="col"><div class="knob" id="kEntry" style="--d:54px"></div><span class="kl">Réglage ↻</span></div>
+            <div class="kgrid">
+              <button class="tk" data-k="curs">Curseurs</button>
+              <button class="tk" data-k="meas">Mesures</button>
+              <button class="tk" data-k="acq">Acquisition</button>
+              <button class="tk" data-k="disp">Affichage</button>
+              <button class="tk" id="bAuto">Auto Scale</button>
+              <button class="tk" id="bDef">Default Setup</button>
+            </div>
+            <div class="col" style="gap:5px">
+              <button class="tk rs" id="bRun"><i class="led vert"></i>Run/Stop</button>
+              <button class="tk rs" id="bSingle"><i class="led"></i>Single</button>
+            </div>
+          </div>
+        </div>
+        <div class="lig" style="align-items:stretch">
+          <div class="zone" style="flex:1">
+            <div class="zt">Horizontal</div>
+            <div class="lig" style="align-items:flex-end">
+              <div class="col"><div class="knob" id="kTdiv" style="--d:64px"></div><span class="kl">s/div</span></div>
+              <div class="col"><div class="knob" id="kDelay" style="--d:32px"></div><span class="kl">Position</span></div>
+            </div>
+            <div style="margin-top:6px"><button class="tk" data-k="horiz">Horiz.</button></div>
+          </div>
+          <div class="zone" style="flex:1">
+            <div class="zt">Déclenchement</div>
+            <div class="lig" style="align-items:flex-start">
+              <div class="col"><div class="knob" id="kNiv" style="--d:44px"></div><span class="kl">Niveau</span></div>
+              <div class="col" style="gap:5px;align-items:stretch">
+                <button class="tk" data-k="trig">Trigger</button>
+                <button class="tk" data-k="mode">Mode/Couplage</button>
+                <button class="tk" id="bForce">Forcer</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="zone" style="flex:1">
+          <div class="zt">Vertical</div>
+          <div class="vert">
+            <div class="col">
+              <button class="tk chk ch1" id="bC1">1</button>
+              <div class="knob" id="kV1" style="--d:58px"></div><span class="kl">V/div</span>
+              <div class="knob" id="kP1" style="--d:30px"></div><span class="kl">Position</span>
+              <div class="bnc" title="Entrée 1"></div>
+            </div>
+            <div class="vmid">
+              <button class="tk chm" data-k="math" id="bMath">Math</button>
+              <div class="bnc-legende" style="margin-top:118px">1 MΩ ≈ 11 pF<br>300 V eff. max</div>
+            </div>
+            <div class="col">
+              <button class="tk chk ch2" id="bC2">2</button>
+              <div class="knob" id="kV2" style="--d:58px"></div><span class="kl">V/div</span>
+              <div class="knob" id="kP2" style="--d:30px"></div><span class="kl">Position</span>
+              <div class="bnc" title="Entrée 2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+
+    <div class="rangee">
+      <!-- ============ GBF ============ -->
+      <div class="casier g" data-mt-vue="GBF" data-mt-paysage><div class="inst boitier" id="instG" data-w="660" data-h="330" style="width:660px;height:330px">
+        <div class="cadre g-cadre">
+          <div class="marque"><b>33500B</b> · générateur de fonctions · émulation</div>
+          <canvas class="ecran" id="gecran" aria-label="Écran du générateur"></canvas>
+          <div class="softs" id="gSofts"></div>
+        </div>
+        <div class="panneau g-panneau">
+          <div class="g-feat">
+            <button class="tk" data-g="waves">Formes d'onde</button>
+            <button class="tk" data-g="params">Paramètres</button>
+            <button class="tk" data-g="units">Unités</button>
+            <button class="tk" data-g="sortie">Param. sortie</button>
+          </div>
+          <div class="g-mid">
+            <div class="col" style="gap:6px">
+              <div class="knob" id="gKnob" style="--d:68px"></div>
+              <div class="g-fl"><button class="tk" id="gG" aria-label="Chiffre vers la gauche">◀</button><button class="tk" id="gD" aria-label="Chiffre vers la droite">▶</button></div>
+              <button class="tk" data-p="⌫" style="width:66px">⌫ Effacer</button>
+            </div>
+            <div class="g-pad" id="gPad"></div>
+          </div>
+          <div class="g-bas">
+            <button class="tk" id="gOut" style="padding:6px 10px"><i class="led"></i>Sortie</button>
+            <div class="col"><div class="bnc"></div><span class="kl">Sortie 50 Ω</span></div>
+            <div class="col"><div class="bnc"></div><span class="kl">Sync</span></div>
+          </div>
+        </div>
+      </div></div>
+
+      <!-- ============ MONTAGE ============ -->
+      <section class="montage" aria-label="Montage" data-mt-vue="Montage">
+        <h2>Montage entre le GBF et l'oscilloscope</h2>
+        <div class="schema"><svg id="schema" viewBox="0 0 500 190" role="img" aria-label="Schéma du montage"></svg></div>
+        <div class="puces" id="cirTypes"></div>
+        <div id="reglages" style="display:flex;flex-direction:column;gap:6px"></div>
+        <div class="sondes">
+          <span>Sonde voie 1 <span class="seg" id="sonde0"><button data-v="1">×1</button><button data-v="10">×10</button></span></span>
+          <span>Sonde voie 2 <span class="seg" id="sonde1"><button data-v="1">×1</button><button data-v="10">×10</button></span></span>
+        </div>
+        <label class="chk"><input type="checkbox" id="theoChk" checked> Afficher les grandeurs caractéristiques</label>
+        <div class="theo" id="theo"></div>
+      </section>
+    </div>
+  </div>
+
+  <details class="aide" data-mt-vue="Mode d'emploi">
+    <summary>Mode d'emploi</summary>
+    <ul>
+      <li><b>Molettes</b>: molette de la souris, glisser vers le haut ou la droite, ou clic sur la moitié gauche/droite. Un <b>appui long</b> correspond à un appui sur la molette (niveau de déclenchement à 50 %, position ou retard remis à zéro, réglage fin des V/div).</li>
+      <li><b>Touches de menu</b> (Curseurs, Mesures, Voie 1…): elles affichent un menu en bas de l'écran, piloté par les six touches sous l'écran. Les cases marquées ↻ se règlent avec la molette <b>Réglage</b>.</li>
+      <li><b>Curseurs</b>: ils se déplacent aussi en les faisant glisser directement sur l'écran.</li>
+      <li><b>GBF</b>: choisir un paramètre avec les touches sous l'écran, puis le modifier avec la molette (le chiffre souligné change; ◀ ▶ déplacent ce chiffre) ou au pavé numérique, en terminant par l'unité.</li>
+      <li><b>Charge 50 Ω ou Haute Z</b>: réglé sur 50 Ω, le générateur affiche la tension qu'il délivrerait sur une charge de 50 Ω; branché sur l'oscilloscope (1 MΩ), on mesure le double. La résistance de sortie de 50 Ω est prise en compte dans le montage.</li>
+      <li><b>Défauts simulés</b>: bruit de l'entrée, quantification sur 8 bits, écrêtage hors écran, bande passante (70 MHz, 20 MHz avec la limite, environ 6 MHz avec une sonde ×1), couplage CA (coupure 3,5 Hz), gigue de déclenchement, sondes ×10 dont l'atténuation doit être déclarée dans le menu de la voie.</li>
+      <li><b>Phase(1→2)</b>: comme sur l'appareil réel, elle est positive quand la voie 2 est en retard sur la voie 1; le déphasage de la fonction de transfert est alors son opposé.</li>
+    </ul>
+  </details>
+</main>
+
+<!-- ======================= MOTEUR DE SIMULATION ======================= -->
+<script id="moteur">
+"use strict";
+const TAU = 2 * Math.PI;
+const NS = 2048;                         // points par acquisition
+function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+function seq125(a, b) {
+  const r = [];
+  for (let e = Math.floor(Math.log10(a)) - 1; e <= Math.ceil(Math.log10(b)) + 1; e++)
+    for (const m of [1, 2, 5]) { const v = +(m * Math.pow(10, e)).toPrecision(6); if (v >= a * 0.999 && v <= b * 1.001) r.push(v); }
+  return r;
+}
+const TDIV = seq125(5e-9, 50);
+let rs = 987654321;
+function rnd() { rs = (Math.imul(rs, 1664525) + 1013904223) >>> 0; return (rs + 0.5) / 4294967296; }
+function gaussR() { return Math.sqrt(-2 * Math.log(rnd())) * Math.cos(TAU * rnd()); }
+function gauss() { let u = Math.random(); if (u < 1e-300) u = 1e-300; return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * Math.random()); }
+function hashG(i) {
+  i = (i | 0) ^ 0x9e3779b9; i = Math.imul(i ^ (i >>> 16), 0x85ebca6b); i = Math.imul(i ^ (i >>> 13), 0xc2b2ae35); i ^= i >>> 16;
+  const a = ((i >>> 0) + 0.5) / 4294967296;
+  let j = Math.imul(i ^ 0x27d4eb2d, 0x165667b1); j ^= j >>> 15;
+  const b = ((j >>> 0) + 0.5) / 4294967296;
+  return Math.sqrt(-2 * Math.log(a)) * Math.cos(TAU * b);
+}
+
+/* ---------- états des appareils ---------- */
+function defautsGBF() {
+  return { wave: 'sine', freq: 1000, vpp: 2, offset: 0, duty: 50, sym: 100, pw: 100e-6, pe: 10e-9, nbw: 1e6,
+    load: 'HZ', out: true, ampU: 'Vpp', sel: 'freq',
+    ce: { freq: 2, amp: -1, off: -1, duty: 0, sym: 0, pw: -6, pe: -9, nbw: 5 },
+    menu: 'params', entry: null, msg: '', msgT: 0 };
+}
+function defautsScope() {
+  return {
+    ch: [{ on: true, vdiv: 5, pos: 0, coup: 'CC', bwl: false, fin: false, inv: false, sonde: 1 },
+         { on: false, vdiv: 5, pos: 0, coup: 'CC', bwl: false, fin: false, inv: false, sonde: 1 }],
+    tdiv: 100e-6, delay: 0, horiz: 'Normal',
+    trig: { src: 0, pente: 1, niv: 0, mode: 'Auto', rejet: false },
+    run: true, single: false, attente: false,
+    acq: { mode: 'Normal', n: 16 },
+    aff: { persist: 'Non', grille: 0.5 },
+    meas: [], msel: { type: 'vpp', src: 0, src2: 1 }, mres: [],
+    cur: { on: false, src: 0, sel: 0, x: [-2, 2], y: [1.5, -1.5] },
+    math: { op: 'Non', src: 0, vdiv: 1, pos: 0, span: null, centre: null, ref: 10, dbdiv: 10, fen: 'Hanning' },
+    menu: null, entry: -1, ver: 0, flash: null
+  };
+}
+const CIR = { type: 'RC_C', R: 1000, C: 100e-9, L: 10e-3, r: 10, probe: [1, 1] };
+let G = defautsGBF();
+let S = defautsScope();
+let MOD = null, INP = null, TAB = null;
+const ECACHE = new Map();
+
+/* ---------- algèbre linéaire ---------- */
+function matMul(a, b, m) {
+  const c = new Float64Array(m * m);
+  for (let i = 0; i < m; i++) for (let k = 0; k < m; k++) {
+    const aik = a[i * m + k]; if (aik === 0) continue;
+    for (let j = 0; j < m; j++) c[i * m + j] += aik * b[k * m + j];
+  }
+  return c;
+}
+function eye(m) { const e = new Float64Array(m * m); for (let i = 0; i < m; i++) e[i * m + i] = 1; return e; }
+function solveMat(A, B, m) {           // A X = B (m×m)
+  const a = Float64Array.from(A), b = Float64Array.from(B);
+  for (let col = 0; col < m; col++) {
+    let p = col, best = Math.abs(a[col * m + col]);
+    for (let r = col + 1; r < m; r++) { const v = Math.abs(a[r * m + col]); if (v > best) { best = v; p = r; } }
+    if (p !== col) for (let j = 0; j < m; j++) {
+      let t = a[col * m + j]; a[col * m + j] = a[p * m + j]; a[p * m + j] = t;
+      t = b[col * m + j]; b[col * m + j] = b[p * m + j]; b[p * m + j] = t;
+    }
+    const d = a[col * m + col];
+    for (let r = 0; r < m; r++) {
+      if (r === col) continue;
+      const f = a[r * m + col] / d; if (f === 0) continue;
+      for (let j = col; j < m; j++) a[r * m + j] -= f * a[col * m + j];
+      for (let j = 0; j < m; j++) b[r * m + j] -= f * b[col * m + j];
+    }
+  }
+  for (let r = 0; r < m; r++) { const d = a[r * m + r]; for (let j = 0; j < m; j++) b[r * m + j] /= d; }
+  return b;
+}
+function solveVec(A, x, n) {
+  const B = new Float64Array(n * n); for (let i = 0; i < n; i++) B[i * n] = x[i];
+  const X = solveMat(A, B, n); const r = new Float64Array(n); for (let i = 0; i < n; i++) r[i] = X[i * n]; return r;
+}
+function expm(M, m) {                  // Padé (6,6) avec mise à l'échelle et élévations au carré
+  let nrm = 0;
+  for (let i = 0; i < m; i++) { let s = 0; for (let j = 0; j < m; j++) s += Math.abs(M[i * m + j]); if (s > nrm) nrm = s; }
+  const s = nrm > 0.5 ? Math.max(0, Math.ceil(Math.log2(nrm / 0.5))) : 0;
+  const f = Math.pow(2, -s), X = new Float64Array(m * m);
+  for (let i = 0; i < m * m; i++) X[i] = M[i] * f;
+  const q = 6; let c = 1;
+  const N = eye(m), D = eye(m); let P = Float64Array.from(X);
+  for (let k = 1; k <= q; k++) {
+    c = c * (q - k + 1) / (k * (2 * q - k + 1));
+    const sg = (k % 2 === 0) ? 1 : -1;
+    for (let i = 0; i < m * m; i++) { N[i] += c * P[i]; D[i] += sg * c * P[i]; }
+    if (k < q) P = matMul(P, X, m);
+  }
+  let E = solveMat(D, N, m);
+  for (let i = 0; i < s; i++) E = matMul(E, E, m);
+  return E;
+}
+
+/* ---------- modèle: montage + chaîne d'entrée de l'oscilloscope ---------- */
+function bandeVoie(k) {
+  const trs = 0.35 / (S.ch[k].bwl ? 20e6 : 70e6);
+  const trp = 0.35 / (CIR.probe[k] === 10 ? 500e6 : 6e6);
+  return 0.35 / Math.sqrt(trs * trs + trp * trp);
+}
+function buildModel() {
+  const Rg = 50, R = CIR.R, Cc = CIR.C, L = CIR.L, r = CIR.r;
+  const Rin = k => CIR.probe[k] === 10 ? 10e6 : 1e6;
+  const Rin1 = Rin(0), Rin2 = Rin(1), Req = R * Rin2 / (R + Rin2);
+  let nc = 0, Ac = [], Bc = [], C1 = [], D1 = 0, C2 = [], D2 = 0;
+  switch (CIR.type) {
+    case 'direct': { const Rp = Rin1 * Rin2 / (Rin1 + Rin2); D1 = D2 = Rp / (Rp + Rg); break; }
+    case 'RC_C': { nc = 1; const Rt = Rg + R; Ac = [[-(1 / (Rt * Cc) + 1 / (Rin2 * Cc))]]; Bc = [1 / (Rt * Cc)]; C1 = [Rg / Rt]; D1 = R / Rt; C2 = [1]; break; }
+    case 'RC_R': { nc = 1; const Rt = Rg + Req; Ac = [[-1 / (Rt * Cc)]]; Bc = [1 / (Rt * Cc)]; C1 = [Rg / Rt]; D1 = Req / Rt; C2 = [-Req / Rt]; D2 = Req / Rt; break; }
+    case 'RL_R': { nc = 1; Ac = [[-(Rg + r + Req) / L]]; Bc = [1 / L]; C1 = [-Rg]; D1 = 1; C2 = [Req]; break; }
+    case 'RL_L': { nc = 1; Ac = [[-(Rg + R + r) / L]]; Bc = [1 / L]; C1 = [-Rg]; D1 = 1; C2 = [-(Rg + R)]; D2 = 1; break; }
+    case 'RLC_C': { nc = 2; Ac = [[-(Rg + R + r) / L, -1 / L], [1 / Cc, -1 / (Rin2 * Cc)]]; Bc = [1 / L, 0]; C1 = [-Rg, 0]; D1 = 1; C2 = [0, 1]; break; }
+    case 'RLC_R': { nc = 2; Ac = [[-(Rg + r + Req) / L, -1 / L], [1 / Cc, 0]]; Bc = [1 / L, 0]; C1 = [-Rg, 0]; D1 = 1; C2 = [Req, 0]; break; }
+  }
+  const ac = [S.ch[0].coup === 'CA', S.ch[1].coup === 'CA'];
+  const n = nc + 2 + (ac[0] ? 1 : 0) + (ac[1] ? 1 : 0);
+  const A = new Float64Array(n * n), B = new Float64Array(n);
+  for (let i = 0; i < nc; i++) { for (let j = 0; j < nc; j++) A[i * n + j] = Ac[i][j]; B[i] = Bc[i]; }
+  const c = [new Float64Array(n), new Float64Array(n)];
+  const CC = [C1, C2], DD = [D1, D2];
+  let ia = nc + 2;
+  for (let k = 0; k < 2; k++) {
+    const p = nc + k, w = TAU * bandeVoie(k);
+    for (let j = 0; j < nc; j++) A[p * n + j] = w * CC[k][j];
+    A[p * n + p] = -w; B[p] = w * DD[k]; c[k][p] = 1;
+    if (ac[k]) { const a = ia++, wa = TAU * 3.5; A[a * n + p] = wa; A[a * n + a] = -wa; c[k][a] = -1; }
+  }
+  MOD = { n, A, B, c };
+}
+
+/* ---------- signal du générateur (f.e.m. interne) ---------- */
+function buildInput() {
+  const g = G.load === '50' ? 2 : 1, on = G.out;
+  const A = on ? g * G.vpp / 2 : 0, O = on ? g * G.offset : 0;
+  if (G.wave === 'sine' || G.wave === 'dc') {
+    const f = G.wave === 'dc' ? 1000 : G.freq;
+    INP = { kind: 'sine', T: 1 / f, w: TAU * f, amp: G.wave === 'dc' ? 0 : A, off: O, noise: false, dc: G.wave === 'dc' };
+    return;
+  }
+  let pts, T = 1 / G.freq;
+  if (G.wave === 'square') {
+    const d = G.duty / 100, te = Math.min(8.4e-9, 0.2 * Math.min(d, 1 - d) * T);
+    pts = [[0, -1], [te, 1], [d * T, 1], [d * T + te, -1]];
+  } else if (G.wave === 'ramp') {
+    const tmin = Math.min(8.4e-9, 1e-3 * T), a = clamp(G.sym / 100 * T, tmin, T - tmin);
+    pts = [[0, -1], [a, 1]];
+  } else if (G.wave === 'pulse') {
+    const w = Math.min(G.pw, 0.99 * T), e = Math.min(G.pe, 0.4 * w, 0.4 * (T - w));
+    pts = [[0, -1], [e, 1], [w, 1], [w + e, -1]];
+  } else {                               // bruit: valeurs gaussiennes reliées linéairement
+    const Nn = 16384, sp = 1 / (2.5 * G.nbw); T = Nn * sp; rs = 24681357; pts = [];
+    for (let i = 0; i < Nn; i++) pts.push([i * sp, clamp(gaussR() / 3.3, -1, 1)]);
+  }
+  const n = pts.length, cT = new Float64Array(n), uP = new Float64Array(n), sP = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const nx = i + 1 < n ? pts[i + 1] : [T, pts[0][1]];
+    cT[i] = pts[i][0]; uP[i] = A * pts[i][1] + O;
+    sP[i] = (A * nx[1] + O - uP[i]) / (nx[0] - pts[i][0]);
+  }
+  INP = { kind: 'pwl', T, cT, uP, sP, noise: G.wave === 'noise', dc: false };
+}
+
+/* ---------- propagation exacte (entrée affine par morceaux) ---------- */
+function getE(h, cache) {
+  const key = cache ? h.toPrecision(12) : null;
+  if (cache) { const e = ECACHE.get(key); if (e) return e; }
+  const n = MOD.n, m = n + 2, M = new Float64Array(m * m);
+  for (let i = 0; i < n; i++) { for (let j = 0; j < n; j++) M[i * m + j] = MOD.A[i * n + j] * h; M[i * m + n] = MOD.B[i] * h; }
+  M[n * m + n + 1] = h;
+  const E = expm(M, m);
+  const Phi = new Float64Array(n * n), G0 = new Float64Array(n), G1 = new Float64Array(n);
+  for (let i = 0; i < n; i++) { for (let j = 0; j < n; j++) Phi[i * n + j] = E[i * m + j]; G0[i] = E[i * m + n]; G1[i] = E[i * m + n + 1]; }
+  const r = { Phi, G0, G1 };
+  if (cache) { if (ECACHE.size > 3000) ECACHE.clear(); ECACHE.set(key, r); }
+  return r;
+}
+function applyE(E, x, u0, s) {
+  const n = MOD.n, y = new Float64Array(n);
+  for (let i = 0; i < n; i++) { let v = E.G0[i] * u0 + E.G1[i] * s; for (let j = 0; j < n; j++) v += E.Phi[i * n + j] * x[j]; y[i] = v; }
+  return y;
+}
+function prop(x, h, u0, s, cache) { return applyE(getE(h, cache), x, u0, s); }
+function dot(c, x) { let s = 0; for (let i = 0; i < c.length; i++) s += c[i] * x[i]; return s; }
+function pieceIdx(tm) {
+  const c = INP.cT; let lo = 0, hi = c.length - 1;
+  if (tm >= c[hi]) return hi;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (c[mid] <= tm) lo = mid; else hi = mid; }
+  return lo;
+}
+function nodeIdx(tm) {
+  const c = TAB.nodeT; let lo = 0, hi = c.length - 1;
+  if (tm >= c[hi]) return hi;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (c[mid] <= tm) lo = mid; else hi = mid; }
+  return lo;
+}
+function tfAt(w, k) {                    // H(jw) = c (jwI - A)^-1 B
+  const n = MOD.n, ar = new Float64Array(n * n), ai = new Float64Array(n * n), br = Float64Array.from(MOD.B), bi = new Float64Array(n);
+  for (let i = 0; i < n * n; i++) ar[i] = -MOD.A[i];
+  for (let i = 0; i < n; i++) ai[i * n + i] = w;
+  for (let col = 0; col < n; col++) {
+    let p = col, best = -1;
+    for (let r = col; r < n; r++) { const m = Math.hypot(ar[r * n + col], ai[r * n + col]); if (m > best) { best = m; p = r; } }
+    if (p !== col) {
+      for (let j = 0; j < n; j++) {
+        let t = ar[col * n + j]; ar[col * n + j] = ar[p * n + j]; ar[p * n + j] = t;
+        t = ai[col * n + j]; ai[col * n + j] = ai[p * n + j]; ai[p * n + j] = t;
+      }
+      let t = br[col]; br[col] = br[p]; br[p] = t; t = bi[col]; bi[col] = bi[p]; bi[p] = t;
+    }
+    const dr = ar[col * n + col], di = ai[col * n + col], dd = dr * dr + di * di;
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const xr = ar[r * n + col], xi = ai[r * n + col]; if (xr === 0 && xi === 0) continue;
+      const fr = (xr * dr + xi * di) / dd, fi = (xi * dr - xr * di) / dd;
+      for (let j = col; j < n; j++) {
+        const pr = ar[col * n + j], pi = ai[col * n + j];
+        ar[r * n + j] -= fr * pr - fi * pi; ai[r * n + j] -= fr * pi + fi * pr;
+      }
+      const qr = br[col], qi = bi[col];
+      br[r] -= fr * qr - fi * qi; bi[r] -= fr * qi + fi * qr;
+    }
+  }
+  let Hr = 0, Hi = 0;
+  for (let i = 0; i < n; i++) {
+    const dr = ar[i * n + i], di = ai[i * n + i], dd = dr * dr + di * di;
+    const zr = (br[i] * dr + bi[i] * di) / dd, zi = (bi[i] * dr - br[i] * di) / dd;
+    Hr += MOD.c[k][i] * zr; Hi += MOD.c[k][i] * zi;
+  }
+  return { re: Hr, im: Hi };
+}
+
+/* Régime permanent périodique: x(T) = Φ x(0) + x_forcé  =>  x(0) = (I - Φ)^-1 x_forcé */
+function rebuild() {
+  buildModel(); buildInput(); ECACHE.clear();
+  const n = MOD.n;
+  if (INP.kind === 'sine') {
+    const ch = [0, 1].map(k => { const H = tfAt(INP.w, k), H0 = tfAt(0, k); return { mag: Math.hypot(H.re, H.im), ph: Math.atan2(H.im, H.re), h0: H0.re }; });
+    TAB = { kind: 'sine', ch, min: ch.map(r => INP.off * r.h0 - INP.amp * r.mag), max: ch.map(r => INP.off * r.h0 + INP.amp * r.mag) };
+    return;
+  }
+  const T = INP.T, cT = INP.cT;
+  let nodes;
+  if (INP.noise) nodes = Float64Array.from(cT);
+  else {
+    const M = 4096, arr = [], tol = 1e-9 * T; let ci = 0;
+    for (let j = 0; j < M; j++) {
+      const t = j * T / M;
+      while (ci < cT.length && cT[ci] <= t + tol) { if (!arr.length || cT[ci] - arr[arr.length - 1] > 1e-13 * T) arr.push(cT[ci]); ci++; }
+      if (!arr.length || t - arr[arr.length - 1] > tol) arr.push(t);
+    }
+    while (ci < cT.length) { if (cT[ci] - arr[arr.length - 1] > 1e-13 * T) arr.push(cT[ci]); ci++; }
+    nodes = Float64Array.from(arr);
+  }
+  const K = nodes.length, U = new Float64Array(K), Sl = new Float64Array(K), Hs = new Float64Array(K);
+  for (let k = 0; k < K; k++) {
+    const p = pieceIdx(nodes[k]);
+    U[k] = INP.uP[p] + INP.sP[p] * (nodes[k] - cT[p]); Sl[k] = INP.sP[p];
+    Hs[k] = (k < K - 1 ? nodes[k + 1] : T) - nodes[k];
+  }
+  let x = new Float64Array(n), P = eye(n);
+  for (let k = 0; k < K; k++) { const E = getE(Hs[k], true); x = applyE(E, x, U[k], Sl[k]); P = matMul(E.Phi, P, n); }
+  const IP = new Float64Array(n * n);
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) IP[i * n + j] = (i === j ? 1 : 0) - P[i * n + j];
+  x = solveVec(IP, x, n);
+  const X = new Float64Array(K * n), Y1 = new Float64Array(K), Y2 = new Float64Array(K);
+  const mn = [Infinity, Infinity], mx = [-Infinity, -Infinity];
+  for (let k = 0; k < K; k++) {
+    X.set(x, k * n);
+    const a = dot(MOD.c[0], x), b = dot(MOD.c[1], x); Y1[k] = a; Y2[k] = b;
+    if (a < mn[0]) mn[0] = a; if (a > mx[0]) mx[0] = a; if (b < mn[1]) mn[1] = b; if (b > mx[1]) mx[1] = b;
+    x = applyE(getE(Hs[k], true), x, U[k], Sl[k]);
+  }
+  TAB = { kind: 'pwl', nodeT: nodes, X, U, S: Sl, Y1, Y2, min: mn, max: mx };
+}
+
+/* ---------- évaluation des signaux vus par les deux voies ---------- */
+function evalY(t, o) {                   // exacte
+  if (TAB.kind === 'sine') {
+    const ph = INP.w * t;
+    for (let k = 0; k < 2; k++) { const r = TAB.ch[k]; o[k] = INP.amp * r.mag * Math.sin(ph + r.ph) + INP.off * r.h0; }
+    return o;
+  }
+  const T = INP.T; let tm = t % T; if (tm < 0) tm += T;
+  const k = nodeIdx(tm), n = MOD.n, d = tm - TAB.nodeT[k];
+  let x = TAB.X.subarray(k * n, k * n + n);
+  if (d > 0) x = prop(x, d, TAB.U[k], TAB.S[k], false);
+  o[0] = dot(MOD.c[0], x); o[1] = dot(MOD.c[1], x);
+  return o;
+}
+function evalTab(t, o) {                 // interpolée dans la table d'une période
+  if (TAB.kind === 'sine') return evalY(t, o);
+  const T = INP.T; let tm = t % T; if (tm < 0) tm += T;
+  const nT = TAB.nodeT, K = nT.length, k = nodeIdx(tm), k2 = (k + 1) % K;
+  const t2 = k2 === 0 ? T : nT[k2], f = (tm - nT[k]) / (t2 - nT[k]);
+  o[0] = TAB.Y1[k] + (TAB.Y1[k2] - TAB.Y1[k]) * f;
+  o[1] = TAB.Y2[k] + (TAB.Y2[k2] - TAB.Y2[k]) * f;
+  return o;
+}
+function sampleWindow(t0, dt, N, y1, y2) {
+  if (TAB.kind === 'sine') {
+    const r0 = TAB.ch[0], r1 = TAB.ch[1], A = INP.amp, O = INP.off, w = INP.w;
+    for (let j = 0; j < N; j++) { const ph = w * (t0 + j * dt); y1[j] = A * r0.mag * Math.sin(ph + r0.ph) + O * r0.h0; y2[j] = A * r1.mag * Math.sin(ph + r1.ph) + O * r1.h0; }
+    return;
+  }
+  const T = INP.T, W = N * dt, o = [0, 0];
+  if (W >= 8 * T || INP.cT.length * W / T > 60) {
+    for (let j = 0; j < N; j++) { evalTab(t0 + j * dt, o); y1[j] = o[0]; y2[j] = o[1]; }
+    return;
+  }
+  const n = MOD.n, c1 = MOD.c[0], c2 = MOD.c[1], cT = INP.cT, uP = INP.uP, sP = INP.sP, nc = cT.length;
+  let tm = ((t0 % T) + T) % T; if (tm >= T) tm = 0;
+  const k = nodeIdx(tm), d = tm - TAB.nodeT[k];
+  let x = TAB.X.subarray(k * n, k * n + n);
+  x = d > 0 ? prop(x, d, TAB.U[k], TAB.S[k], false) : Float64Array.from(x);
+  let p = pieceIdx(tm);
+  const eps = 1e-13 * T;
+  for (let j = 0; j < N; j++) {
+    y1[j] = dot(c1, x); y2[j] = dot(c2, x);
+    if (j === N - 1) break;
+    let h = dt, garde = 0;
+    while (h > 0 && garde++ < 10000) {
+      const nextC = p + 1 < nc ? cT[p + 1] : T;
+      if (tm + h >= nextC - eps) {
+        const hh = nextC - tm;
+        if (hh > 0) x = prop(x, hh, uP[p] + sP[p] * (tm - cT[p]), sP[p], false);
+        h -= hh; p++; tm = nextC;
+        if (p >= nc) { p = 0; tm = 0; }
+        if (h < eps) h = 0;
+      } else {
+        x = prop(x, h, uP[p] + sP[p] * (tm - cT[p]), sP[p], h === dt);
+        tm += h; h = 0;
+      }
+    }
+  }
+}
+function envWindow(t0, dt, N, mn, mx) {  // enveloppe min/max par point quand plusieurs périodes tiennent dans un pixel
+  const T = INP.T, o = [0, 0];
+  for (let j = 0; j < N; j++) {
+    if (dt >= T) { mn[0][j] = TAB.min[0]; mx[0][j] = TAB.max[0]; mn[1][j] = TAB.min[1]; mx[1][j] = TAB.max[1]; continue; }
+    let a0 = Infinity, b0 = -Infinity, a1 = Infinity, b1 = -Infinity;
+    for (let i = 0; i <= 10; i++) {
+      evalTab(t0 + j * dt + i * dt / 10, o);
+      if (o[0] < a0) a0 = o[0]; if (o[0] > b0) b0 = o[0]; if (o[1] < a1) a1 = o[1]; if (o[1] > b1) b1 = o[1];
+    }
+    mn[0][j] = a0; mx[0][j] = b0; mn[1][j] = a1; mx[1][j] = b1;
+  }
+}
+/* premier franchissement (sur une période) du niveau lvl par sc·y_k, dans le sens dir */
+const _o = [0, 0];
+function findCrossing(k, sc, lvl, dir) {
+  if (TAB.kind === 'sine') {
+    const r = TAB.ch[k], a = sc * INP.amp * r.mag, b = sc * INP.off * r.h0 - lvl;
+    if (Math.abs(a) < 1e-15) return null;
+    const q = -b / a; if (q <= -1 || q >= 1) return null;
+    const as = Math.asin(q), th = (a * dir > 0) ? as : Math.PI - as;
+    const T = INP.T; let t = (th - r.ph) / INP.w; t = ((t % T) + T) % T; return t;
+  }
+  const Y = k === 0 ? TAB.Y1 : TAB.Y2, nT = TAB.nodeT, K = nT.length, T = INP.T;
+  for (let i = 0; i < K; i++) {
+    const j = (i + 1) % K, a = sc * Y[i] - lvl, b = sc * Y[j] - lvl;
+    if (dir > 0 ? (a < 0 && b >= 0) : (a > 0 && b <= 0)) {
+      let lo = nT[i], hi = j === 0 ? T : nT[j];
+      for (let it = 0; it < 34; it++) {
+        const mid = (lo + hi) / 2, v = sc * evalY(mid, _o)[k] - lvl;
+        if ((dir > 0) === (v < 0)) lo = mid; else hi = mid;
+      }
+      return ((lo + hi) / 2) % T;
+    }
+  }
+  return null;
+}
+function slopeAt(k, sc, t) {
+  const e = INP.T * 1e-7;
+  const a = sc * evalY(t + e, _o)[k], b = sc * evalY(t - e, _o)[k];
+  return (a - b) / (2 * e);
+}
+
+/* ---------- grandeurs propres à l'oscilloscope ---------- */
+function chScale(k) { const c = S.ch[k]; return (c.sonde / CIR.probe[k]) * (c.inv ? -1 : 1); }
+function sigmaV(k) {                     // bruit de l'entrée, ramené à l'affichage
+  const c = S.ch[k], vin = c.vdiv / c.sonde;
+  return (100e-6 + 0.003 * vin) * c.sonde * (c.bwl ? 0.6 : 1);
+}
+let QCLIP = false;
+function quant(v, k) {                   // CAN 8 bits sur ±5 div autour du centre
+  const c = S.ch[k]; let d = (v + c.pos) / c.vdiv;
+  if (d > 5) { d = 5; QCLIP = true; } else if (d < -5) { d = -5; QCLIP = true; }
+  d = Math.round(d * 25.6) / 25.6;
+  return d * c.vdiv - c.pos;
+}
+function vdivList(k) { const m = S.ch[k].sonde; return seq125(1e-3, 5).map(v => +(v * m).toPrecision(6)); }
+</script>
+
+<!-- ======================= INTERFACE ======================= -->
+<script id="interface">
+"use strict";
+const SW = 760, SH = 480, GX = 40, GY = 26, DX = 68, DY = 45, GW = 680, GH = 360, YM = 390, YK = 434;
+const COL = ['#f2e23c', '#4ddc50', '#d983f5'];
+const ORANGE = '#ff9e3d';
+const FC = '"Roboto Condensed","Arial Narrow",Arial,sans-serif';
+const FM = '"Roboto Mono",Consolas,monospace';
+let dirty = true, ACQ = null, AVG = null, acqId = 0, dernierEssai = 0, dernieresMes = 0, mesVer = -1;
+
+function fmtSI(v, unit, sig) {
+  if (v === null || v === undefined || !isFinite(v)) return '---';
+  if (Math.abs(v) < 1e-13) return '0' + unit;
+  const P =[[1e9, 'G'], [1e6, 'M'], [1e3, 'k'], [1, ''], [1e-3, 'm'], [1e-6, 'µ'], [1e-9, 'n'], [1e-12, 'p'], [1e-15, 'f']];
+  const a = Math.abs(v);
+  let i = P.findIndex(p => a >= p[0] * 0.99995); if (i < 0) i = P.length - 1;
+  let m = v / P[i][0], ip = Math.floor(Math.log10(Math.abs(m))) + 1; if (ip < 1) ip = 1;
+  let s = m.toFixed(Math.max(0, sig - ip));
+  if (Math.abs(parseFloat(s)) >= 1000 && i > 0) { i--; m = v / P[i][0]; s = m.toFixed(Math.max(0, sig - 1)); }
+  return s + P[i][1] + unit;
+}
+function touche() { S.ver++; AVG = null; }
+function modele() { dirty = true; touche(); }
+function flash(txt) { S.flash = { txt, t: performance.now() / 1000 }; }
+function srcNom(s) { return s === 2 ? 'M' : String(s + 1); }
+
+/* ---------- canvas ---------- */
+const cv = document.getElementById('ecran'), ctx = cv.getContext('2d');
+const gcv = document.getElementById('gecran'), gctx = gcv.getContext('2d');
+const calque = document.createElement('canvas'), lctx = calque.getContext('2d');
+let dpr = 1, dprG = 1, calqueId = -1, calqueVer = -1;
+function preparer() {
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = SW * dpr; cv.height = SH * dpr; calque.width = SW * dpr; calque.height = SH * dpr;
+  dprG = dpr; gcv.width = 320 * dprG; gcv.height = 220 * dprG;
+  calqueId = -1; dessinerG();
+}
+
+/* ---------- molettes ---------- */
+function molette(id, tourner, pousser, nom) {
+  const k = document.getElementById(id), cap = document.createElement('i');
+  cap.className = 'cap'; k.appendChild(cap); k.tabIndex = 0; k.setAttribute('role', 'slider');
+  k.setAttribute('aria-label', nom);
+  k.title = nom + ': molette, glisser, ou clic à gauche/droite' + (pousser ? '; appui long = appuyer' : '');
+  let ang = 0, drag = null, tim = null;
+  const tour = d => { ang += d * 18; cap.style.transform = `rotate(${ang}deg)`; tourner(d); };
+  const appui = () => { if (!pousser) return; k.classList.add('pousse'); setTimeout(() => k.classList.remove('pousse'), 180); pousser(); };
+  k.addEventListener('wheel', e => { e.preventDefault(); tour(e.deltaY < 0 ? 1 : -1); }, { passive: false });
+  k.addEventListener('pointerdown', e => {
+    k.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, n: 0, bouge: false, pousse: false };
+    tim = setTimeout(() => { if (drag && !drag.bouge) { drag.pousse = true; appui(); } }, 550);
+  });
+  k.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const tot = (e.clientX - drag.x) - (e.clientY - drag.y), pas = Math.trunc(tot / 9) - drag.n;
+    if (pas) { drag.bouge = true; clearTimeout(tim); const s = Math.sign(pas); for (let i = 0; i < Math.abs(pas); i++) tour(s); drag.n += pas; }
+  });
+  const fin = e => {
+    clearTimeout(tim);
+    if (drag && !drag.bouge && !drag.pousse && e.type === 'pointerup') { const r = k.getBoundingClientRect(); tour(e.clientX < r.left + r.width / 2 ? -1 : 1); }
+    drag = null;
+  };
+  k.addEventListener('pointerup', fin); k.addEventListener('pointercancel', fin);
+  k.addEventListener('keydown', e => {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { tour(1); e.preventDefault(); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { tour(-1); e.preventDefault(); }
+    else if (e.key === 'Enter' || e.key === ' ') { appui(); e.preventDefault(); }
+  });
+}
+
+/* ========================= OSCILLOSCOPE ========================= */
+const MTL = [
+  { id: 'vpp', court: 'Crête-crête', amp: true }, { id: 'max', court: 'Max', amp: true }, { id: 'min', court: 'Min', amp: true },
+  { id: 'ampl', court: 'Amplitude', amp: true }, { id: 'moy', court: 'Moyenne', amp: true },
+  { id: 'rmsca', court: 'RMS CA', amp: true }, { id: 'rmscc', court: 'RMS CC', amp: true },
+  { id: 'freq', court: 'Fréquence' }, { id: 'per', court: 'Période' }, { id: 'larg', court: '+Largeur' },
+  { id: 'rc', court: 'Rapp. cycl.' }, { id: 'mont', court: 'Tps montée' }, { id: 'desc', court: 'Tps descente' },
+  { id: 'phase', court: 'Phase', deux: true }, { id: 'ret', court: 'Retard', deux: true }
+];
+const MT = Object.fromEntries(MTL.map(m => [m.id, m]));
+const CURSEL = ['X1', 'X2', 'X1 X2', 'Y1', 'Y2', 'Y1 Y2'];
+const MATHOPS = ['Non', '1+2', '1−2', '1×2', 'FFT'];
+const mathOn = () => S.math.op !== 'Non';
+const mathTemp = () => S.math.op !== 'Non' && S.math.op !== 'FFT';
+
+function chMenu(k) {
+  const c = S.ch[k];
+  return { titre: 'Voie ' + (k + 1), items: [
+    { l: 'Couplage', v: () => c.coup, act: () => { c.coup = c.coup === 'CC' ? 'CA' : 'CC'; modele(); } },
+    { l: 'Limite BP', v: () => c.bwl ? '20 MHz' : 'Non', act: () => { c.bwl = !c.bwl; modele(); } },
+    { l: 'Réglage fin', v: () => c.fin ? 'Oui' : 'Non', act: () => { c.fin = !c.fin; if (!c.fin) c.vdiv = snapV(k, c.vdiv); } },
+    { l: 'Inverser', v: () => c.inv ? 'Oui' : 'Non', act: () => { c.inv = !c.inv; } },
+    { l: 'Sonde', v: () => c.sonde + ':1', act: () => {
+      const f = c.sonde === 1 ? 10 : 0.1; c.sonde = c.sonde === 1 ? 10 : 1;
+      c.vdiv = +(c.vdiv * f).toPrecision(6); c.pos *= f; if (S.trig.src === k) S.trig.niv *= f; } },
+    null ] };
+}
+function menuObj() {
+  const id = S.menu; if (!id) return null;
+  if (id === 'ch0') return chMenu(0);
+  if (id === 'ch1') return chMenu(1);
+  if (id === 'horiz') return { titre: 'Horizontal', items: [
+    { l: 'Mode', v: () => S.horiz, act: () => { S.horiz = S.horiz === 'Normal' ? 'XY' : S.horiz === 'XY' ? 'Roll' : 'Normal'; if (S.horiz === 'Roll' && S.tdiv < 50e-3) S.tdiv = 50e-3; } },
+    { l: 'Retard', v: () => fmtSI(S.delay, 's', 4), knob: d => { S.delay = +(S.delay + d * S.tdiv / 10).toPrecision(10); } },
+    { l: 'Retard', v: () => 'à zéro', act: () => { S.delay = 0; } }, null, null, null ] };
+  if (id === 'trig') return { titre: 'Déclenchement', items: [
+    { l: 'Type', v: () => 'Front', act: () => {} },
+    { l: 'Source', v: () => 'Voie ' + (S.trig.src + 1), act: () => { S.trig.src = 1 - S.trig.src; } },
+    { l: 'Pente', v: () => S.trig.pente > 0 ? 'Montante ↑' : 'Descendante ↓', act: () => { S.trig.pente = -S.trig.pente; } },
+    { l: 'Niveau', v: () => fmtSI(S.trig.niv, 'V', 3), knob: d => tournerNiveau(d) },
+    null, null ] };
+  if (id === 'mode') return { titre: 'Mode/Couplage', items: [
+    { l: 'Mode', v: () => S.trig.mode, act: () => { S.trig.mode = S.trig.mode === 'Auto' ? 'Normal' : 'Auto'; } },
+    { l: 'Couplage', v: () => 'CC', act: () => {} },
+    { l: 'Rejet bruit', v: () => S.trig.rejet ? 'Oui' : 'Non', act: () => { S.trig.rejet = !S.trig.rejet; } },
+    null, null, null ] };
+  if (id === 'meas') {
+    const m = S.msel, t = MT[m.type], nsrc = mathTemp() ? 3 : 2;
+    return { titre: 'Mesures', items: [
+      { l: 'Source', v: () => srcNom(m.src), act: () => { m.src = (m.src + 1) % nsrc; } },
+      { l: 'Type', v: () => MT[m.type].court, knob: d => { const i = MTL.findIndex(x => x.id === m.type); m.type = MTL[(i + d + MTL.length) % MTL.length].id; } },
+      t.deux ? { l: 'Source 2', v: () => srcNom(m.src2), act: () => { m.src2 = 1 - m.src2; } } : null,
+      { l: 'Ajouter', v: () => 'la mesure', act: () => { S.meas.push({ type: m.type, src: m.src, src2: m.src2 }); if (S.meas.length > 4) S.meas.shift(); mesVer = -1; } },
+      { l: 'Effacer', v: () => 'tout', act: () => { S.meas = []; S.mres = []; } },
+      null ] };
+  }
+  if (id === 'curs') return { titre: 'Curseurs', items: [
+    { l: 'Curseurs', v: () => S.cur.on ? 'Manuels' : 'Non', act: () => { S.cur.on = !S.cur.on; } },
+    { l: 'Source', v: () => srcNom(S.cur.src), act: () => { S.cur.src = (S.cur.src + 1) % (mathOn() ? 3 : 2); } },
+    { l: 'Curseur', v: () => CURSEL[S.cur.sel], knob: d => bougerCurseur(d), act: () => { S.cur.sel = (S.cur.sel + 1) % CURSEL.length; } },
+    null, null, null ] };
+  if (id === 'acq') return { titre: 'Acquisition', items: [
+    { l: 'Mode acq.', v: () => S.acq.mode, act: () => { S.acq.mode = S.acq.mode === 'Normal' ? 'Moyennage' : 'Normal'; } },
+    S.acq.mode === 'Moyennage' ? { l: 'Nb moyennes', v: () => String(S.acq.n), knob: d => { S.acq.n = clamp(d > 0 ? S.acq.n * 2 : S.acq.n / 2, 2, 1024); } } : null,
+    null, null, null, null ] };
+  if (id === 'disp') return { titre: 'Affichage', items: [
+    { l: 'Persistance', v: () => S.aff.persist, act: () => { S.aff.persist = S.aff.persist === 'Non' ? 'Courte' : S.aff.persist === 'Courte' ? 'Infinie' : 'Non'; } },
+    { l: 'Effacer', v: () => 'persistance', act: () => { calqueId = -1; calqueVer = -1; } },
+    { l: 'Grille', v: () => Math.round(S.aff.grille * 100) + '%', knob: d => { S.aff.grille = clamp(Math.round((S.aff.grille + d * 0.05) * 100) / 100, 0, 1); } },
+    null, null, null ] };
+  if (id === 'math') {
+    const M = S.math, it = [{ l: 'Opérateur', v: () => M.op, act: () => {
+      M.op = MATHOPS[(MATHOPS.indexOf(M.op) + 1) % MATHOPS.length];
+      if (mathTemp()) { M.vdiv = M.op === '1×2' ? +(S.ch[0].vdiv * S.ch[1].vdiv).toPrecision(3) : Math.max(S.ch[0].vdiv, S.ch[1].vdiv); M.pos = 0; }
+      if (M.op === 'FFT') {
+        M.span = null; M.centre = null;
+        if (!INP.noise && !INP.dc) { const s = seq125(1e-3, fsFFT() / 2).find(v => v >= 20 / INP.T); if (s) { M.span = s; M.centre = s / 2; } }
+      }
+      S.entry = menuObj().items.findIndex(x => x && x.knob);
+    } }];
+    if (M.op === 'FFT') it.push(
+      { l: 'Source', v: () => 'Voie ' + (M.src + 1), act: () => { M.src = 1 - M.src; } },
+      { l: 'Span', v: () => fmtSI(spanFFT(), 'Hz', 3), knob: d => changerSpan(d) },
+      { l: 'Centre', v: () => fmtSI(centreFFT(), 'Hz', 4), knob: d => { M.centre = Math.max(0, centreFFT() + d * spanFFT() / 50); } },
+      { l: 'Niveau réf.', v: () => M.ref.toFixed(0) + ' dBV', knob: d => { M.ref = clamp(M.ref + d * 5, -120, 60); } },
+      { l: 'Fenêtre', v: () => M.fen, act: () => { M.fen = M.fen === 'Hanning' ? 'Rectangle' : 'Hanning'; } });
+    else if (mathTemp()) it.push(
+      { l: 'Échelle', v: () => fmtSI(M.vdiv, M.op === '1×2' ? 'V²' : 'V', 3) + '/', knob: d => { const L = seq125(1e-3, 1000); let i = L.findIndex(v => v >= M.vdiv * 0.999); if (i < 0) i = L.length - 1; M.vdiv = L[clamp(i - d, 0, L.length - 1)]; } },
+      { l: 'Position', v: () => fmtSI(M.pos, M.op === '1×2' ? 'V²' : 'V', 3), knob: d => { M.pos = +(M.pos + d * M.vdiv / 25).toPrecision(8); } },
+      null, null, null);
+    else it.push(null, null, null, null, null);
+    return { titre: 'Math', items: it };
+  }
+  return null;
+}
+function ouvrirMenu(id) {
+  S.menu = id; const m = menuObj();
+  S.entry = m ? m.items.findIndex(x => x && x.knob) : -1;
+  majTouches();
+}
+function softkey(i) {
+  const m = menuObj(); if (!m) return;
+  const it = m.items[i]; if (!it) return;
+  if (it.knob) { if (S.entry !== i) { S.entry = i; return; } if (it.act) it.act(); }
+  else if (it.act) it.act();
+  touche(); majTouches();
+}
+function snapV(k, v) {
+  const L = vdivList(k); let best = L[0];
+  for (const x of L) if (Math.abs(Math.log(x / v)) < Math.abs(Math.log(best / v))) best = x;
+  return best;
+}
+function tournerV(k, d) {
+  const c = S.ch[k];
+  if (!c.on) return;
+  if (c.fin) c.vdiv = +(c.vdiv * (1 - d * 0.01)).toPrecision(4);
+  else { const L = vdivList(k); let i = L.findIndex(v => v >= c.vdiv * 0.999); if (i < 0) i = L.length - 1; c.vdiv = L[clamp(i - d, 0, L.length - 1)]; }
+  c.vdiv = clamp(c.vdiv, 1e-3 * c.sonde, 5 * c.sonde);
+  touche();
+}
+function tournerP(k, d) {
+  const c = S.ch[k]; if (!c.on) return;
+  c.pos = +(c.pos + d * c.vdiv / 25).toPrecision(8);
+  flash('Position voie ' + (k + 1) + ': ' + fmtSI(c.pos, 'V', 3)); touche();
+}
+function tournerT(d) {
+  const min = S.horiz === 'Roll' ? 50e-3 : 5e-9;
+  let i = TDIV.findIndex(v => v >= S.tdiv * 0.999); if (i < 0) i = TDIV.length - 1;
+  S.tdiv = Math.max(min, TDIV[clamp(i - d, 0, TDIV.length - 1)]);
+  touche();
+}
+function tournerNiveau(d) {
+  const k = S.trig.src; S.trig.niv = +(S.trig.niv + d * S.ch[k].vdiv / 50).toPrecision(8);
+  flash('Niveau de déclenchement: ' + fmtSI(S.trig.niv, 'V', 3));
+}
+function niveau50() {
+  const k = S.trig.src, sc = chScale(k); let a = sc * TAB.min[k], b = sc * TAB.max[k];
+  S.trig.niv = +((a + b) / 2).toPrecision(4); flash('Niveau de déclenchement: ' + fmtSI(S.trig.niv, 'V', 3));
+}
+function bougerCurseur(d) {
+  const c = S.cur, s = c.sel, st = d * 0.05;
+  if (s === 0 || s === 2) c.x[0] = clamp(c.x[0] + st, -5, 5);
+  if (s === 1 || s === 2) c.x[1] = clamp(c.x[1] + st, -5, 5);
+  if (s === 3 || s === 5) c.y[0] = clamp(c.y[0] + st, -4, 4);
+  if (s === 4 || s === 5) c.y[1] = clamp(c.y[1] + st, -4, 4);
+}
+function fsFFT() { return ACQ ? 1 / ACQ.dt : NS / (10 * S.tdiv); }
+function spanFFT() { const ny = fsFFT() / 2; return S.math.span ? Math.min(S.math.span, ny) : ny; }
+function centreFFT() { return S.math.centre !== null ? S.math.centre : spanFFT() / 2; }
+function changerSpan(d) {
+  const ny = fsFFT() / 2, L = seq125(1e-3, ny).concat([ny]);
+  let i = L.findIndex(v => v >= spanFFT() * 0.999); if (i < 0) i = L.length - 1;
+  S.math.span = L[clamp(i + d, 0, L.length - 1)];
+  if (S.math.centre === null) S.math.centre = S.math.span / 2;
+}
+
+function autoScale() {
+  if (dirty) { rebuild(); dirty = false; }
+  let premier = -1;
+  for (let k = 0; k < 2; k++) {
+    const c = S.ch[k], sc = chScale(k);
+    let a = sc * TAB.min[k], b = sc * TAB.max[k]; if (a > b) { const t = a; a = b; b = t; }
+    const pp = b - a, mid = (a + b) / 2;
+    if (pp < 0.01 * c.sonde && Math.abs(mid) < 0.01 * c.sonde) { c.on = false; continue; }
+    c.on = true; c.fin = false; if (premier < 0) premier = k;
+    const L = vdivList(k);
+    if (pp < 1e-6) { c.vdiv = L.find(v => v >= Math.abs(mid) / 3) || L[L.length - 1]; c.pos = 0; }
+    else { c.vdiv = L.find(v => v >= pp / 6) || L[L.length - 1]; c.pos = +(-mid).toPrecision(4); }
+  }
+  if (premier < 0) { S.ch[0].on = true; premier = 0; flash('Aucun signal détecté'); }
+  let td;
+  if (INP.noise) td = 1 / G.nbw;
+  else if (INP.dc) td = 100e-6;
+  else td = INP.T / 5;
+  S.tdiv = TDIV.find(v => v >= td * 0.999) || TDIV[TDIV.length - 1];
+  S.horiz = 'Normal'; S.delay = 0;
+  S.trig.src = premier; S.trig.pente = 1; S.trig.mode = 'Auto';
+  const sc = chScale(premier); S.trig.niv = +((sc * TAB.min[premier] + sc * TAB.max[premier]) / 2).toPrecision(4);
+  S.run = true; S.single = false;
+  touche(); majTouches(); calqueId = -1;
+}
+
+/* ---------- acquisition ---------- */
+function acquerir(now, force) {
+  const W = 10 * S.tdiv, dt = W / NS, T = INP.T;
+  let t0, tTrig, statut, trig = false;
+  if (S.horiz === 'Roll') { t0 = Math.floor((now - W) / dt) * dt; tTrig = t0 + W / 2 - S.delay; statut = 'Roll'; }
+  else {
+    const k = S.trig.src, sc = chScale(k);
+    let tc = findCrossing(k, sc, S.trig.niv, S.trig.pente);
+    if (tc !== null) {
+      trig = true;
+      const sl = slopeAt(k, sc, tc); let st = sl ? sigmaV(k) / Math.abs(sl) : 0;
+      if (S.trig.rejet) st *= 0.3; st = Math.min(st, T / 8); tc += st * gauss();
+      statut = S.trig.mode === 'Auto' ? 'Auto' : 'Trig\'d';
+    } else if (S.trig.mode === 'Auto' || force) { tc = Math.random() * Math.max(T, W) * 3; statut = 'Auto?'; }
+    else { S.attente = true; return false; }
+    tTrig = tc; t0 = tc + S.delay - W / 2;
+  }
+  S.attente = false;
+  const y1 = new Float64Array(NS), y2 = new Float64Array(NS);
+  sampleWindow(t0, dt, NS, y1, y2);
+  const env = !INP.noise && !INP.dc && dt > T / 6;
+  let mnY = null, mxY = null;
+  if (env) { mnY = [new Float64Array(NS), new Float64Array(NS)]; mxY = [new Float64Array(NS), new Float64Array(NS)]; envWindow(t0, dt, NS, mnY, mxY); }
+  let v = [new Float32Array(NS), new Float32Array(NS)];
+  const mn = env ? [new Float32Array(NS), new Float32Array(NS)] : null, mx = env ? [new Float32Array(NS), new Float32Array(NS)] : null;
+  const clip = [false, false], roll = S.horiz === 'Roll';
+  for (let k = 0; k < 2; k++) {
+    const sc = chScale(k), sv = sigmaV(k), ys = k ? y2 : y1;
+    QCLIP = false;
+    for (let j = 0; j < NS; j++) {
+      const nz = roll ? hashG(Math.round((t0 + j * dt) / dt) + k * 7919) : gauss();
+      v[k][j] = quant(sc * ys[j] + sv * nz, k);
+    }
+    if (env) for (let j = 0; j < NS; j++) {
+      let a = sc * mnY[k][j], b = sc * mxY[k][j]; if (a > b) { const t = a; a = b; b = t; }
+      a -= sv * (2 + Math.abs(gauss())); b += sv * (2 + Math.abs(gauss()));
+      mn[k][j] = quant(a, k); mx[k][j] = quant(b, k);
+    }
+    clip[k] = QCLIP;
+  }
+  if (S.acq.mode === 'Moyennage' && !roll && !env) {
+    if (!AVG || AVG.ver !== S.ver) AVG = { ver: S.ver, cnt: 0, v: [new Float32Array(NS), new Float32Array(NS)] };
+    AVG.cnt = Math.min(AVG.cnt + 1, S.acq.n);
+    for (let k = 0; k < 2; k++) for (let j = 0; j < NS; j++) AVG.v[k][j] += (v[k][j] - AVG.v[k][j]) / AVG.cnt;
+    v = [Float32Array.from(AVG.v[0]), Float32Array.from(AVG.v[1])];
+  }
+  ACQ = { id: ++acqId, t0, dt, tTrig, v, mn, mx, env, clip, statut, ver: S.ver, time: now, W,
+    lent: !roll && W >= 0.5, fft: null, math: null };
+  if (S.single && (trig || force)) { S.run = false; S.single = false; majTouches(); }
+  return true;
+}
+
+/* ---------- mesures ---------- */
+function mathArr() {
+  if (ACQ.math && ACQ.math.op === S.math.op) return ACQ.math.v;
+  const a = ACQ.v[0], b = ACQ.v[1], N = a.length, m = new Float32Array(N), op = S.math.op;
+  for (let j = 0; j < N; j++) m[j] = op === '1+2' ? a[j] + b[j] : op === '1−2' ? a[j] - b[j] : a[j] * b[j];
+  ACQ.math = { op, v: m }; return m;
+}
+function hautBas(v, mn, mx) {
+  const nb = 64, h = new Uint32Array(nb), sp = (mx - mn) || 1;
+  for (let j = 0; j < v.length; j++) h[Math.min(nb - 1, Math.max(0, Math.floor((v[j] - mn) / sp * nb)))]++;
+  let it = -1, ct = 0, ib = -1, cb = 0;
+  for (let i = Math.floor(nb * 0.6); i < nb; i++) if (h[i] > ct) { ct = h[i]; it = i; }
+  for (let i = 0; i <= Math.floor(nb * 0.4); i++) if (h[i] > cb) { cb = h[i]; ib = i; }
+  const haut = (it >= 0 && ct > v.length * 0.05) ? mn + (it + 0.5) / nb * sp : mx;
+  const bas = (ib >= 0 && cb > v.length * 0.05) ? mn + (ib + 0.5) / nb * sp : mn;
+  return [haut, bas];
+}
+function mesureTxt(m) {
+  const t = MT[m.type];
+  const lab = t.court + '(' + srcNom(m.src) + (t.deux ? '→' + srcNom(m.src2) : '') + '): ';
+  if (!ACQ) return lab + '---';
+  if (m.src === 2 && !mathTemp()) return lab + '---';
+  if (t.amp) {
+    const v = m.src < 2 ? ACQ.v[m.src] : mathArr(), unit = (m.src === 2 && S.math.op === '1×2') ? 'V²' : 'V', N = v.length;
+    let mx = -Infinity, mn = Infinity, s = 0, s2 = 0;
+    for (let j = 0; j < N; j++) { const x = v[j]; if (x > mx) mx = x; if (x < mn) mn = x; s += x; s2 += x * x; }
+    if (ACQ.env && m.src < 2) for (let j = 0; j < N; j++) { if (ACQ.mx[m.src][j] > mx) mx = ACQ.mx[m.src][j]; if (ACQ.mn[m.src][j] < mn) mn = ACQ.mn[m.src][j]; }
+    const pre = (m.src < 2 && ACQ.clip[m.src]) ? '≥ ' : '';
+    const moy = s / N, rmscc = Math.sqrt(s2 / N), rmsca = Math.sqrt(Math.max(0, s2 / N - moy * moy));
+    switch (m.type) {
+      case 'vpp': return lab + pre + fmtSI(mx - mn, unit, 4);
+      case 'max': return lab + pre + fmtSI(mx, unit, 4);
+      case 'min': return lab + pre + fmtSI(mn, unit, 4);
+      case 'ampl': { const hb = hautBas(v, mn, mx); return lab + pre + fmtSI(hb[0] - hb[1], unit, 4); }
+      case 'moy': return lab + fmtSI(moy, unit, 4);
+      case 'rmsca': return lab + fmtSI(rmsca, unit, 4);
+      case 'rmscc': return lab + fmtSI(rmscc, unit, 4);
+    }
+  }
+  if (m.src === 2 || (t.deux && m.src2 === 2)) return lab + '---';
+  if (INP.noise || INP.dc || S.horiz === 'XY') return lab + 'pas de front';
+  const T = INP.T; if (10 * S.tdiv < T) return lab + 'pas de front';
+  const k = m.src, sc = chScale(k);
+  let lo = sc * TAB.min[k], hi = sc * TAB.max[k]; if (lo > hi) { const x = lo; lo = hi; hi = x; }
+  const amp = hi - lo; if (amp < 5 * sigmaV(k)) return lab + '---';
+  const navg = S.acq.mode === 'Moyennage' ? S.acq.n : 1;
+  const jit = (kk, scc, tc) => { const sl = slopeAt(kk, scc, tc); return sl ? sigmaV(kk) / Math.abs(sl) / Math.sqrt(navg) * gauss() : 0; };
+  const mid = lo + amp / 2, md = x => ((x % T) + T) % T;
+  switch (m.type) {
+    case 'freq': case 'per': {
+      const tc = findCrossing(k, sc, mid, 1); const Tm = T + (tc !== null ? jit(k, sc, tc) * 0.3 : 0);
+      return lab + (m.type === 'freq' ? fmtSI(1 / Tm, 'Hz', 5) : fmtSI(Tm, 's', 5));
+    }
+    case 'larg': case 'rc': {
+      const a = findCrossing(k, sc, mid, 1), b = findCrossing(k, sc, mid, -1); if (a === null || b === null) return lab + '---';
+      const w = md(b - a) + jit(k, sc, a) * 0.5;
+      return lab + (m.type === 'larg' ? fmtSI(w, 's', 4) : (100 * w / T).toFixed(1) + '%');
+    }
+    case 'mont': case 'desc': {
+      const up = m.type === 'mont';
+      const a = findCrossing(k, sc, lo + (up ? 0.1 : 0.9) * amp, up ? 1 : -1);
+      const b = findCrossing(k, sc, lo + (up ? 0.9 : 0.1) * amp, up ? 1 : -1);
+      if (a === null || b === null) return lab + '---';
+      return lab + fmtSI(Math.abs(md(b - a) + jit(k, sc, a) * 0.5), 's', 4);
+    }
+    case 'phase': case 'ret': {
+      const k2 = m.src2, sc2 = chScale(k2);
+      let lo2 = sc2 * TAB.min[k2], hi2 = sc2 * TAB.max[k2]; if (lo2 > hi2) { const x = lo2; lo2 = hi2; hi2 = x; }
+      if (hi2 - lo2 < 5 * sigmaV(k2)) return lab + '---';
+      const t1 = findCrossing(k, sc, mid, 1), t2 = findCrossing(k2, sc2, (lo2 + hi2) / 2, 1);
+      if (t1 === null || t2 === null) return lab + '---';
+      let d = md(t2 - t1); if (d > T / 2) d -= T;
+      d += jit(k, sc, t1) * 0.7;
+      return lab + (m.type === 'ret' ? fmtSI(d, 's', 4) : (360 * d / T).toFixed(1) + '°');
+    }
+  }
+  return lab + '---';
+}
+
+/* ---------- FFT ---------- */
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit;
+    if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -TAU / len, wr = Math.cos(ang), wi = Math.sin(ang), h = len >> 1;
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let j = 0; j < h; j++) {
+        const a = i + j, b = a + h;
+        const vr = re[b] * cr - im[b] * ci, vi = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - vr; im[b] = im[a] - vi; re[a] += vr; im[a] += vi;
+        const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr;
+      }
+    }
+  }
+}
+function spectre() {
+  if (ACQ.fft && ACQ.fft.src === S.math.src && ACQ.fft.fen === S.math.fen) return ACQ.fft.db;
+  const v = ACQ.v[S.math.src], N = v.length, re = new Float64Array(N), im = new Float64Array(N);
+  const hann = S.math.fen === 'Hanning', cg = hann ? 0.5 : 1;
+  for (let j = 0; j < N; j++) re[j] = v[j] * (hann ? 0.5 * (1 - Math.cos(TAU * j / (N - 1))) : 1);
+  fft(re, im);
+  const db = new Float64Array(N / 2);
+  for (let k = 0; k < N / 2; k++) {
+    const a = Math.hypot(re[k], im[k]) / (N * cg) * (k ? 2 : 1);
+    const vr = k ? a / Math.SQRT2 : a;
+    db[k] = 20 * Math.log10(Math.max(vr, 1e-9));
+  }
+  ACQ.fft = { src: S.math.src, fen: S.math.fen, db };
+  return db;
+}
+
+/* ---------- dessin de l'écran ---------- */
+function yOf(v, k) {
+  if (k === 2) return GY + GH / 2 - (v + S.math.pos) / S.math.vdiv * DY;
+  const c = S.ch[k]; return GY + GH / 2 - (v + c.pos) / c.vdiv * DY;
+}
+function grille(g) {
+  const a = 0.12 + 0.55 * S.aff.grille;
+  g.strokeStyle = `rgba(150,150,150,${a})`; g.lineWidth = 1; g.setLineDash([1, 3]);
+  g.beginPath();
+  for (let i = 1; i < 10; i++) { const x = GX + i * DX + 0.5; g.moveTo(x, GY); g.lineTo(x, GY + GH); }
+  for (let i = 1; i < 8; i++) { const y = GY + i * DY + 0.5; g.moveTo(GX, y); g.lineTo(GX + GW, y); }
+  g.stroke(); g.setLineDash([]);
+  const cx = GX + GW / 2 + 0.5, cy = GY + GH / 2 + 0.5;
+  g.strokeStyle = `rgba(175,175,175,${Math.min(1, a + 0.12)})`;
+  g.beginPath();
+  for (let i = 1; i < 50; i++) { const x = GX + i * DX / 5 + 0.5; g.moveTo(x, cy - 3); g.lineTo(x, cy + 3); }
+  for (let i = 1; i < 40; i++) { const y = GY + i * DY / 5 + 0.5; g.moveTo(cx - 3, y); g.lineTo(cx + 3, y); }
+  g.stroke();
+  g.strokeRect(GX + 0.5, GY + 0.5, GW, GH);
+}
+function traces(g, now) {
+  if (!ACQ) return;
+  g.save(); g.beginPath(); g.rect(GX, GY, GW, GH); g.clip();
+  let jmax = NS;
+  if (ACQ.lent && S.run && ACQ.ver === S.ver) jmax = Math.max(1, Math.min(NS, Math.floor((now - ACQ.time) / ACQ.W * NS)));
+  if (S.horiz === 'XY') {
+    const c0 = S.ch[0];
+    g.fillStyle = COL[0]; g.strokeStyle = COL[0]; g.lineWidth = 1.3;
+    const ligne = !ACQ.env && (INP.noise || ACQ.dt < INP.T / 25);
+    g.beginPath();
+    for (let j = 0; j < jmax; j++) {
+      const x = GX + GW / 2 + (ACQ.v[0][j] + c0.pos) / c0.vdiv * DX, y = yOf(ACQ.v[1][j], 1);
+      if (ligne) { j ? g.lineTo(x, y) : g.moveTo(x, y); } else g.rect(x - 0.8, y - 0.8, 1.6, 1.6);
+    }
+    ligne ? g.stroke() : g.fill();
+    g.restore(); return;
+  }
+  const x0 = GX + GW / 2 + (ACQ.t0 - ACQ.tTrig - S.delay) / S.tdiv * DX, px = ACQ.dt / S.tdiv * DX;
+  const dessine = (arr, k, col) => {
+    g.strokeStyle = col; g.lineWidth = 1.4; g.beginPath();
+    for (let j = 0; j < jmax; j++) { const x = x0 + j * px, y = yOf(arr[j], k); j ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+  };
+  for (let k = 0; k < 2; k++) {
+    if (!S.ch[k].on) continue;
+    if (ACQ.env) {
+      g.strokeStyle = COL[k]; g.lineWidth = Math.max(1, px + 0.3); g.beginPath();
+      for (let j = 0; j < jmax; j++) { const x = x0 + j * px; g.moveTo(x, yOf(ACQ.mx[k][j], k) - 0.5); g.lineTo(x, yOf(ACQ.mn[k][j], k) + 0.5); }
+      g.stroke();
+    } else dessine(ACQ.v[k], k, COL[k]);
+  }
+  if (mathTemp()) dessine(mathArr(), 2, COL[2]);
+  g.restore();
+}
+function dessinerFFT(g) {
+  if (!ACQ || S.math.op !== 'FFT' || S.horiz === 'XY') return;
+  const db = spectre(), df = 1 / (NS * ACQ.dt), sp = spanFFT(), fc = centreFFT(), M = S.math;
+  g.save(); g.beginPath(); g.rect(GX, GY, GW, GH); g.clip();
+  g.strokeStyle = COL[2]; g.lineWidth = 1.3; g.beginPath();
+  const parPx = sp / GW / df; let premier = true;
+  if (parPx > 1) {
+    for (let p = 0; p <= GW; p++) {
+      const f1 = fc - sp / 2 + p * sp / GW, k1 = Math.max(0, Math.floor(f1 / df)), k2 = Math.min(db.length - 1, Math.floor((f1 + sp / GW) / df));
+      if (k2 < 0 || k1 >= db.length) continue;
+      let m = -Infinity; for (let k = k1; k <= k2; k++) if (db[k] > m) m = db[k];
+      const y = GY + (M.ref - m) / M.dbdiv * DY;
+      premier ? g.moveTo(GX + p, y) : g.lineTo(GX + p, y); premier = false;
+    }
+  } else {
+    for (let k = 0; k < db.length; k++) {
+      const x = GX + GW / 2 + (k * df - fc) / sp * GW; if (x < GX - 20 || x > GX + GW + 20) continue;
+      const y = GY + (M.ref - db[k]) / M.dbdiv * DY;
+      premier ? g.moveTo(x, y) : g.lineTo(x, y); premier = false;
+    }
+  }
+  g.stroke(); g.restore();
+  g.fillStyle = COL[2]; g.font = '12px ' + FC; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.fillText(`FFT voie ${M.src + 1}  ${M.dbdiv} dB/div  réf ${M.ref} dBV   centre ${fmtSI(fc, 'Hz', 4)}   span ${fmtSI(sp, 'Hz', 3)}   (${M.fen})`, GX + 6, GY + 16);
+}
+function etiquette(g, x, y, txt, col, versDroite) {
+  g.fillStyle = col; g.beginPath();
+  if (versDroite) { g.moveTo(x, y - 7); g.lineTo(x + 26, y - 7); g.lineTo(x + 34, y); g.lineTo(x + 26, y + 7); g.lineTo(x, y + 7); }
+  else { g.moveTo(x + 34, y - 7); g.lineTo(x + 8, y - 7); g.lineTo(x, y); g.lineTo(x + 8, y + 7); g.lineTo(x + 34, y + 7); }
+  g.closePath(); g.fill();
+  g.fillStyle = '#000'; g.font = 'bold 11px ' + FC; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(txt, versDroite ? x + 14 : x + 20, y + 0.5);
+}
+function reperes(g) {
+  if (S.horiz === 'XY') return;
+  for (let k = 0; k < 2; k++) if (S.ch[k].on) etiquette(g, 3, clamp(yOf(0, k), GY + 7, GY + GH - 7), String(k + 1), COL[k], true);
+  if (mathTemp()) etiquette(g, 3, clamp(yOf(0, 2), GY + 7, GY + GH - 7), 'M', COL[2], true);
+  if (S.horiz !== 'Roll') {
+    const ts = S.trig.src; etiquette(g, GX + GW + 2, clamp(yOf(S.trig.niv, ts), GY + 7, GY + GH - 7), 'T', ORANGE, false);
+    const xt = GX + GW / 2 - S.delay / S.tdiv * DX;
+    g.fillStyle = ORANGE; g.beginPath();
+    if (xt < GX) { g.moveTo(GX + 2, GY + 6); g.lineTo(GX + 12, GY + 1); g.lineTo(GX + 12, GY + 11); }
+    else if (xt > GX + GW) { g.moveTo(GX + GW - 2, GY + 6); g.lineTo(GX + GW - 12, GY + 1); g.lineTo(GX + GW - 12, GY + 11); }
+    else { g.moveTo(xt - 6, GY + 1); g.lineTo(xt + 6, GY + 1); g.lineTo(xt, GY + 10); }
+    g.fill();
+  }
+}
+function bandeau(g, now) {
+  g.fillStyle = '#15181d'; g.fillRect(0, 0, SW, 22);
+  g.font = '13px ' + FC; g.textBaseline = 'middle';
+  let x = 6;
+  for (let k = 0; k < 2; k++) {
+    const c = S.ch[k], col = c.on ? COL[k] : '#666';
+    g.fillStyle = col; g.fillRect(x, 4, 15, 15);
+    g.fillStyle = '#000'; g.textAlign = 'center'; g.font = 'bold 12px ' + FC; g.fillText(String(k + 1), x + 7.5, 12);
+    g.textAlign = 'left'; g.font = '13px ' + FC; g.fillStyle = col;
+    g.fillText(fmtSI(c.vdiv, 'V', 3) + '/' + (c.coup === 'CA' ? ' ∿' : '') + (c.bwl ? ' BW' : ''), x + 20, 12);
+    x += 108;
+  }
+  if (mathOn()) {
+    g.fillStyle = COL[2]; g.fillRect(x, 4, 15, 15); g.fillStyle = '#000'; g.textAlign = 'center'; g.font = 'bold 12px ' + FC; g.fillText('M', x + 7.5, 12);
+    g.textAlign = 'left'; g.font = '13px ' + FC; g.fillStyle = COL[2];
+    g.fillText(S.math.op === 'FFT' ? S.math.dbdiv + 'dB/' : fmtSI(S.math.vdiv, S.math.op === '1×2' ? 'V²' : 'V', 3) + '/', x + 20, 12);
+  }
+  x = 330;
+  g.fillStyle = '#ddd'; g.fillRect(x, 4, 15, 15); g.fillStyle = '#000'; g.textAlign = 'center'; g.font = 'bold 12px ' + FC;
+  g.fillText(S.horiz === 'XY' ? 'X' : 'H', x + 7.5, 12);
+  g.textAlign = 'left'; g.font = '13px ' + FC; g.fillStyle = '#eee';
+  g.fillText(S.horiz === 'XY' ? 'Mode XY' : fmtSI(S.tdiv, 's', 4) + '/', x + 20, 12);
+  if (S.horiz !== 'XY') { g.fillStyle = '#bbb'; g.fillText('▷ ' + fmtSI(S.delay, 's', 4), x + 104, 12); }
+  // état
+  let st, col;
+  if (!S.run) { st = 'Stop'; col = '#ff4a4a'; }
+  else if (S.single) { st = 'Single'; col = '#ffd23a'; }
+  else if (S.horiz === 'Roll') { st = 'Roll'; col = '#7fe07f'; }
+  else if (S.attente) { st = (Math.floor(now * 2) % 2) ? 'Trig\'d?' : ''; col = '#ffb347'; }
+  else { st = ACQ ? ACQ.statut : 'Auto'; col = st === 'Auto?' ? '#ffb347' : '#7fe07f'; }
+  g.fillStyle = col; g.font = 'bold 13px ' + FC; g.fillText(st, 560, 12);
+  if (S.horiz !== 'Roll' && S.horiz !== 'XY') {
+    g.font = '13px ' + FC; g.fillStyle = ORANGE;
+    g.fillText('T ' + (S.trig.pente > 0 ? '↑' : '↓') + ' ' + (S.trig.src + 1) + '  ' + fmtSI(S.trig.niv, 'V', 3), 628, 12);
+  }
+}
+function curseurs(g) {
+  if (!S.cur.on) return;
+  const c = S.cur;
+  g.save(); g.setLineDash([5, 4]); g.lineWidth = 1; g.font = '11px ' + FC; g.textBaseline = 'alphabetic';
+  for (let i = 0; i < 2; i++) {
+    const x = GX + GW / 2 + c.x[i] * DX, y = GY + GH / 2 - c.y[i] * DY;
+    const selX = c.sel === i || c.sel === 2, selY = c.sel === 3 + i || c.sel === 5;
+    g.strokeStyle = selX ? ORANGE : 'rgba(255,158,61,0.6)';
+    g.beginPath(); g.moveTo(x + 0.5, GY); g.lineTo(x + 0.5, GY + GH); g.stroke();
+    g.fillStyle = ORANGE; g.textAlign = 'left'; g.fillText('X' + (i + 1), x + 3, GY + GH - 4);
+    g.strokeStyle = selY ? ORANGE : 'rgba(255,158,61,0.6)';
+    g.beginPath(); g.moveTo(GX, y + 0.5); g.lineTo(GX + GW, y + 0.5); g.stroke();
+    g.fillText('Y' + (i + 1), GX + 4, y - 3);
+  }
+  g.restore();
+  // lecture
+  const L = lectureCurseurs();
+  g.fillStyle = 'rgba(10,12,16,0.82)'; g.fillRect(GX + GW - 168, GY + 4, 164, 14 * L.length + 8);
+  g.strokeStyle = 'rgba(255,158,61,0.5)'; g.strokeRect(GX + GW - 167.5, GY + 4.5, 163, 14 * L.length + 7);
+  g.font = '12px ' + FC; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  L.forEach((s, i) => { g.fillStyle = i < 4 ? '#ffd2a6' : '#fff'; g.fillText(s, GX + GW - 160, GY + 18 + 14 * i); });
+}
+function lectureCurseurs() {
+  const c = S.cur, s = c.src;
+  let fx, fy, ux, uy;
+  if (S.math.op === 'FFT' && s === 2) {
+    const sp = spanFFT(), fc = centreFFT();
+    fx = d => fc + d * sp / 10; ux = 'Hz';
+    fy = d => S.math.ref - (4 - d) * S.math.dbdiv; uy = 'dBV';
+  } else if (S.horiz === 'XY') {
+    fx = d => d * S.ch[0].vdiv - S.ch[0].pos; ux = 'V';
+    fy = d => d * S.ch[1].vdiv - S.ch[1].pos; uy = 'V';
+  } else {
+    fx = d => d * S.tdiv + S.delay; ux = 's';
+    if (s === 2) { fy = d => d * S.math.vdiv - S.math.pos; uy = S.math.op === '1×2' ? 'V²' : 'V'; }
+    else { fy = d => d * S.ch[s].vdiv - S.ch[s].pos; uy = 'V'; }
+  }
+  const x1 = fx(c.x[0]), x2 = fx(c.x[1]), y1 = fy(c.y[0]), y2 = fy(c.y[1]), dx = Math.abs(x2 - x1);
+  const fy2 = v => uy === 'dBV' ? v.toFixed(1) + ' dBV' : fmtSI(v, uy, 4);
+  const L = ['X1: ' + fmtSI(x1, ux, 4), 'X2: ' + fmtSI(x2, ux, 4), 'ΔX: ' + fmtSI(dx, ux, 4)];
+  L.push(ux === 's' ? '1/ΔX: ' + (dx > 0 ? fmtSI(1 / dx, 'Hz', 4) : '---') : '');
+  L.push('Y1: ' + fy2(y1), 'Y2: ' + fy2(y2), 'ΔY: ' + (uy === 'dBV' ? Math.abs(y2 - y1).toFixed(1) + ' dB' : fmtSI(Math.abs(y2 - y1), uy, 4)));
+  return L.filter(x => x !== '');
+}
+function zoneMesures(g) {
+  g.fillStyle = '#0b0d11'; g.fillRect(0, YM, SW, YK - YM);
+  g.font = '13px ' + FC; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  S.mres.forEach((r, i) => { g.fillStyle = COL[r.src]; g.fillText(r.txt, 8 + (i % 2) * 300, YM + 18 + Math.floor(i / 2) * 19); });
+  const m = menuObj();
+  if (m) { g.fillStyle = '#8e97a6'; g.font = '11px ' + FC; g.textAlign = 'right'; g.fillText('Menu ' + m.titre, SW - 8, YK - 6); }
+  if (!S.mres.length && !m) { g.fillStyle = '#5c6470'; g.font = '12px ' + FC; g.fillText('Touche Mesures: choisir et ajouter jusqu\'à 4 mesures automatiques', 8, YM + 18); }
+}
+function touchesEcran(g) {
+  const m = menuObj(), w = SW / 6;
+  for (let i = 0; i < 6; i++) {
+    const it = m && m.items[i], x = i * w;
+    g.fillStyle = it ? '#262b33' : '#121418'; g.fillRect(x + 2, YK + 2, w - 4, SH - YK - 4);
+    if (!it) continue;
+    const sel = it.knob && S.entry === i;
+    if (sel) { g.fillStyle = '#34507a'; g.fillRect(x + 2, YK + 2, w - 4, SH - YK - 4); }
+    g.strokeStyle = sel ? '#9cc3ff' : '#4a5160'; g.strokeRect(x + 2.5, YK + 2.5, w - 5, SH - YK - 5);
+    g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    g.fillStyle = '#c9d0db'; g.font = '12px ' + FC; g.fillText(it.l, x + w / 2, YK + 18);
+    g.fillStyle = '#fff'; g.font = 'bold 13px ' + FC; g.fillText((it.knob ? '↻ ' : '') + it.v(), x + w / 2, YK + 36);
+  }
+}
+function dessinerEcran(now) {
+  const g = ctx; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = '#000'; g.fillRect(0, 0, SW, SH);
+  grille(g);
+  g.font = 'bold 14px ' + FC; g.fillStyle = 'rgba(255,255,255,0.17)'; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.fillText('MP* Malherbe', GX + 8, GY + GH - 8);
+  if (S.aff.persist !== 'Non' && ACQ && !ACQ.lent) {
+    lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (calqueVer !== S.ver || calqueId < 0) { lctx.clearRect(0, 0, SW, SH); calqueVer = S.ver; }
+    if (calqueId !== ACQ.id) {
+      if (S.aff.persist === 'Courte') { lctx.globalCompositeOperation = 'destination-out'; lctx.fillStyle = 'rgba(0,0,0,0.22)'; lctx.fillRect(0, 0, SW, SH); lctx.globalCompositeOperation = 'source-over'; }
+      lctx.globalAlpha = 0.85; traces(lctx, now); lctx.globalAlpha = 1; calqueId = ACQ.id;
+    }
+    g.drawImage(calque, 0, 0, SW, SH);
+  } else traces(g, now);
+  dessinerFFT(g);
+  reperes(g);
+  curseurs(g);
+  if (S.flash && now - S.flash.t < 1.4) {
+    g.font = '13px ' + FC; const w = g.measureText(S.flash.txt).width + 20;
+    g.fillStyle = 'rgba(30,34,42,0.9)'; g.fillRect(GX + GW / 2 - w / 2, GY + 30, w, 24);
+    g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(S.flash.txt, GX + GW / 2, GY + 42.5);
+  }
+  bandeau(g, now);
+  zoneMesures(g);
+  touchesEcran(g);
+}
+
+/* ---------- boucle ---------- */
+function boucle(ts) {
+  const now = ts / 1000;
+  if (dirty) { rebuild(); dirty = false; }
+  if (S.run) {
+    const W = 10 * S.tdiv, lent = S.horiz !== 'Roll' && W >= 0.5;
+    if (lent) { if (!ACQ || ACQ.ver !== S.ver || !ACQ.lent || now - ACQ.time >= ACQ.W) acquerir(now, false); }
+    else if (now - dernierEssai > 1 / 30) { dernierEssai = now; acquerir(now, false); }
+  }
+  if (ACQ && (now - dernieresMes > 0.35 || mesVer !== S.ver) && (S.run || mesVer !== S.ver)) {
+    dernieresMes = now; mesVer = S.ver;
+    S.mres = S.meas.map(m => ({ txt: mesureTxt(m), src: m.src }));
+  }
+  dessinerEcran(now);
+  requestAnimationFrame(boucle);
+}
+
+/* ---------- touches de l'oscilloscope ---------- */
+function majTouches() {
+  document.querySelectorAll('[data-k]').forEach(b => b.classList.toggle('on', S.menu === b.dataset.k));
+  document.getElementById('bMath').classList.toggle('on', S.menu === 'math' || mathOn());
+  document.getElementById('bC1').classList.toggle('on', S.ch[0].on);
+  document.getElementById('bC2').classList.toggle('on', S.ch[1].on);
+  document.querySelector('#bRun .led').className = 'led ' + (S.run ? 'vert' : 'rouge');
+  document.querySelector('#bSingle .led').className = 'led ' + (S.single ? 'jaune' : '');
+}
+document.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => ouvrirMenu(b.dataset.k)));
+[0, 1].forEach(k => document.getElementById('bC' + (k + 1)).addEventListener('click', () => {
+  const c = S.ch[k], id = 'ch' + k;
+  if (!c.on) { c.on = true; ouvrirMenu(id); }
+  else if (S.menu === id) { c.on = false; S.menu = null; }
+  else ouvrirMenu(id);
+  touche(); majTouches();
+}));
+document.getElementById('bRun').addEventListener('click', () => { S.run = !S.run; S.single = false; majTouches(); });
+document.getElementById('bSingle').addEventListener('click', () => { S.run = true; S.single = true; touche(); majTouches(); });
+document.getElementById('bAuto').addEventListener('click', () => autoScale());
+document.getElementById('bDef').addEventListener('click', () => { S = defautsScope(); ACQ = null; modele(); majTouches(); flash('Configuration par défaut'); });
+document.getElementById('bForce').addEventListener('click', () => { if (dirty) { rebuild(); dirty = false; } acquerir(performance.now() / 1000, true); });
+(function () {
+  const z = document.getElementById('oSofts');
+  for (let i = 0; i < 6; i++) { const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-label', 'Touche de menu ' + (i + 1)); b.addEventListener('click', () => softkey(i)); z.appendChild(b); }
+})();
+molette('kEntry', d => { const m = menuObj(); if (m && S.entry >= 0 && m.items[S.entry] && m.items[S.entry].knob) { m.items[S.entry].knob(d); if (S.menu !== 'curs' && S.menu !== 'disp') touche(); } }, () => { const m = menuObj(); if (m && S.entry >= 0 && m.items[S.entry] && m.items[S.entry].act) { m.items[S.entry].act(); touche(); } }, 'Molette de réglage');
+molette('kTdiv', d => tournerT(d), null, 'Base de temps (s/div)');
+molette('kDelay', d => { S.delay = +(S.delay + d * S.tdiv / 10).toPrecision(10); flash('Retard: ' + fmtSI(S.delay, 's', 4)); touche(); }, () => { S.delay = 0; flash('Retard: 0 s'); touche(); }, 'Position horizontale (retard)');
+molette('kNiv', d => tournerNiveau(d), () => niveau50(), 'Niveau de déclenchement');
+molette('kV1', d => tournerV(0, d), () => { S.ch[0].fin = !S.ch[0].fin; if (!S.ch[0].fin) S.ch[0].vdiv = snapV(0, S.ch[0].vdiv); flash('Réglage fin voie 1: ' + (S.ch[0].fin ? 'oui' : 'non')); }, 'Sensibilité voie 1 (V/div)');
+molette('kV2', d => tournerV(1, d), () => { S.ch[1].fin = !S.ch[1].fin; if (!S.ch[1].fin) S.ch[1].vdiv = snapV(1, S.ch[1].vdiv); flash('Réglage fin voie 2: ' + (S.ch[1].fin ? 'oui' : 'non')); }, 'Sensibilité voie 2 (V/div)');
+molette('kP1', d => tournerP(0, d), () => { S.ch[0].pos = 0; flash('Position voie 1: 0 V'); touche(); }, 'Position verticale voie 1');
+molette('kP2', d => tournerP(1, d), () => { S.ch[1].pos = 0; flash('Position voie 2: 0 V'); touche(); }, 'Position verticale voie 2');
+
+/* curseurs à la souris et touches dessinées */
+let glisse = null;
+function posEcran(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * SW / r.width, y: (e.clientY - r.top) * SH / r.height }; }
+cv.addEventListener('pointerdown', e => {
+  const p = posEcran(e);
+  if (p.y >= YK) { softkey(Math.floor(p.x / (SW / 6))); return; }
+  if (!S.cur.on || p.y < GY || p.y > GY + GH) return;
+  const c = S.cur; let best = null, bd = 9;
+  for (let i = 0; i < 2; i++) {
+    const dx = Math.abs(p.x - (GX + GW / 2 + c.x[i] * DX)); if (dx < bd) { bd = dx; best = { a: 'x', i }; }
+    const dy = Math.abs(p.y - (GY + GH / 2 - c.y[i] * DY)); if (dy < bd) { bd = dy; best = { a: 'y', i }; }
+  }
+  if (best) { glisse = best; cv.setPointerCapture(e.pointerId); c.sel = best.a === 'x' ? best.i : 3 + best.i; }
+});
+cv.addEventListener('pointermove', e => {
+  const p = posEcran(e);
+  if (!glisse) { cv.style.cursor = (S.cur.on && p.y < YK) ? 'crosshair' : (p.y >= YK ? 'pointer' : 'default'); return; }
+  if (glisse.a === 'x') S.cur.x[glisse.i] = clamp((p.x - GX - GW / 2) / DX, -5, 5);
+  else S.cur.y[glisse.i] = clamp((GY + GH / 2 - p.y) / DY, -4, 4);
+});
+cv.addEventListener('pointerup', () => { glisse = null; });
+cv.addEventListener('pointercancel', () => { glisse = null; });
+
+/* ========================= GBF ========================= */
+const WPARAMS = { sine: ['freq', 'amp', 'off'], square: ['freq', 'amp', 'off', 'duty'], ramp: ['freq', 'amp', 'off', 'sym'],
+  pulse: ['freq', 'amp', 'off', 'pw', 'pe'], noise: ['nbw', 'amp', 'off'], dc: ['off'] };
+const WNOM = { sine: 'Sinus', square: 'Carré', ramp: 'Rampe', pulse: 'Impulsion', noise: 'Bruit', dc: 'Continu' };
+const WORDRE = ['sine', 'square', 'ramp', 'pulse', 'noise', 'dc'];
+const Vmax = () => G.load === '50' ? 5 : 10;
+const vppMin = () => G.load === '50' ? 1e-3 : 2e-3;
+const fmax = () => G.wave === 'ramp' ? 200e3 : 20e6;
+function ampK() {
+  if (G.ampU !== 'Vrms') return 1;
+  return { sine: 1 / (2 * Math.SQRT2), square: 0.5, ramp: 1 / (2 * Math.sqrt(3)), pulse: 0.5, noise: 1 / 6.6, dc: 1 }[G.wave];
+}
+const GP = {
+  freq: { nom: 'Fréquence', court: 'Fréquence', get: () => G.freq, set: v => { G.freq = v; }, lim: () => [1e-6, fmax()], u: () => 'Hz', pref: 'auto', dec: 6, ce: [-6, 7] },
+  amp: { nom: 'Amplitude', court: 'Amplitude', get: () => G.vpp * ampK(), set: v => { G.vpp = v / ampK(); },
+    lim: () => [vppMin() * ampK(), 2 * (Vmax() - Math.abs(G.offset)) * ampK()], u: () => G.ampU, pref: 'auto', dec: 3, ce: [-3, 1] },
+  off: { nom: 'Décalage', court: 'Décalage', get: () => G.offset, set: v => { G.offset = v; },
+    lim: () => { const m = Vmax() - (G.wave === 'dc' ? 0 : G.vpp / 2); return [-m, m]; }, u: () => 'V', pref: 0, dec: 3, ce: [-3, 0] },
+  duty: { nom: 'Rapport cyclique', court: 'Rapp. cycl.', get: () => G.duty, set: v => { G.duty = v; }, lim: () => [0.1, 99.9], u: () => '%', pref: 0, dec: 1, ce: [-1, 1] },
+  sym: { nom: 'Symétrie', court: 'Symétrie', get: () => G.sym, set: v => { G.sym = v; }, lim: () => [0, 100], u: () => '%', pref: 0, dec: 1, ce: [-1, 1] },
+  pw: { nom: 'Largeur d\'impulsion', court: 'Largeur', get: () => G.pw, set: v => { G.pw = v; }, lim: () => [16e-9, Math.max(16e-9, 0.99 / G.freq)], u: () => 's', pref: 'auto', dec: 3, ce: [-9, 0] },
+  pe: { nom: 'Temps de front', court: 'Front', get: () => G.pe, set: v => { G.pe = v; }, lim: () => [8.4e-9, 1e-6], u: () => 's', pref: 'auto', dec: 1, ce: [-10, -6] },
+  nbw: { nom: 'Bande passante', court: 'Bande pass.', get: () => G.nbw, set: v => { G.nbw = v; }, lim: () => [1e-3, 20e6], u: () => 'Hz', pref: 'auto', dec: 3, ce: [-3, 7] }
+};
+const PN = { '-9': 'n', '-6': 'µ', '-3': 'm', '0': '', '3': 'k', '6': 'M' };
+function fmtParam(key) {
+  const p = GP[key], v = p.get(), ce = G.ce[key];
+  let pe;
+  if (p.pref === 'auto') { const a = Math.abs(v) || 1; pe = clamp(Math.floor(Math.log10(a * 1.0000001) / 3) * 3, -9, 6); } else pe = p.pref;
+  const r = ce - pe, dec = Math.max(p.dec, -r, 0);
+  let s = (Math.abs(v) / Math.pow(10, pe)).toFixed(dec);
+  let [ip, fp] = s.split('.');
+  while (ip.length < Math.max(1, r + 1)) ip = '0' + ip;
+  const body = ip + (fp !== undefined ? '.' + fp : '');
+  const idx = r >= 0 ? ip.length - 1 - r : ip.length + (-r);
+  const sign = v < 0 ? '−' : (key === 'off' ? '+' : '');
+  return { sign, body, idx, unit: PN[String(pe)] + p.u() };
+}
+function gMsg(t) { G.msg = t; G.msgT = performance.now() + 1600; dessinerG(); setTimeout(dessinerG, 1700); }
+function apresG() {
+  const lo = GP.amp.lim(); if (G.vpp > lo[1] / ampK()) G.vpp = lo[1] / ampK();
+  const lf = GP.freq.lim(); G.freq = clamp(G.freq, lf[0], lf[1]);
+  const m = Vmax() - (G.wave === 'dc' ? 0 : G.vpp / 2); G.offset = clamp(G.offset, -m, m);
+  if (G.pw > 0.99 / G.freq) G.pw = 0.99 / G.freq;
+  modele(); dessinerG();
+}
+function gTourner(d) {
+  if (G.entry) return;
+  const key = G.sel; if (!key) return;
+  const p = GP[key]; let v = +(p.get() + d * Math.pow(10, G.ce[key])).toPrecision(12);
+  const [a, b] = p.lim(); let lim = false;
+  if (v < a) { v = a; lim = true; } if (v > b) { v = b; lim = true; }
+  p.set(v); if (lim) gMsg('Limite atteinte');
+  apresG();
+}
+function gCurseur(d) {
+  const key = G.sel; if (!key || G.entry) return;
+  G.ce[key] = clamp(G.ce[key] + d, GP[key].ce[0], GP[key].ce[1]); dessinerG();
+}
+function unites(key) {
+  switch (key) {
+    case 'freq': case 'nbw': return [['MHz', 1e6], ['kHz', 1e3], ['Hz', 1], ['mHz', 1e-3], ['µHz', 1e-6]];
+    case 'amp': return G.ampU === 'Vpp' ? [['Vpp', 1], ['mVpp', 1e-3]] : [['Vrms', 1], ['mVrms', 1e-3]];
+    case 'off': return [['V', 1], ['mV', 1e-3]];
+    case 'duty': case 'sym': return [['%', 1]];
+    default: return [['s', 1], ['ms', 1e-3], ['µs', 1e-6], ['ns', 1e-9]];
+  }
+}
+function gPave(c) {
+  if (!G.sel) return;
+  if (!G.entry) { if (c === '⌫') return; G.entry = { key: G.sel, s: '' }; G.menu = 'entry'; }
+  const e = G.entry;
+  if (c === '⌫') { e.s = e.s.slice(0, -1); }
+  else if (c === '±') { e.s = e.s.startsWith('-') ? e.s.slice(1) : '-' + e.s; }
+  else if (c === '.') { if (!e.s.includes('.')) e.s += (e.s === '' || e.s === '-') ? '0.' : '.'; }
+  else if (e.s.replace(/[-.]/g, '').length < 12) e.s += c;
+  dessinerG();
+}
+function gSoft(i) {
+  if (G.menu === 'entry') {
+    const U = unites(G.entry.key);
+    if (i === 5 || i >= U.length) { if (i === 5) { G.entry = null; G.menu = 'params'; dessinerG(); } return; }
+    const v = parseFloat(G.entry.s) * U[i][1], key = G.entry.key; G.entry = null; G.menu = 'params';
+    if (!isFinite(v)) { gMsg('Valeur non valide'); return; }
+    const p = GP[key], [a, b] = p.lim(); let w = v, lim = false;
+    if (w < a) { w = a; lim = true; } if (w > b) { w = b; lim = true; }
+    p.set(w); if (lim) gMsg('Limite atteinte');
+    apresG(); return;
+  }
+  if (G.menu === 'waves') {
+    const w = WORDRE[i]; if (!w) return;
+    G.wave = w; if (!WPARAMS[w].includes(G.sel)) G.sel = WPARAMS[w][0];
+    apresG(); return;
+  }
+  if (G.menu === 'params') { const k = WPARAMS[G.wave][i]; if (k) { G.sel = k; dessinerG(); } return; }
+  if (G.menu === 'units') { if (i === 0) { G.ampU = G.ampU === 'Vpp' ? 'Vrms' : 'Vpp'; dessinerG(); } return; }
+  if (G.menu === 'sortie') {
+    if (i === 0) {
+      if (G.load === '50') { G.load = 'HZ'; G.vpp *= 2; G.offset *= 2; } else { G.load = '50'; G.vpp /= 2; G.offset /= 2; }
+      apresG();
+    } else if (i === 1) { const out = G.out; G = defautsGBF(); G.out = out; G.menu = 'sortie'; apresG(); gMsg('Réglages par défaut'); }
+  }
+}
+function gEtiquettes() {
+  if (G.menu === 'entry') { const U = unites(G.entry.key).map(u => ({ l1: u[0], l2: '' })); while (U.length < 5) U.push(null); U.push({ l1: 'Annuler', l2: '' }); return U; }
+  if (G.menu === 'waves') return WORDRE.map(w => ({ l1: WNOM[w], l2: '', on: w === G.wave }));
+  if (G.menu === 'params') { const L = WPARAMS[G.wave].map(k => ({ l1: GP[k].court, l2: '', on: k === G.sel })); while (L.length < 6) L.push(null); return L; }
+  if (G.menu === 'units') return [{ l1: 'Amplitude', l2: G.ampU }, null, null, null, null, null];
+  return [{ l1: 'Charge', l2: G.load === '50' ? '50 Ω' : 'Haute Z' }, { l1: 'Réglages', l2: 'par défaut' }, null, null, null, null];
+}
+function forme(ph) {
+  ph = ph - Math.floor(ph);
+  switch (G.wave) {
+    case 'sine': return Math.sin(TAU * ph);
+    case 'square': return ph < G.duty / 100 ? 1 : -1;
+    case 'ramp': { const s = G.sym / 100; if (s <= 0) return 1 - 2 * ph; if (s >= 1) return -1 + 2 * ph; return ph < s ? -1 + 2 * ph / s : 1 - 2 * (ph - s) / (1 - s); }
+    case 'pulse': return ph < Math.min(0.95, G.pw * G.freq) ? 1 : -1;
+    case 'noise': return clamp(hashG(Math.floor(ph * 60) + 17) / 2.5, -1, 1);
+    default: return 0;
+  }
+}
+function dessinerG() {
+  const g = gctx; g.setTransform(dprG, 0, 0, dprG, 0, 0);
+  g.fillStyle = '#0c1522'; g.fillRect(0, 0, 320, 220);
+  g.fillStyle = '#21436a'; g.fillRect(0, 0, 320, 20);
+  g.textBaseline = 'middle'; g.textAlign = 'left'; g.font = 'bold 12px ' + FC;
+  g.fillStyle = '#ffe55c'; g.fillText('Voie 1', 6, 10.5);
+  g.fillStyle = '#fff'; g.fillText(WNOM[G.wave], 54, 10.5);
+  g.font = '12px ' + FC; g.fillStyle = '#cfe0f5'; g.fillText(G.load === '50' ? 'Charge 50 Ω' : 'Charge Haute Z', 140, 10.5);
+  g.fillStyle = G.out ? '#2fcf4a' : '#59616c'; g.fillRect(272, 3, 42, 14);
+  g.fillStyle = G.out ? '#002a07' : '#d0d4da'; g.textAlign = 'center'; g.font = 'bold 11px ' + FC; g.fillText(G.out ? 'ON' : 'OFF', 293, 10.5);
+  // aperçu de la forme
+  g.strokeStyle = '#2b3b52'; g.strokeRect(6.5, 26.5, 114, 90);
+  g.strokeStyle = 'rgba(255,255,255,0.12)'; g.beginPath(); g.moveTo(7, 71.5); g.lineTo(120, 71.5); g.stroke();
+  g.strokeStyle = '#ffe55c'; g.lineWidth = 1.6; g.beginPath();
+  for (let i = 0; i <= 220; i++) {
+    const ph = i / 110; let y;
+    if (G.wave === 'dc') y = 71 - clamp(G.offset / Vmax(), -1, 1) * 36;
+    else y = 71 - forme(ph) * 32;
+    const x = 10 + i * 106 / 220; i ? g.lineTo(x, y) : g.moveTo(x, y);
+  }
+  g.stroke(); g.lineWidth = 1;
+  // paramètres
+  let y = 26;
+  for (const key of WPARAMS[G.wave]) {
+    const sel = key === G.sel, f = fmtParam(key);
+    if (sel) { g.fillStyle = 'rgba(70,130,210,0.30)'; g.fillRect(128, y, 186, 30); g.strokeStyle = '#5aa0ff'; g.strokeRect(128.5, y + 0.5, 185, 29); }
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    g.fillStyle = '#9fb6cf'; g.font = '10px ' + FC; g.fillText(GP[key].nom, 133, y + 10);
+    g.fillStyle = '#fff'; g.font = '14px ' + FM;
+    const txt = f.sign + f.body, cw = g.measureText('0').width, x0 = 133;
+    g.fillText(txt, x0, y + 26);
+    if (sel && !G.entry) { const xi = x0 + (f.sign.length + f.idx) * cw; g.fillStyle = '#ffe55c'; g.fillRect(xi, y + 28, cw, 2); }
+    g.fillStyle = '#cfe0f5'; g.font = '12px ' + FC; g.fillText(f.unit, x0 + txt.length * cw + 5, y + 26);
+    y += 31;
+  }
+  if (G.entry) {
+    g.fillStyle = 'rgba(12,21,34,0.95)'; g.fillRect(6, 122, 116, 58); g.strokeStyle = '#ffe55c'; g.strokeRect(6.5, 122.5, 115, 57);
+    g.fillStyle = '#ffe55c'; g.font = '10px ' + FC; g.textAlign = 'left'; g.fillText('Saisie: ' + GP[G.entry.key].court, 12, 136);
+    g.fillStyle = '#fff'; g.font = '14px ' + FM; g.fillText((G.entry.s || '') + '_', 12, 158);
+    g.fillStyle = '#9fb6cf'; g.font = '10px ' + FC; g.fillText('puis choisir l\'unité', 12, 173);
+  }
+  if (G.msg && performance.now() < G.msgT) {
+    g.fillStyle = '#ffb347'; g.font = 'bold 11px ' + FC; g.textAlign = 'left'; g.fillText(G.msg, 8, G.entry ? 116 : 132);
+  }
+  // touches de menu
+  const L = gEtiquettes(), w = 320 / 6;
+  for (let i = 0; i < 6; i++) {
+    const it = L[i], x = i * w;
+    g.fillStyle = it ? (it.on ? '#2f5d93' : '#1d2a3b') : '#0f1824'; g.fillRect(x + 1.5, 190, w - 3, 28);
+    if (!it) continue;
+    g.strokeStyle = it.on ? '#7fb2ff' : '#34465f'; g.strokeRect(x + 2, 190.5, w - 4, 27);
+    g.fillStyle = '#e8eef6'; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    g.font = '10.5px ' + FC; g.fillText(it.l1, x + w / 2, it.l2 ? 202 : 208);
+    if (it.l2) { g.font = 'bold 10.5px ' + FC; g.fillText(it.l2, x + w / 2, 214); }
+  }
+  document.querySelectorAll('[data-g]').forEach(b => b.classList.toggle('on', G.menu === b.dataset.g));
+  document.querySelector('#gOut .led').className = 'led ' + (G.out ? 'vert' : '');
+}
+(function () {
+  const z = document.getElementById('gSofts');
+  for (let i = 0; i < 6; i++) { const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-label', 'Touche de menu du générateur ' + (i + 1)); b.addEventListener('click', () => gSoft(i)); z.appendChild(b); }
+  const pad = document.getElementById('gPad');
+  for (const c of ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0', '.', '±']) { const b = document.createElement('button'); b.className = 'tk'; b.type = 'button'; b.textContent = c; b.addEventListener('click', () => gPave(c)); pad.appendChild(b); }
+  document.querySelector('[data-p="⌫"]').addEventListener('click', () => gPave('⌫'));
+  document.querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', () => { if (G.entry) G.entry = null; G.menu = b.dataset.g; dessinerG(); }));
+  document.getElementById('gG').addEventListener('click', () => gCurseur(1));
+  document.getElementById('gD').addEventListener('click', () => gCurseur(-1));
+  document.getElementById('gOut').addEventListener('click', () => { G.out = !G.out; apresG(); });
+  gcv.addEventListener('pointerdown', e => {
+    const r = gcv.getBoundingClientRect(), x = (e.clientX - r.left) * 320 / r.width, y = (e.clientY - r.top) * 220 / r.height;
+    if (y >= 188) { gSoft(Math.floor(x / (320 / 6))); return; }
+    if (x >= 128 && y >= 26) { const i = Math.floor((y - 26) / 31), k = WPARAMS[G.wave][i]; if (k) { G.sel = k; if (G.menu !== 'entry') G.menu = 'params'; dessinerG(); } }
+  });
+})();
+molette('gKnob', d => gTourner(d), null, 'Molette du générateur');
+
+/* ========================= MONTAGE ========================= */
+const TYPES = [
+  ['direct', 'Liaison directe'], ['RC_C', 'RC, sortie sur C'], ['RC_R', 'RC, sortie sur R'],
+  ['RL_R', 'RL, sortie sur R'], ['RL_L', 'RL, sortie sur L'], ['RLC_C', 'RLC, sortie sur C'], ['RLC_R', 'RLC, sortie sur R']
+];
+const REGL = {
+  R: { lab: 'R', u: 'Ω', min: 1, max: 6 }, C: { lab: 'C', u: 'F', min: -10, max: -4 },
+  L: { lab: 'L', u: 'H', min: -4, max: 0 }, r: { lab: 'r', u: 'Ω', min: -1, max: 3 }
+};
+function utilises(t) {
+  return { direct: [], RC_C: ['R', 'C'], RC_R: ['R', 'C'], RL_R: ['R', 'L', 'r'], RL_L: ['R', 'L', 'r'], RLC_C: ['R', 'L', 'r', 'C'], RLC_R: ['R', 'L', 'r', 'C'] }[t];
+}
+function lireSI(s) {
+  const m = String(s).trim().replace(',', '.').match(/^([-+]?\d*\.?\d+(?:e[-+]?\d+)?)\s*([pnuµmkM]?)/i);
+  if (!m) return NaN;
+  const f = { p: 1e-12, n: 1e-9, u: 1e-6, 'µ': 1e-6, m: 1e-3, k: 1e3, K: 1e3, M: 1e6 }[m[2]] || 1;
+  return parseFloat(m[1]) * f;
+}
+function construireMontage() {
+  const z = document.getElementById('cirTypes'); z.innerHTML = '';
+  for (const [t, nom] of TYPES) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = nom; b.dataset.t = t;
+    b.addEventListener('click', () => { CIR.type = t; majMontage(); modele(); });
+    z.appendChild(b);
+  }
+  const rg = document.getElementById('reglages'); rg.innerHTML = '';
+  for (const key of ['R', 'C', 'L', 'r']) {
+    const d = REGL[key], row = document.createElement('div'); row.className = 'regl'; row.id = 'row' + key;
+    row.innerHTML = `<label for="s${key}">${d.lab}</label><input type="range" id="s${key}" min="${d.min}" max="${d.max}" step="0.005"><input type="text" id="t${key}" aria-label="Valeur de ${d.lab}">`;
+    rg.appendChild(row);
+    const sl = row.querySelector('input[type=range]'), tx = row.querySelector('input[type=text]');
+    sl.addEventListener('input', () => { CIR[key] = +Math.pow(10, +sl.value).toPrecision(3); tx.value = fmtSI(CIR[key], d.u, 3); dessinerSchema(); theorie(); modele(); });
+    tx.addEventListener('change', () => {
+      const v = lireSI(tx.value);
+      if (isFinite(v) && v > 0) { CIR[key] = clamp(v, Math.pow(10, d.min), Math.pow(10, d.max)); sl.value = Math.log10(CIR[key]); modele(); }
+      tx.value = fmtSI(CIR[key], d.u, 3); dessinerSchema(); theorie();
+    });
+  }
+  [0, 1].forEach(k => document.querySelectorAll('#sonde' + k + ' button').forEach(b => b.addEventListener('click', () => {
+    CIR.probe[k] = +b.dataset.v; majMontage(); modele();
+  })));
+  document.getElementById('theoChk').addEventListener('change', theorie);
+}
+function majMontage() {
+  document.querySelectorAll('#cirTypes button').forEach(b => b.classList.toggle('actif', b.dataset.t === CIR.type));
+  const u = utilises(CIR.type);
+  for (const key of ['R', 'C', 'L', 'r']) {
+    const row = document.getElementById('row' + key); row.hidden = !u.includes(key);
+    document.getElementById('s' + key).value = Math.log10(CIR[key]);
+    document.getElementById('t' + key).value = fmtSI(CIR[key], REGL[key].u, 3);
+  }
+  [0, 1].forEach(k => document.querySelectorAll('#sonde' + k + ' button').forEach(b => b.classList.toggle('actif', +b.dataset.v === CIR.probe[k])));
+  dessinerSchema(); theorie();
+}
+function theorie() {
+  const z = document.getElementById('theo');
+  z.hidden = !document.getElementById('theoChk').checked;
+  const { R, C, L, r } = CIR, t = CIR.type;
+  const f = v => fmtSI(v, 'Hz', 3), s = v => fmtSI(v, 's', 3);
+  let h = '';
+  if (t === 'direct') h = 'Les deux voies observent la tension de sortie du GBF.';
+  else if (t === 'RC_C') h = `Passe-bas du premier ordre. τ = RC = ${s(R * C)}; f<sub>c</sub> = 1/(2πRC) = ${f(1 / (TAU * R * C))}.`;
+  else if (t === 'RC_R') h = `Passe-haut du premier ordre. τ = RC = ${s(R * C)}; f<sub>c</sub> = 1/(2πRC) = ${f(1 / (TAU * R * C))}.`;
+  else if (t === 'RL_R') h = `Passe-bas du premier ordre. τ = L/(R+r) = ${s(L / (R + r))}; f<sub>c</sub> = (R+r)/(2πL) = ${f((R + r) / (TAU * L))}; gain statique R/(R+r) = ${(R / (R + r)).toFixed(3)}.`;
+  else if (t === 'RL_L') h = `Passe-haut du premier ordre. τ = L/(R+r) = ${s(L / (R + r))}; f<sub>c</sub> = (R+r)/(2πL) = ${f((R + r) / (TAU * L))}.`;
+  else {
+    const f0 = 1 / (TAU * Math.sqrt(L * C)), Q = Math.sqrt(L / C) / (R + r);
+    h = (t === 'RLC_C' ? 'Passe-bas du second ordre.' : 'Passe-bande du second ordre.') +
+      ` f<sub>0</sub> = 1/(2π√(LC)) = ${f(f0)}; Q = √(L/C)/(R+r) = ${Q.toPrecision(3)}` + (t === 'RLC_R' ? `; Δf = f<sub>0</sub>/Q = ${f(f0 / Q)}.` : '.');
+  }
+  z.innerHTML = h + (t !== 'direct' ? '<div class="note">Valeurs calculées sans la résistance de sortie R<sub>g</sub> = 50 Ω du GBF, qui est prise en compte dans la simulation.</div>' : '');
+}
+function dessinerSchema() {
+  const svg = document.getElementById('schema'), t = CIR.type;
+  const yH = 50, yB = 160, xE = 140, xS = 400;
+  const st = 'stroke="#222" stroke-width="1.6" fill="none"';
+  let s = `<rect x="14" y="30" width="112" height="146" rx="6" fill="#f6f8fa" stroke="#9aa3ad" stroke-dasharray="4 3"/>
+    <text x="22" y="170" font-size="11" fill="#555">GBF</text>
+    <circle cx="50" cy="105" r="16" ${st}/><path d="M40 105 q5 -9 10 0 t10 0" ${st}/>
+    <path d="M50 89 V${yH} H64 M96 ${yH} H${xE}" ${st}/>
+    <rect x="64" y="${yH - 6}" width="32" height="12" fill="#fff" stroke="#222" stroke-width="1.6"/>
+    <text x="80" y="${yH - 11}" font-size="10" text-anchor="middle" fill="#555">R<tspan baseline-shift="sub" font-size="8">g</tspan> = 50 Ω</text>
+    <path d="M50 121 V${yB} H${t === 'direct' ? 320 : xS}" ${st}/>
+    <path d="M232 ${yB} v10 m-10 0 h20 m-15 4 h10 m-6 4 h2" ${st}/>`;
+  const lab = (x, y, txt, anc) => `<text x="${x}" y="${y}" font-size="12" text-anchor="${anc || 'middle'}" fill="#1f3f73">${txt}</text>`;
+  const Rh = (cx, txt) => `<rect x="${cx - 17}" y="${yH - 6}" width="34" height="12" fill="#fff" stroke="#222" stroke-width="1.6"/>` + lab(cx, yH - 12, txt);
+  const Ch = (cx, txt) => `<rect x="${cx - 6}" y="${yH - 13}" width="12" height="26" fill="#fff"/><path d="M${cx - 4} ${yH - 12} v24 M${cx + 4} ${yH - 12} v24" stroke="#222" stroke-width="2.2"/>` + lab(cx, yH - 17, txt);
+  const Lh = (cx, txt) => `<rect x="${cx - 21}" y="${yH - 10}" width="42" height="14" fill="#fff"/><path d="M${cx - 20} ${yH} a5 5 0 0 1 10 0 a5 5 0 0 1 10 0 a5 5 0 0 1 10 0 a5 5 0 0 1 10 0" ${st}/>` + lab(cx, yH - 14, txt);
+  const ym = (yH + yB) / 2;
+  const Rv = txt => `<rect x="${xS - 6}" y="${ym - 17}" width="12" height="34" fill="#fff" stroke="#222" stroke-width="1.6"/>` + lab(xS + 12, ym + 4, txt, 'start');
+  const Cv = txt => `<rect x="${xS - 13}" y="${ym - 6}" width="26" height="12" fill="#fff"/><path d="M${xS - 12} ${ym - 4} h24 M${xS - 12} ${ym + 4} h24" stroke="#222" stroke-width="2.2"/>` + lab(xS + 18, ym + 4, txt, 'start');
+  const Lv = txt => `<rect x="${xS - 10}" y="${ym - 21}" width="14" height="42" fill="#fff"/><path d="M${xS} ${ym - 20} a5 5 0 0 0 0 10 a5 5 0 0 0 0 10 a5 5 0 0 0 0 10 a5 5 0 0 0 0 10" ${st}/>` + lab(xS + 12, ym + 4, txt, 'start');
+  const vR = 'R = ' + fmtSI(CIR.R, 'Ω', 3), vC = 'C = ' + fmtSI(CIR.C, 'F', 3), vL = 'L = ' + fmtSI(CIR.L, 'H', 3) + ', r = ' + fmtSI(CIR.r, 'Ω', 3);
+  const sonde = (x, k) => `<path d="M${x} ${yH} V22" stroke="${k ? '#2c962e' : '#a99a10'}" stroke-width="1.6"/><circle cx="${x}" cy="${yH}" r="3" fill="#222"/>
+    <rect x="${x - 17}" y="6" width="34" height="16" rx="3" fill="${k ? '#4ddc50' : '#f2e23c'}" stroke="${k ? '#2c962e' : '#a99a10'}"/>
+    <text x="${x}" y="18" font-size="11" font-weight="700" text-anchor="middle" fill="#111">CH${k + 1}</text>`;
+  if (t === 'direct') { s += `<path d="M${xE} ${yH} H320" ${st}/>` + sonde(xE + 30, 0) + sonde(xE + 110, 1); }
+  else {
+    s += `<path d="M${xE} ${yH} H${xS} V${yB}" ${st}/>`;
+    if (t === 'RC_C') s += Rh(270, vR) + Cv(vC);
+    if (t === 'RC_R') s += Ch(270, vC) + Rv(vR);
+    if (t === 'RL_R') s += Lh(270, vL) + Rv(vR);
+    if (t === 'RL_L') s += Rh(270, vR) + Lv(vL);
+    if (t === 'RLC_C') s += Rh(205, vR) + Lh(320, vL) + Cv(vC);
+    if (t === 'RLC_R') s += Lh(205, vL) + Ch(320, vC) + Rv(vR);
+    s += sonde(xE, 0) + sonde(xS, 1);
+  }
+  svg.innerHTML = s;
+}
+
+/* ========================= MISE À L'ÉCHELLE ET DÉMARRAGE ========================= */
+function ajuster() {
+  document.querySelectorAll('.casier').forEach(c => {
+    const inst = c.firstElementChild, W = +inst.dataset.w, H = +inst.dataset.h;
+    let k = Math.min(1, c.clientWidth / W);
+    // mode téléphone: l'appareil tient en entier dans l'écran (largeur et hauteur), centré
+    const zv = document.body.classList.contains('mode-tel') ? c.closest('.mt-vues') : null;
+    if (zv) k = Math.max(0.05, Math.min(k, (zv.clientHeight - 14) / H));
+    inst.style.left = zv ? Math.max(0, (c.clientWidth - W * k) / 2) + 'px' : '0';
+    inst.style.transform = `scale(${k})`; c.style.height = (H * k) + 'px';
+  });
+}
+new ResizeObserver(ajuster).observe(document.body);
+window.addEventListener('resize', ajuster);
+
+construireMontage(); majMontage();
+preparer(); ajuster();
+rebuild(); dirty = false;
+autoScale();
+S.meas = [{ type: 'vpp', src: 0, src2: 1 }, { type: 'vpp', src: 1, src2: 1 }, { type: 'freq', src: 0, src2: 1 }, { type: 'phase', src: 0, src2: 1 }];
+majTouches(); dessinerG();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { dessinerG(); });
+requestAnimationFrame(boucle);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

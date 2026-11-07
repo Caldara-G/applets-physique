@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calcul d'incertitudes — MP* Malherbe</title>
+<style>
+/* Calculateur en deux colonnes: données à gauche, résultats et code à droite; même charte que le sommaire des applets. */
+:root {
+  --page: #eef0f3; --carte: #fff; --texte: #222; --doux: #5a6270; --bord: #d5d9df; --fin: #e6e9ee;
+  --bleu: #3b5f96; --bleu-f: #1f3f73; --lien: #4a6fa5; --accent: #3b6fb6; --fond-res: #f4f7fc;
+  --vert: #1e7d3a; --vert-f: #e5f4e9; --rouge: #b42318; --rouge-f: #fbe9e7;
+  --code-f: #1f2430; --code-t: #e6e9ef; --code-k: #c792ea; --code-n: #f2b56b; --code-s: #a5d68a; --code-c: #7f8aa0; --code-f2: #82aaff;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif; font-size: 15px; color: var(--texte); background: var(--page); }
+main { max-width: 1240px; margin: 0 auto; padding-block: 12px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.haut { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.haut .g { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.haut h1 { font-size: 20px; margin: 0; text-wrap: balance; }
+.retour { font-size: 13px; color: var(--lien); text-decoration: none; }
+.retour:hover { text-decoration: underline; }
+.etiquette { font-size: 12.5px; font-weight: 600; color: #fff; background: var(--bleu); border-radius: 10px; padding: 2px 10px; letter-spacing: 0.02em; }
+
+.onglets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.onglets button { font: inherit; font-size: 14.5px; padding: 7px 14px; border: 1px solid #b8bec8; background: #f6f7f9; border-radius: 6px; cursor: pointer; color: #333; }
+.onglets button:hover { background: #e7eaef; }
+.onglets button[aria-selected="true"] { background: var(--bleu); border-color: var(--bleu); color: #fff; font-weight: 600; }
+.mode { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: 14px; align-items: start; }
+@media (max-width: 920px) { .mode { grid-template-columns: minmax(0, 1fr); } }
+.carte { background: var(--carte); border: 1px solid var(--bord); border-radius: 8px; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.carte h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--lien); margin: 0; }
+.carte h3 { font-size: 14.5px; margin: 0; color: var(--bleu-f); }
+.intro { margin: 0; color: var(--doux); font-size: 14px; line-height: 1.5; }
+.ligne { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: end; }
+.champ { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--doux); }
+.champ input, .champ select, textarea, .tab input, .tab select, .formule input {
+  font: 15px var(--mono); color: var(--texte); padding: 5px 7px; border: 1px solid #c4c9d1; border-radius: 4px; background: #fff; }
+.champ input { width: 120px; }
+.champ input.court { width: 80px; }
+.comparer .champ input { width: 150px; }
+.champ select { font-family: inherit; font-size: 14px; }
+textarea { width: 100%; min-height: 120px; resize: vertical; line-height: 1.45; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.bloc { border: 1px solid var(--fin); border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 9px; }
+.bloc.off > :not(.case) { opacity: 0.4; pointer-events: none; }
+.case { display: flex; gap: 8px; align-items: center; font-weight: 600; color: var(--bleu-f); cursor: pointer; }
+.case input { width: 17px; height: 17px; accent-color: var(--accent); }
+.radios { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; }
+.radios label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.radios input { accent-color: var(--accent); }
+.note { font-size: 12.5px; color: #6a717d; line-height: 1.45; margin: 0; }
+.err { color: var(--rouge); font-size: 13.5px; line-height: 1.4; }
+.err:empty { display: none; }
+
+.tabwrap { overflow-x: auto; }
+table.tab { border-collapse: collapse; width: 100%; font-size: 14px; }
+.tab th { text-align: left; font-weight: 600; font-size: 12.5px; color: var(--doux); padding: 4px 4px 6px; border-bottom: 1px solid var(--fin); white-space: nowrap; }
+.tab td { padding: 4px; vertical-align: middle; }
+.tab input { width: 100%; min-width: 64px; }
+.tab input.nom { min-width: 54px; }
+.tab select { font-family: inherit; font-size: 13.5px; padding: 4px; }
+.suppr { border: 0; background: none; color: #8a919c; font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1; }
+.suppr:hover { color: var(--rouge); }
+button.b { font: inherit; font-size: 14px; padding: 6px 12px; border: 1px solid #b8bec8; background: #f3f4f6; border-radius: 5px; cursor: pointer; }
+button.b:hover { background: #e4e7ec; }
+button.b.prim { background: var(--bleu); border-color: var(--bleu); color: #fff; }
+button.b.prim:hover { background: #2f4f80; }
+.formule { display: flex; align-items: center; gap: 8px; font: 15px var(--mono); }
+.formule input { flex: 1; min-width: 0; }
+
+.resultat { background: var(--fond-res); border: 1px solid #cdd9ec; border-radius: 6px; padding: 12px 14px; }
+.resultat .lab { font-size: 12.5px; color: var(--doux); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.resultat .val { font-size: 22px; font-weight: 600; color: var(--bleu-f); font-variant-numeric: tabular-nums; line-height: 1.35; }
+.resultat .val .sep { color: #8a96a8; font-weight: 400; margin: 0 8px 0 0; }
+.details { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 14.5px; line-height: 1.5; }
+.details li { font-variant-numeric: tabular-nums; }
+.details .f { color: var(--doux); }
+.contrib td, .contrib th { font-variant-numeric: tabular-nums; }
+.barre { display: inline-block; height: 9px; background: #8fb0e0; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+.comparer { border-top: 1px solid var(--fin); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.verdict { font-size: 15px; padding: 7px 10px; border-radius: 5px; font-variant-numeric: tabular-nums; }
+.verdict.ok { background: var(--vert-f); color: var(--vert); }
+.verdict.ko { background: var(--rouge-f); color: var(--rouge); }
+.verdict:empty { display: none; }
+
+.code { position: relative; }
+.code pre { margin: 0; background: var(--code-f); color: var(--code-t); border-radius: 6px; padding: 12px 14px; overflow-x: auto;
+  font: 13.5px/1.5 var(--mono); tab-size: 4; }
+.code .copier { position: absolute; top: 8px; right: 8px; font: 12.5px system-ui, sans-serif; padding: 4px 10px; border-radius: 4px;
+  border: 1px solid #4a5263; background: #2b3242; color: #e6e9ef; cursor: pointer; }
+.code .copier:hover { background: #394154; }
+.tk-k { color: var(--code-k); } .tk-n { color: var(--code-n); } .tk-s { color: var(--code-s); } .tk-c { color: var(--code-c); font-style: italic; } .tk-f { color: var(--code-f2); }
+.graphe { width: 100%; display: block; border: 1px solid var(--fin); border-radius: 6px; background: #fff; }
+details.aide { margin-top: 16px; background: var(--carte); border: 1px solid var(--bord); border-radius: 8px; padding: 10px 14px; }
+details.aide summary { cursor: pointer; font-weight: 600; color: var(--bleu-f); }
+details.aide ul { margin: 8px 0 2px; padding-left: 20px; line-height: 1.55; max-width: 76ch; }
+code.in { font-family: var(--mono); font-size: 0.95em; background: #eef1f5; padding: 0 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="haut">
+    <div class="g">
+      <a class="retour" href="index.html">← Sommaire</a>
+      <h1>Calcul d'incertitudes</h1>
+    </div>
+    <span class="etiquette">MP* Malherbe</span>
+  </div>
+
+  <div class="onglets" role="tablist">
+    <button role="tab" id="o-directe" aria-selected="true" aria-controls="m-directe">Mesure directe</button>
+    <button role="tab" id="o-propag" aria-selected="false" aria-controls="m-propag">Somme ou produit</button>
+    <button role="tab" id="o-mc" aria-selected="false" aria-controls="m-mc">Formule quelconque (Monte-Carlo)</button>
+    <button role="tab" id="o-reg" aria-selected="false" aria-controls="m-reg">Régression linéaire</button>
+  </div>
+
+  <!-- ===================== MESURE DIRECTE ===================== -->
+  <section class="mode" id="m-directe" role="tabpanel">
+    <div class="carte">
+      <h2>Données</h2>
+      <div class="ligne">
+        <label class="champ">Grandeur<input id="d-nom" class="court" value="T"></label>
+        <label class="champ">Unité<input id="d-unite" class="court" value="s"></label>
+      </div>
+      <div class="bloc" id="d-blocA">
+        <label class="case"><input type="checkbox" id="d-A" checked> Évaluation de type A (série de mesures répétées)</label>
+        <textarea id="d-serie" aria-label="Série de mesures" spellcheck="false">1,52 1,49 1,51 1,50 1,53 1,48 1,51 1,50 1,52 1,49</textarea>
+        <p class="note">Valeurs séparées par des espaces, des retours à la ligne ou des points-virgules. La virgule décimale est acceptée.</p>
+      </div>
+      <div class="bloc" id="d-blocB">
+        <label class="case"><input type="checkbox" id="d-B" checked> Évaluation de type B (précision de l'appareil)</label>
+        <div class="ligne" id="d-lecture-l"><label class="champ">Valeur lue<input id="d-lecture" value="1,51"></label></div>
+        <div class="radios">
+          <label><input type="radio" name="d-bmode" value="delta" checked> Précision Δ estimée</label>
+          <label><input type="radio" name="d-bmode" value="notice"> Notice d'un appareil numérique</label>
+        </div>
+        <div class="ligne" id="d-delta-l"><label class="champ">Précision Δ<input id="d-delta" value="0,01"></label></div>
+        <div class="ligne" id="d-notice-l" hidden>
+          <label class="champ">Pourcentage de la lecture (%)<input id="d-pct" class="court" value="0,5"></label>
+          <label class="champ">Nombre de digits<input id="d-dgt" class="court" value="2"></label>
+          <label class="champ">Valeur d'un digit<input id="d-res" class="court" value="0,01"></label>
+        </div>
+        <p class="note">La valeur vraie est supposée certainement comprise dans [x − Δ, x + Δ], d'où u = Δ/√3. Pour une notice du type « 0,5 % + 2 digits », Δ = 0,5 % de la lecture + 2 fois la valeur du dernier digit.</p>
+      </div>
+      <div class="err" id="d-err"></div>
+    </div>
+    <div class="carte">
+      <h2>Résultats</h2>
+      <ul class="details" id="d-details"></ul>
+      <div class="resultat"><div class="lab">Résultat</div><div class="val" id="d-res-final"></div></div>
+      <div class="comparer" id="d-z"></div>
+    </div>
+  </section>
+
+  <!-- ===================== SOMME OU PRODUIT ===================== -->
+  <section class="mode" id="m-propag" role="tabpanel" hidden>
+    <div class="carte">
+      <h2>Données</h2>
+      <div class="ligne">
+        <label class="champ">Grandeur calculée<input id="p-nom" class="court" value="P"></label>
+        <label class="champ">Unité<input id="p-unite" class="court" value="W"></label>
+      </div>
+      <div class="radios" role="radiogroup" aria-label="Type de relation">
+        <label><input type="radio" name="p-type" value="somme"> Somme ou différence: y = Σ c<sub>i</sub> x<sub>i</sub></label>
+        <label><input type="radio" name="p-type" value="produit" checked> Produit ou quotient: y = k Π x<sub>i</sub><sup>α<sub>i</sub></sup></label>
+      </div>
+      <div class="ligne" id="p-k-l"><label class="champ">Facteur constant k (exact)<input id="p-k" value="1"></label></div>
+      <div class="tabwrap">
+        <table class="tab" id="p-tab">
+          <thead><tr><th>Nom</th><th>Valeur</th><th>Donnée</th><th>u ou Δ</th><th id="p-col">Puissance α</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div><button class="b" id="p-ajout">+ Ajouter une grandeur</button></div>
+      <p class="note">Les grandeurs doivent être mesurées indépendamment. Si la notice donne une précision Δ, choisir « Δ »: l'applet utilise u = Δ/√3.</p>
+      <div class="err" id="p-err"></div>
+    </div>
+    <div class="carte">
+      <h2>Résultats</h2>
+      <ul class="details" id="p-details"></ul>
+      <div class="tabwrap"><table class="tab contrib" id="p-contrib"></table></div>
+      <div class="resultat"><div class="lab">Résultat</div><div class="val" id="p-res-final"></div></div>
+      <div class="comparer" id="p-z"></div>
+    </div>
+  </section>
+
+  <!-- ===================== MONTE-CARLO ===================== -->
+  <section class="mode" id="m-mc" role="tabpanel" hidden>
+    <div class="carte">
+      <h2>Données</h2>
+      <div class="ligne">
+        <label class="champ">Grandeur calculée<input id="mc-nom" class="court" value="g"></label>
+        <label class="champ">Unité<input id="mc-unite" class="court" value="m/s²"></label>
+      </div>
+      <div>
+        <p class="note" style="margin:0 0 4px;font-size:13px;color:var(--doux)">Formule (syntaxe Python, avec <code class="in">np.</code> pour les fonctions)</p>
+        <div class="formule"><span id="mc-y">g =</span><input id="mc-formule" value="4*np.pi**2*L/T**2" spellcheck="false" aria-label="Formule"></div>
+      </div>
+      <div class="tabwrap">
+        <table class="tab" id="mc-tab">
+          <thead><tr><th>Nom</th><th>Valeur</th><th>Loi de tirage</th><th>u ou Δ</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="ligne">
+        <button class="b" id="mc-ajout">+ Ajouter une grandeur</button>
+        <label class="champ">Expériences virtuelles N
+          <select id="mc-N"><option value="10000">10 000</option><option value="100000" selected>100 000</option><option value="1000000">1 000 000</option></select></label>
+        <button class="b prim" id="mc-go">Relancer la simulation</button>
+      </div>
+      <p class="note">Loi gaussienne: centrée sur la valeur, d'écart-type u. Loi uniforme: entre x − Δ et x + Δ (une précision Δ correspond à u = Δ/√3). Fonctions acceptées: <code class="in">np.sqrt</code>, <code class="in">np.exp</code>, <code class="in">np.log</code>, <code class="in">np.log10</code>, <code class="in">np.sin</code>, <code class="in">np.cos</code>, <code class="in">np.tan</code>, <code class="in">np.arcsin</code>, <code class="in">np.arccos</code>, <code class="in">np.arctan</code>, <code class="in">np.arctan2</code>, <code class="in">np.abs</code>, <code class="in">np.radians</code>, constante <code class="in">np.pi</code>. La puissance s'écrit <code class="in">**</code>.</p>
+      <div class="err" id="mc-err"></div>
+    </div>
+    <div class="carte">
+      <h2>Résultats</h2>
+      <ul class="details" id="mc-details"></ul>
+      <div class="resultat"><div class="lab">Résultat</div><div class="val" id="mc-res-final"></div></div>
+      <div class="comparer" id="mc-z"></div>
+      <h3>Code Python correspondant</h3>
+      <div class="code"><button class="copier" data-cible="mc-code">Copier</button><pre><code id="mc-code"></code></pre></div>
+    </div>
+  </section>
+
+  <!-- ===================== RÉGRESSION ===================== -->
+  <section class="mode" id="m-reg" role="tabpanel" hidden>
+    <div class="carte">
+      <h2>Données</h2>
+      <div class="ligne">
+        <label class="champ">Abscisse x<input id="r-xnom" class="court" value="I"></label>
+        <label class="champ">Unité de x<input id="r-xunite" class="court" value="A"></label>
+        <label class="champ">Ordonnée y<input id="r-ynom" class="court" value="U"></label>
+        <label class="champ">Unité de y<input id="r-yunite" class="court" value="V"></label>
+      </div>
+      <div>
+        <div class="champ" style="margin-bottom:4px">Un point par ligne: x, u(x), y, u(y) (colonnes séparées par des espaces, tabulations ou points-virgules)</div>
+        <textarea id="r-data" spellcheck="false" style="min-height:170px">0,010  0,0005  1,01  0,02
+0,020  0,0005  1,98  0,02
+0,030  0,0005  3,03  0,02
+0,040  0,0005  3,99  0,02
+0,050  0,0005  5,02  0,02
+0,060  0,0005  5,97  0,02</textarea>
+        <p class="note">On peut coller directement des colonnes copiées depuis un tableur. Une ligne d'en-tête non numérique est ignorée.</p>
+      </div>
+      <div class="ligne">
+        <label class="champ">Loi des tirages
+          <select id="r-loi"><option value="unif" selected>Uniforme sur [x − √3 u, x + √3 u]</option><option value="gauss">Gaussienne d'écart-type u</option></select></label>
+        <label class="champ">Expériences virtuelles M
+          <select id="r-M"><option value="1000">1 000</option><option value="10000" selected>10 000</option><option value="50000">50 000</option></select></label>
+        <button class="b prim" id="r-go">Relancer la simulation</button>
+      </div>
+      <div class="err" id="r-err"></div>
+    </div>
+    <div class="carte">
+      <h2>Résultats</h2>
+      <div class="resultat"><div class="lab">Modèle y = a x + b</div><div class="val" id="r-res-final"></div></div>
+      <ul class="details" id="r-details"></ul>
+      <h3>Validation graphique</h3>
+      <canvas class="graphe" id="r-g1" height="300" aria-label="Points de mesure avec barres d'incertitude et droite modèle"></canvas>
+      <canvas class="graphe" id="r-g2" height="170" aria-label="Écarts normalisés"></canvas>
+      <div class="verdict" id="r-verdict"></div>
+      <div class="comparer" id="r-z"></div>
+      <h3>Code Python correspondant</h3>
+      <div class="code"><button class="copier" data-cible="r-code">Copier</button><pre><code id="r-code"></code></pre></div>
+    </div>
+  </section>
+
+  <details class="aide">
+    <summary>Rappels utilisés par l'applet</summary>
+    <ul>
+      <li><b>Type A</b>: meilleure estimation ȳ (moyenne), incertitude-type u = s/√N, où s est l'écart-type expérimental (division par N − 1).</li>
+      <li><b>Type B</b>: si la valeur est certainement dans [x − Δ, x + Δ], u = Δ/√3. Si les deux évaluations sont faites, u = √(u<sub>A</sub>² + u<sub>B</sub>²).</li>
+      <li><b>Somme</b> y = Σ c<sub>i</sub> x<sub>i</sub>: u(y)² = Σ c<sub>i</sub>² u(x<sub>i</sub>)². <b>Produit</b> y = k Π x<sub>i</sub><sup>α<sub>i</sub></sup>: (u(y)/y)² = Σ α<sub>i</sub>² (u(x<sub>i</sub>)/x<sub>i</sub>)².</li>
+      <li><b>Monte-Carlo</b>: la valeur est f(valeurs mesurées); l'incertitude-type est l'écart-type des N valeurs obtenues par tirages aléatoires des grandeurs.</li>
+      <li><b>Arrondi</b>: l'incertitude-type est arrondie par excès à deux chiffres significatifs, la valeur est arrondie au même rang.</li>
+      <li><b>Écart normalisé</b>: z = |x₁ − x₂| / √(u₁² + u₂²); les deux valeurs sont compatibles si z ≤ 2.</li>
+      <li><b>Régression</b>: écart normalisé de chaque point au modèle, z<sub>i</sub> = (y<sub>i</sub> − a x<sub>i</sub> − b) / √(u(y<sub>i</sub>)² + a² u(x<sub>i</sub>)²). Le modèle est validé si |z<sub>i</sub>| ≤ 2 pour tous les points. Le coefficient r² n'est pas un critère de validation.</li>
+    </ul>
+  </details>
+</main>
+
+<!-- ======================= CALCULS ======================= -->
+<script id="calculs">
+"use strict";
+/* ---------- nombres ---------- */
+function lireNombre(s) {
+  if (s === undefined || s === null) return NaN;
+  s = String(s).trim().replace(/\s/g, '').replace(/,/g, '.').replace(/[−–]/g, '-').replace(/[×x]10\^?/i, 'e');
+  if (s === '') return NaN;
+  return Number(s);
+}
+function lireSerie(txt) {
+  const morceaux = String(txt).split(/[\s;]+/).filter(Boolean), v = [], mauvais = [];
+  for (const m of morceaux) { const x = lireNombre(m); if (isFinite(x)) v.push(x); else mauvais.push(m); }
+  return { v, mauvais };
+}
+function lireTableau(txt) {
+  const lignes = String(txt).split(/\r?\n/), pts = [], erreurs = [];
+  lignes.forEach((l, i) => {
+    l = l.trim(); if (!l || l.startsWith('#')) return;
+    const c = l.split(/[\t; ]+/).filter(Boolean).map(lireNombre);
+    if (c.some(x => !isFinite(x))) { if (pts.length === 0 && erreurs.length === 0) return; erreurs.push(i + 1); return; }
+    if (c.length !== 4) { erreurs.push(i + 1); return; }
+    pts.push(c);
+  });
+  return { pts, erreurs };
+}
+const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+function fr(s) { return String(s).replace('.', ',').replace(/^-/, '−'); }
+function nb(v, sig) {                     // affichage brut à sig chiffres significatifs
+  if (!isFinite(v)) return '—';
+  if (v === 0) return '0';
+  sig = sig || 6;
+  const e = Math.floor(Math.log10(Math.abs(v)));
+  if (e < -4 || e > 5) {
+    const m = v / Math.pow(10, e);
+    return fr(+m.toPrecision(sig) + '') + ' × 10' + String(e).split('').map(c => SUP[c]).join('');
+  }
+  return fr(String(+v.toPrecision(sig)));
+}
+/* arrondi de l'incertitude par excès à 2 chiffres significatifs */
+function sigInc(u) {
+  if (!(u > 0) || !isFinite(u)) return null;
+  let e = Math.floor(Math.log10(u)), q = Math.pow(10, e - 1), m = Math.ceil(u / q - 1e-9);
+  if (m >= 100) { m = 10; e += 1; q = Math.pow(10, e - 1); }
+  if (m < 10) m = 10;
+  return { m, e, val: m * q, dec: 1 - e };
+}
+/* écriture finale: valeur arrondie au rang du 2e chiffre significatif de u */
+function ecriture(v, u) {
+  const s = sigInc(u);
+  if (!s) return { v: nb(v), u: '0', p: 0 };
+  let p = 0;
+  if (s.e < -3 || s.e > 4) { const a = Math.max(Math.abs(v), s.val); p = Math.floor(Math.log10(a)); }
+  const d = s.dec + p, sc = Math.pow(10, p);
+  const f = x => {
+    const y = x / sc;
+    if (d >= 0) return y.toFixed(d);
+    const q = Math.pow(10, -d); return (Math.round(y / q) * q).toFixed(0);
+  };
+  let vs = f(v); if (/^-0(\.0*)?$/.test(vs)) vs = vs.slice(1);
+  return { v: fr(vs), u: fr(f(s.val)), p };
+}
+
+/* ---------- aléatoire ---------- */
+let _gs = null;
+function gauss() {
+  if (_gs !== null) { const g = _gs; _gs = null; return g; }
+  let u = 0; while (u === 0) u = Math.random();
+  const r = Math.sqrt(-2 * Math.log(u)), t = 2 * Math.PI * Math.random();
+  _gs = r * Math.sin(t); return r * Math.cos(t);
+}
+function ecartType(a) {
+  const n = a.length; let m = 0; for (let i = 0; i < n; i++) m += a[i]; m /= n;
+  let s = 0; for (let i = 0; i < n; i++) s += (a[i] - m) * (a[i] - m);
+  return { moy: m, s: Math.sqrt(s / (n - 1)) };
+}
+
+/* ---------- formules en syntaxe Python ---------- */
+const FONCS = {
+  sqrt: ['np.sqrt', Math.sqrt, 1], exp: ['np.exp', Math.exp, 1], log: ['np.log', Math.log, 1], ln: ['np.log', Math.log, 1],
+  log10: ['np.log10', Math.log10, 1], log2: ['np.log2', Math.log2, 1],
+  sin: ['np.sin', Math.sin, 1], cos: ['np.cos', Math.cos, 1], tan: ['np.tan', Math.tan, 1],
+  arcsin: ['np.arcsin', Math.asin, 1], asin: ['np.arcsin', Math.asin, 1], arccos: ['np.arccos', Math.acos, 1], acos: ['np.arccos', Math.acos, 1],
+  arctan: ['np.arctan', Math.atan, 1], atan: ['np.arctan', Math.atan, 1], arctan2: ['np.arctan2', Math.atan2, 2], atan2: ['np.arctan2', Math.atan2, 2],
+  sinh: ['np.sinh', Math.sinh, 1], cosh: ['np.cosh', Math.cosh, 1], tanh: ['np.tanh', Math.tanh, 1],
+  abs: ['np.abs', Math.abs, 1], fabs: ['np.abs', Math.abs, 1], square: ['np.square', x => x * x, 1],
+  radians: ['np.radians', x => x * Math.PI / 180, 1], deg2rad: ['np.deg2rad', x => x * Math.PI / 180, 1],
+  degrees: ['np.degrees', x => x * 180 / Math.PI, 1], rad2deg: ['np.rad2deg', x => x * 180 / Math.PI, 1]
+};
+const PREFIXES = ['np', 'numpy', 'math'];
+function analyser(src, noms) {           // renvoie un arbre; noms: liste des grandeurs connues
+  const re = /\s*(?:((?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)|([A-Za-z_][A-Za-z_0-9]*(?:\.[A-Za-z_][A-Za-z_0-9]*)*)|(\*\*|[-+*/(),^%]))/y;
+  const toks = []; let pos = 0; src = String(src);
+  while (pos < src.length) {
+    if (/^\s*$/.test(src.slice(pos))) break;
+    re.lastIndex = pos; const m = re.exec(src);
+    if (!m) throw new Error('Caractère non reconnu: « ' + src.slice(pos).trim()[0] + ' »');
+    pos = re.lastIndex;
+    if (m[1] !== undefined) toks.push({ t: 'n', s: m[1] });
+    else if (m[2] !== undefined) toks.push({ t: 'id', s: m[2] });
+    else {
+      if (m[3] === '^') throw new Error('En Python, la puissance s\'écrit ** (et non ^).');
+      if (m[3] === '%') throw new Error('Le symbole % n\'est pas accepté dans la formule.');
+      toks.push({ t: 'op', s: m[3] });
+    }
+  }
+  let i = 0;
+  const voir = () => toks[i], prendre = s => { const k = toks[i]; if (!k || (s && k.s !== s)) throw new Error(s ? 'Il manque « ' + s + ' ».' : 'Formule incomplète.'); i++; return k; };
+  function expr() {
+    let a = terme();
+    while (voir() && (voir().s === '+' || voir().s === '-')) { const op = prendre().s; a = { t: 'b', op, a, b: terme() }; }
+    return a;
+  }
+  function terme() {
+    let a = unaire();
+    while (voir() && (voir().s === '*' || voir().s === '/')) { const op = prendre().s; a = { t: 'b', op, a, b: unaire() }; }
+    return a;
+  }
+  function unaire() {
+    if (voir() && (voir().s === '-' || voir().s === '+')) { const op = prendre().s; const a = unaire(); return op === '-' ? { t: 'u', a } : a; }
+    return puissance();
+  }
+  function puissance() {
+    const a = atome();
+    if (voir() && voir().s === '**') { prendre(); return { t: 'b', op: '**', a, b: unaire() }; }
+    return a;
+  }
+  function atome() {
+    const k = voir(); if (!k) throw new Error('Formule incomplète.');
+    if (k.t === 'n') { i++; return { t: 'n', v: Number(k.s), s: k.s }; }
+    if (k.s === '(') { i++; const a = expr(); prendre(')'); return a; }
+    if (k.t === 'id') {
+      i++;
+      const parts = k.s.split('.'), pre = parts.length > 1 ? parts.slice(0, -1).join('.') : null, base = parts[parts.length - 1];
+      if (pre && !PREFIXES.includes(pre)) throw new Error('Nom inconnu: « ' + k.s + ' ».');
+      if (voir() && voir().s === '(') {
+        const F = FONCS[base]; if (!F) throw new Error('Fonction inconnue: « ' + k.s + ' ».');
+        prendre('('); const args = [expr()];
+        while (voir() && voir().s === ',') { prendre(','); args.push(expr()); }
+        prendre(')');
+        if (args.length !== F[2]) throw new Error('La fonction ' + F[0] + ' attend ' + F[2] + ' argument' + (F[2] > 1 ? 's' : '') + '.');
+        return { t: 'f', py: F[0], fn: F[1], args };
+      }
+      if (base === 'pi' && (pre || !noms.includes('pi'))) return { t: 'c', v: Math.PI, py: 'np.pi' };
+      if (base === 'e' && pre) return { t: 'c', v: Math.E, py: 'np.e' };
+      if (pre) throw new Error('Nom inconnu: « ' + k.s + ' ».');
+      const idx = noms.indexOf(base);
+      if (idx < 0) throw new Error('Grandeur inconnue dans la formule: « ' + base + ' ». Ajoutez-la au tableau.');
+      return { t: 'v', nom: base, i: idx };
+    }
+    throw new Error('Symbole inattendu: « ' + k.s + ' ».');
+  }
+  if (!toks.length) throw new Error('La formule est vide.');
+  const arbre = expr();
+  if (i < toks.length) throw new Error('Symbole inattendu: « ' + toks[i].s + ' ».');
+  return arbre;
+}
+function compiler(n) {
+  switch (n.t) {
+    case 'n': case 'c': { const v = n.v; return () => v; }
+    case 'v': { const k = n.i; return X => X[k]; }
+    case 'u': { const a = compiler(n.a); return X => -a(X); }
+    case 'f': {
+      const fs = n.args.map(compiler), fn = n.fn;
+      return fs.length === 1 ? (X => fn(fs[0](X))) : (X => fn(fs[0](X), fs[1](X)));
+    }
+    case 'b': {
+      const a = compiler(n.a), b = compiler(n.b);
+      switch (n.op) {
+        case '+': return X => a(X) + b(X);
+        case '-': return X => a(X) - b(X);
+        case '*': return X => a(X) * b(X);
+        case '/': return X => a(X) / b(X);
+        default: return X => Math.pow(a(X), b(X));
+      }
+    }
+  }
+}
+function prec(n) { if (n.t === 'b') return n.op === '**' ? 4 : (n.op === '*' || n.op === '/') ? 2 : 1; return n.t === 'u' ? 3 : 5; }
+function enPython(n) {
+  switch (n.t) {
+    case 'n': return n.s;
+    case 'c': return n.py;
+    case 'v': return n.nom;
+    case 'f': return n.py + '(' + n.args.map(enPython).join(', ') + ')';
+    case 'u': { const s = enPython(n.a); return '-' + (prec(n.a) < 3 ? '(' + s + ')' : s); }
+    case 'b': {
+      let l = enPython(n.a), r = enPython(n.b);
+      if (n.op === '**') { if (prec(n.a) <= 4) l = '(' + l + ')'; if (prec(n.b) < 3) r = '(' + r + ')'; return l + '**' + r; }
+      const p = prec(n);
+      if (prec(n.a) < p) l = '(' + l + ')';
+      if (prec(n.b) < p || (prec(n.b) === p && (n.op === '-' || n.op === '/'))) r = '(' + r + ')';
+      return l + (p === 1 ? ' ' + n.op + ' ' : n.op) + r;
+    }
+  }
+}
+const MOTS_PY = ['False', 'None', 'True', 'and', 'as', 'assert', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield', 'print', 'range'];
+const RESERVES = ['np', 'numpy', 'rd', 'plt', 'math', 'N', 'M', 'f', 'pi', 'k'];
+function nomValide(s) {
+  if (!/^[A-Za-z_][A-Za-z_0-9]*$/.test(s)) return 'Le nom « ' + s + ' » n\'est pas un nom de variable Python (lettres, chiffres et _, sans espace ni accent).';
+  if (MOTS_PY.includes(s) || RESERVES.includes(s)) return 'Le nom « ' + s + ' » est réservé, choisissez-en un autre.';
+  if (/^u_|^Delta_|_sim$/.test(s)) return 'Le nom « ' + s + ' » est réservé par le code Python généré (préfixes u_, Delta_ ou suffixe _sim).';
+  return null;
+}
+
+/* ---------- régression ---------- */
+function ajustement(x, y) {
+  const n = x.length; let mx = 0, my = 0;
+  for (let i = 0; i < n; i++) { mx += x[i]; my += y[i]; }
+  mx /= n; my /= n;
+  let sxx = 0, sxy = 0;
+  for (let i = 0; i < n; i++) { sxx += (x[i] - mx) * (x[i] - mx); sxy += (x[i] - mx) * (y[i] - my); }
+  const a = sxy / sxx; return { a, b: my - a * mx };
+}
+</script>
+
+<!-- ======================= INTERFACE ======================= -->
+<script id="interface">
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function uStr(nom) { return 'u(' + esc(nom) + ')'; }
+function afficherFinal(el, nom, v, u, unite) {
+  const e = ecriture(v, u), un = unite ? ' ' + esc(unite) : '';
+  const puis = e.p ? ' × 10<sup>' + e.p + '</sup>' : '';
+  el.innerHTML = esc(nom) + ' = ' + e.v + puis + un + '<span class="sep">;</span>' + uStr(nom) + ' = ' + e.u + puis + un;
+}
+function debounce(f, t) { let h; return () => { clearTimeout(h); h = setTimeout(f, t || 180); }; }
+
+/* ---------- onglets ---------- */
+const MODES = ['directe', 'propag', 'mc', 'reg'];
+function ouvrir(m) {
+  MODES.forEach(x => { $('o-' + x).setAttribute('aria-selected', x === m ? 'true' : 'false'); $('m-' + x).hidden = x !== m; });
+  try { localStorage.setItem('incert-onglet', m); } catch (e) {}
+  if (m === 'reg') majReg(false);
+}
+MODES.forEach(m => $('o-' + m).addEventListener('click', () => ouvrir(m)));
+
+/* ---------- comparaison par écart normalisé ---------- */
+const COMPAR = {};
+function blocZ(id, avecChoix) {
+  const z = $(id);
+  z.innerHTML = `<h3>Comparer à une autre valeur</h3>
+    <div class="ligne">${avecChoix ? `<label class="champ">Grandeur comparée<select id="${id}-q"><option value="a">pente a</option><option value="b">ordonnée à l'origine b</option></select></label>` : ''}
+    <label class="champ">Valeur de référence<input id="${id}-ref" placeholder="ex. 9,81"></label>
+    <label class="champ">Son incertitude-type<input id="${id}-uref" placeholder="0 si théorique"></label></div>
+    <div class="verdict" id="${id}-v"></div>`;
+  COMPAR[id] = null;
+  const maj = () => majZ(id);
+  z.querySelectorAll('input,select').forEach(e => e.addEventListener('input', maj));
+}
+function poserZ(id, v, u) { COMPAR[id] = { v, u }; majZ(id); }
+function majZ(id) {
+  const out = $(id + '-v'), c = COMPAR[id]; let src = c;
+  if (c && c.choix) src = c[$(id + '-q').value];
+  const ref = lireNombre($(id + '-ref').value), ur0 = $(id + '-uref').value.trim(), ur = ur0 === '' ? 0 : lireNombre(ur0);
+  if (!src || !isFinite(ref) || !isFinite(ur) || ur < 0 || !isFinite(src.v)) { out.textContent = ''; out.className = 'verdict'; return; }
+  const den = Math.sqrt(src.u * src.u + ur * ur);
+  if (!(den > 0)) { out.textContent = 'Écart normalisé non défini: les deux incertitudes sont nulles.'; out.className = 'verdict ko'; return; }
+  const z = Math.abs(src.v - ref) / den, ok = z <= 2;
+  out.className = 'verdict ' + (ok ? 'ok' : 'ko');
+  out.innerHTML = 'z = |x − x<sub>réf</sub>| / √(u² + u<sub>réf</sub>²) = ' + nb(z, 3) + (ok ? ' ≤ 2: valeurs compatibles.' : ' > 2: valeurs incompatibles.');
+}
+
+/* ---------- code Python ---------- */
+function colorer(code) {
+  const re = /(#[^\n]*)|("[^"\n]*"|'[^'\n]*')|\b(import|as|for|in|def|return|print|range|from)\b|\b(np|rd|plt)\b(?=\.)|(\b\d+\.?\d*(?:[eE][+-]?\d+)?\b)/g;
+  let out = '', last = 0, m;
+  while ((m = re.exec(code))) {
+    out += esc(code.slice(last, m.index));
+    const t = esc(m[0]);
+    out += m[1] ? `<span class="tk-c">${t}</span>` : m[2] ? `<span class="tk-s">${t}</span>` : m[3] ? `<span class="tk-k">${t}</span>` : m[4] ? `<span class="tk-f">${t}</span>` : `<span class="tk-n">${t}</span>`;
+    last = re.lastIndex;
+  }
+  return out + esc(code.slice(last));
+}
+const CODES = {};
+function poserCode(id, code) { CODES[id] = code; $(id).innerHTML = colorer(code); }
+document.querySelectorAll('.copier').forEach(b => b.addEventListener('click', () => {
+  const id = b.dataset.cible, txt = CODES[id] || '';
+  const fini = ok => { b.textContent = ok ? 'Copié' : 'Sélectionné'; setTimeout(() => { b.textContent = 'Copier'; }, 1500); };
+  const selection = () => { const r = document.createRange(); r.selectNodeContents($(id)); const s = getSelection(); s.removeAllRanges(); s.addRange(r); fini(false); };
+  try { navigator.clipboard.writeText(txt).then(() => fini(true), selection); } catch (e) { selection(); }
+}));
+const pyNb = v => { const s = String(v); return s; };
+
+/* ===================== MESURE DIRECTE ===================== */
+function majDirecte() {
+  const err = [], det = [];
+  const nom = $('d-nom').value.trim() || 'x', unite = $('d-unite').value.trim(), un = unite ? ' ' + esc(unite) : '';
+  const A = $('d-A').checked, B = $('d-B').checked;
+  $('d-blocA').classList.toggle('off', !A); $('d-blocB').classList.toggle('off', !B);
+  const bmode = document.querySelector('input[name="d-bmode"]:checked').value;
+  $('d-delta-l').hidden = bmode !== 'delta'; $('d-notice-l').hidden = bmode !== 'notice';
+  $('d-lecture-l').hidden = A;
+  let val = NaN, uA = 0, uB = 0;
+  if (!A && !B) err.push('Cochez au moins une évaluation (type A ou type B).');
+  if (A) {
+    const s = lireSerie($('d-serie').value);
+    if (s.mauvais.length) err.push('Valeurs non reconnues dans la série: ' + s.mauvais.slice(0, 4).map(esc).join(', ') + (s.mauvais.length > 4 ? '…' : '') + '.');
+    if (s.v.length < 2) err.push('Il faut au moins deux mesures pour une évaluation de type A.');
+    else {
+      const e = ecartType(s.v); val = e.moy; uA = e.s / Math.sqrt(s.v.length);
+      det.push(`<li>N = ${s.v.length} mesures</li>`);
+      det.push(`<li>Moyenne: <span class="f">ȳ = (1/N) Σ y<sub>i</sub></span> = ${nb(e.moy)}${un}</li>`);
+      det.push(`<li>Écart-type expérimental: <span class="f">s = √(Σ (y<sub>i</sub> − ȳ)² / (N − 1))</span> = ${nb(e.s, 4)}${un}</li>`);
+      det.push(`<li>Type A: <span class="f">u<sub>A</sub> = s/√N</span> = ${nb(uA, 4)}${un}</li>`);
+    }
+  } else {
+    val = lireNombre($('d-lecture').value);
+    if (B && !isFinite(val)) err.push('Indiquez la valeur lue.');
+  }
+  if (B) {
+    let D;
+    if (bmode === 'delta') { D = lireNombre($('d-delta').value); if (!(D >= 0)) err.push('Indiquez une précision Δ positive.'); }
+    else {
+      const p = lireNombre($('d-pct').value), n = lireNombre($('d-dgt').value), r = lireNombre($('d-res').value);
+      if (!(p >= 0) || !(n >= 0) || !(r >= 0)) err.push('Complétez les données de la notice (pourcentage, nombre de digits, valeur d\'un digit).');
+      else if (isFinite(val)) {
+        D = p / 100 * Math.abs(val) + n * r;
+        det.push(`<li>Précision: <span class="f">Δ = ${nb(p)} % × ${nb(Math.abs(val))} + ${nb(n)} × ${nb(r)}</span> = ${nb(D, 4)}${un}</li>`);
+      }
+    }
+    if (D >= 0) { uB = D / Math.sqrt(3); det.push(`<li>Type B: <span class="f">u<sub>B</sub> = Δ/√3</span> = ${nb(uB, 4)}${un}</li>`); }
+  }
+  let u = NaN;
+  if (A && B) { u = Math.sqrt(uA * uA + uB * uB); det.push(`<li>Composition: <span class="f">u = √(u<sub>A</sub>² + u<sub>B</sub>²)</span> = ${nb(u, 4)}${un}</li>`); }
+  else if (A) u = uA; else if (B) u = uB;
+  $('d-err').innerHTML = err.join('<br>');
+  $('d-details').innerHTML = err.length ? '' : det.join('');
+  if (err.length || !isFinite(val) || !isFinite(u)) { $('d-res-final').textContent = '—'; COMPAR['d-z'] = null; majZ('d-z'); return; }
+  afficherFinal($('d-res-final'), nom, val, u, unite);
+  poserZ('d-z', val, u);
+}
+
+/* ===================== SOMME OU PRODUIT ===================== */
+function ligneVar(tbody, d, avecLoi, colExtra) {
+  const tr = document.createElement('tr');
+  const sel = avecLoi
+    ? `<select class="loi" aria-label="Loi de tirage"><option value="gauss"${d.loi === 'gauss' ? ' selected' : ''}>Gaussienne, u</option><option value="unif"${d.loi === 'unif' ? ' selected' : ''}>Uniforme, Δ</option></select>`
+    : `<select class="loi" aria-label="Nature de l'incertitude"><option value="u"${d.loi !== 'delta' ? ' selected' : ''}>u</option><option value="delta"${d.loi === 'delta' ? ' selected' : ''}>Δ</option></select>`;
+  tr.innerHTML = `<td><input class="nom" value="${esc(d.nom)}" aria-label="Nom" spellcheck="false"></td>
+    <td><input class="val" value="${esc(d.val)}" aria-label="Valeur"></td>
+    <td>${sel}</td>
+    <td><input class="inc" value="${esc(d.inc)}" aria-label="Incertitude"></td>
+    ${colExtra ? `<td><input class="ex" value="${esc(d.ex)}" aria-label="Coefficient ou puissance" style="min-width:52px"></td>` : ''}
+    <td><button class="suppr" aria-label="Supprimer la ligne" title="Supprimer">×</button></td>`;
+  tbody.appendChild(tr);
+  return tr;
+}
+function lireLignes(tbody, avecLoi, colExtra) {
+  return [...tbody.querySelectorAll('tr')].map(tr => ({
+    nom: tr.querySelector('.nom').value.trim(), val: lireNombre(tr.querySelector('.val').value),
+    loi: tr.querySelector('.loi').value, inc: lireNombre(tr.querySelector('.inc').value),
+    ex: colExtra ? lireNombre(tr.querySelector('.ex').value) : 1
+  }));
+}
+const pBody = $('p-tab').querySelector('tbody');
+function initPropag() {
+  [{ nom: 'R', val: '15,7', loi: 'u', inc: '1', ex: '1' }, { nom: 'I', val: '0,274', loi: 'u', inc: '0,002', ex: '2' }].forEach(d => ligneVar(pBody, d, false, true));
+}
+function majPropag() {
+  const somme = document.querySelector('input[name="p-type"]:checked').value === 'somme';
+  $('p-col').textContent = somme ? 'Coefficient c' : 'Puissance α';
+  $('p-k-l').hidden = somme;
+  const nom = $('p-nom').value.trim() || 'y', unite = $('p-unite').value.trim(), un = unite ? ' ' + esc(unite) : '';
+  const L = lireLignes(pBody, false, true), err = [];
+  const k = somme ? 1 : lireNombre($('p-k').value);
+  if (!somme && !isFinite(k)) err.push('Le facteur constant k doit être un nombre.');
+  if (!L.length) err.push('Ajoutez au moins une grandeur.');
+  const vus = new Set();
+  L.forEach((d, i) => {
+    if (!d.nom) err.push('Ligne ' + (i + 1) + ': donnez un nom à la grandeur.');
+    else if (vus.has(d.nom)) err.push('Le nom « ' + esc(d.nom) + ' » est utilisé deux fois.'); else vus.add(d.nom);
+    if (!isFinite(d.val)) err.push('Ligne ' + (i + 1) + ': valeur non reconnue.');
+    if (!(d.inc >= 0)) err.push('Ligne ' + (i + 1) + ': incertitude non reconnue.');
+    if (!isFinite(d.ex)) err.push('Ligne ' + (i + 1) + ': ' + (somme ? 'coefficient' : 'puissance') + ' non reconnu' + (somme ? '' : 'e') + '.');
+    if (!somme && isFinite(d.val) && d.val === 0) err.push('Ligne ' + (i + 1) + ': une grandeur nulle ne peut pas intervenir dans un produit.');
+  });
+  $('p-err').innerHTML = err.join('<br>');
+  if (err.length) { $('p-details').innerHTML = ''; $('p-contrib').innerHTML = ''; $('p-res-final').textContent = '—'; COMPAR['p-z'] = null; majZ('p-z'); return; }
+  L.forEach(d => { d.u = d.loi === 'delta' ? d.inc / Math.sqrt(3) : d.inc; });
+  let y, u2 = 0; const contr = [];
+  const det = [];
+  const ecrireTerme = (d, i) => {
+    const c = d.ex;
+    if (somme) { const s = c < 0 ? ' − ' : (i ? ' + ' : ''); const a = Math.abs(c); return s + (a === 1 ? '' : nb(a) + ' ') + esc(d.nom); }
+    return (i ? ' · ' : '') + esc(d.nom) + (c === 1 ? '' : '<sup>' + fr(nb(c)) + '</sup>');
+  };
+  const expr = (somme ? '' : (k === 1 ? '' : nb(k) + ' · ')) + L.map(ecrireTerme).join('');
+  det.push(`<li>Relation: ${esc(nom)} = ${expr}</li>`);
+  if (somme) {
+    y = L.reduce((s, d) => s + d.ex * d.val, 0);
+    L.forEach(d => { const t = d.ex * d.ex * d.u * d.u; u2 += t; contr.push(t); });
+    det.push(`<li>Propagation: <span class="f">u(${esc(nom)})² = Σ c<sub>i</sub>² u(x<sub>i</sub>)²</span></li>`);
+  } else {
+    y = k * L.reduce((p, d) => p * Math.pow(d.val, d.ex), 1);
+    let r2 = 0; L.forEach(d => { const t = d.ex * d.ex * (d.u / d.val) * (d.u / d.val); r2 += t; contr.push(t); });
+    u2 = r2 * y * y;
+    det.push(`<li>Propagation: <span class="f">(u(${esc(nom)})/${esc(nom)})² = Σ α<sub>i</sub>² (u(x<sub>i</sub>)/x<sub>i</sub>)²</span></li>`);
+    det.push(`<li>Incertitude relative: u(${esc(nom)})/|${esc(nom)}| = ${nb(Math.sqrt(r2), 3)} soit ${nb(100 * Math.sqrt(r2), 3)} %</li>`);
+  }
+  const u = Math.sqrt(u2);
+  det.push(`<li>${esc(nom)} = ${nb(y)}${un}; ${uStr(nom)} = ${nb(u, 4)}${un}</li>`);
+  $('p-details').innerHTML = det.join('');
+  const tot = contr.reduce((a, b) => a + b, 0) || 1;
+  $('p-contrib').innerHTML = '<thead><tr><th>Grandeur</th><th>Valeur</th><th>u</th><th>' + (somme ? 'c' : 'α') + '</th><th>Part de u²</th></tr></thead><tbody>' +
+    L.map((d, i) => { const pc = 100 * contr[i] / tot;
+      return `<tr><td>${esc(d.nom)}</td><td>${nb(d.val)}</td><td>${nb(d.u, 3)}${d.loi === 'delta' ? ' <span class="note">(Δ/√3)</span>' : ''}</td><td>${nb(d.ex)}</td><td><span class="barre" style="width:${Math.max(1, pc * 0.7)}px"></span>${nb(pc, 3)} %</td></tr>`; }).join('') + '</tbody>';
+  afficherFinal($('p-res-final'), nom, y, u, unite);
+  poserZ('p-z', y, u);
+}
+$('p-ajout').addEventListener('click', () => { ligneVar(pBody, { nom: 'x' + (pBody.children.length + 1), val: '', loi: 'u', inc: '', ex: '1' }, false, true); majPropag(); });
+
+/* ===================== MONTE-CARLO ===================== */
+const mcBody = $('mc-tab').querySelector('tbody');
+function initMC() {
+  [{ nom: 'L', val: '0,560', loi: 'unif', inc: '0,002' }, { nom: 'T', val: '1,501', loi: 'gauss', inc: '0,006' }].forEach(d => ligneVar(mcBody, d, true, false));
+}
+function majMC() {
+  const nomY0 = $('mc-nom').value.trim() || 'y', unite = $('mc-unite').value.trim(), un = unite ? ' ' + esc(unite) : '';
+  $('mc-y').textContent = nomY0 + ' =';
+  const L = lireLignes(mcBody, true, false), err = [], noms = [];
+  L.forEach((d, i) => {
+    const pb = d.nom ? nomValide(d.nom) : 'Ligne ' + (i + 1) + ': donnez un nom à la grandeur.';
+    if (pb) err.push(pb); else if (noms.includes(d.nom)) err.push('Le nom « ' + esc(d.nom) + ' » est utilisé deux fois.');
+    noms.push(d.nom);
+    if (!isFinite(d.val)) err.push('Ligne ' + (i + 1) + ': valeur non reconnue.');
+    if (!(d.inc >= 0)) err.push('Ligne ' + (i + 1) + ': incertitude non reconnue.');
+  });
+  const pbY = nomValide(nomY0);
+  if (pbY) err.push('Grandeur calculée: ' + pbY);
+  else if (noms.includes(nomY0)) err.push('La grandeur calculée ne peut pas porter le même nom qu\'une donnée.');
+  let arbre = null;
+  if (!err.length) { try { arbre = analyser($('mc-formule').value, noms); } catch (e) { err.push('Formule: ' + esc(e.message)); } }
+  $('mc-err').innerHTML = err.join('<br>');
+  if (err.length) { $('mc-details').innerHTML = ''; $('mc-res-final').textContent = '—'; COMPAR['mc-z'] = null; majZ('mc-z'); return; }
+  const f = compiler(arbre), N = +$('mc-N').value, n = L.length, X = new Float64Array(n);
+  L.forEach((d, i) => { X[i] = d.val; });
+  const y0 = f(X);
+  const ys = new Float64Array(N); let nbad = 0, m = 0;
+  for (let j = 0; j < N; j++) {
+    for (let i = 0; i < n; i++) { const d = L[i]; X[i] = d.loi === 'gauss' ? d.val + d.inc * gauss() : d.val + d.inc * (2 * Math.random() - 1); }
+    const v = f(X); if (!isFinite(v)) { nbad++; ys[j] = NaN; } else { ys[j] = v; m += v; }
+  }
+  const ok = N - nbad; m /= ok;
+  let s = 0; for (let j = 0; j < N; j++) if (isFinite(ys[j])) s += (ys[j] - m) * (ys[j] - m);
+  const u = Math.sqrt(s / (ok - 1));
+  const det = [];
+  if (!isFinite(y0)) err.push('La formule n\'est pas définie pour les valeurs mesurées (division par zéro, racine d\'un nombre négatif…).');
+  if (nbad) det.push(`<li style="color:var(--rouge)">${nbad} tirages sur ${N} donnent une valeur non définie et ont été écartés.</li>`);
+  $('mc-err').innerHTML = err.join('<br>');
+  if (!isFinite(y0) || ok < 2) { $('mc-details').innerHTML = det.join(''); $('mc-res-final').textContent = '—'; COMPAR['mc-z'] = null; majZ('mc-z'); return; }
+  det.unshift(`<li>Valeur: <span class="f">${esc(nomY0)} = f(valeurs mesurées)</span> = ${nb(y0)}${un}</li>`,
+    `<li>Moyenne des ${N.toLocaleString('fr-FR')} valeurs simulées: ${nb(m)}${un}</li>`,
+    `<li>Incertitude-type: <span class="f">écart-type des valeurs simulées</span> = ${nb(u, 4)}${un}</li>`);
+  $('mc-details').innerHTML = det.join('');
+  afficherFinal($('mc-res-final'), nomY0, y0, u, unite);
+  poserZ('mc-z', y0, u);
+  // code Python
+  const py = enPython(arbre), lg = Math.max(...L.map(d => d.nom.length)) + 8;
+  const pad = s => s + ' '.repeat(Math.max(1, 26 - s.length));
+  let c = 'import numpy as np\nimport numpy.random as rd\n\n';
+  c += `N = ${N}   # nombre d'expériences virtuelles\n\n# Grandeurs mesurées\n`;
+  L.forEach(d => {
+    c += pad(`${d.nom} = ${pyNb(d.val)}`) + '# valeur mesurée' + '\n';
+    c += d.loi === 'gauss' ? pad(`u_${d.nom} = ${pyNb(d.inc)}`) + '# incertitude-type (loi gaussienne)\n' : pad(`Delta_${d.nom} = ${pyNb(d.inc)}`) + '# précision (loi uniforme)\n';
+  });
+  c += `\ndef f(${L.map(d => d.nom).join(', ')}):\n    return ${py}\n\n`;
+  c += pad(`${nomY0} = f(${L.map(d => d.nom).join(', ')})`) + '# valeur mesurée' + (unite ? ' (' + unite + ')' : '') + '\n\n# Tirages aléatoires\n';
+  L.forEach(d => {
+    c += d.loi === 'gauss' ? `${d.nom}_sim = rd.normal(${d.nom}, u_${d.nom}, N)\n` : `${d.nom}_sim = rd.uniform(${d.nom} - Delta_${d.nom}, ${d.nom} + Delta_${d.nom}, N)\n`;
+  });
+  c += `\n${nomY0}_sim = f(${L.map(d => d.nom + '_sim').join(', ')})   # N valeurs simulées\nu_${nomY0} = np.std(${nomY0}_sim, ddof=1)   # incertitude-type\n\n`;
+  c += `print("${nomY0} =", ${nomY0}, "; u(${nomY0}) =", u_${nomY0})\n`;
+  poserCode('mc-code', c);
+  void lg;
+}
+$('mc-ajout').addEventListener('click', () => {
+  let i = 1; const noms = lireLignes(mcBody, true, false).map(d => d.nom); while (noms.includes('x' + i)) i++;
+  ligneVar(mcBody, { nom: 'x' + i, val: '', loi: 'gauss', inc: '' }, true, false); majMC();
+});
+$('mc-go').addEventListener('click', majMC);
+
+/* ===================== RÉGRESSION ===================== */
+let REG = null;
+function majReg(nouveauTirage) {
+  const xn = $('r-xnom').value.trim() || 'x', xu = $('r-xunite').value.trim(), yn = $('r-ynom').value.trim() || 'y', yu = $('r-yunite').value.trim();
+  const T = lireTableau($('r-data').value), err = [];
+  if (T.erreurs.length) err.push('Ligne' + (T.erreurs.length > 1 ? 's' : '') + ' ' + T.erreurs.join(', ') + ': il faut quatre nombres par ligne (x, u(x), y, u(y)).');
+  if (T.pts.length < 3) err.push('Il faut au moins trois points.');
+  if (T.pts.some(p => p[1] < 0 || p[3] < 0)) err.push('Les incertitudes doivent être positives.');
+  const x = T.pts.map(p => p[0]), ux = T.pts.map(p => p[1]), y = T.pts.map(p => p[2]), uy = T.pts.map(p => p[3]);
+  if (!err.length && x.every(v => v === x[0])) err.push('Les abscisses sont toutes égales: la pente n\'est pas définie.');
+  $('r-err').innerHTML = err.join('<br>');
+  if (err.length) { REG = null; $('r-res-final').textContent = '—'; $('r-details').innerHTML = ''; $('r-verdict').textContent = ''; COMPAR['r-z'] = null; majZ('r-z'); dessinerReg(); return; }
+  const { a, b } = ajustement(x, y);
+  const loi = $('r-loi').value, M = +$('r-M').value, n = x.length;
+  let ua, ub;
+  if (!nouveauTirage && REG && REG.cle === JSON.stringify([T.pts, loi, M])) { ua = REG.ua; ub = REG.ub; }
+  else {
+    const as = new Float64Array(M), bs = new Float64Array(M), xs = new Float64Array(n), ys = new Float64Array(n), r3 = Math.sqrt(3);
+    for (let k = 0; k < M; k++) {
+      for (let i = 0; i < n; i++) {
+        if (loi === 'unif') { xs[i] = x[i] + r3 * ux[i] * (2 * Math.random() - 1); ys[i] = y[i] + r3 * uy[i] * (2 * Math.random() - 1); }
+        else { xs[i] = x[i] + ux[i] * gauss(); ys[i] = y[i] + uy[i] * gauss(); }
+      }
+      const r = ajustement(xs, ys); as[k] = r.a; bs[k] = r.b;
+    }
+    ua = ecartType(as).s; ub = ecartType(bs).s;
+  }
+  const zs = x.map((xi, i) => { const d = Math.sqrt(uy[i] * uy[i] + a * a * ux[i] * ux[i]); return d > 0 ? (y[i] - a * xi - b) / d : NaN; });
+  REG = { cle: JSON.stringify([T.pts, loi, M]), x, ux, y, uy, a, b, ua, ub, zs, xn, xu, yn, yu };
+  const ua_un = (yu || xu) ? ' ' + esc(yu && xu ? yu + '/' + xu : yu ? yu : '1/' + xu) : '', ub_un = yu ? ' ' + esc(yu) : '';
+  const ea = ecriture(a, ua), eb = ecriture(b, ub);
+  const pw = e => e.p ? ' × 10<sup>' + e.p + '</sup>' : '';
+  $('r-res-final').innerHTML = `a = ${ea.v}${pw(ea)}${ua_un}<span class="sep">;</span>u(a) = ${ea.u}${pw(ea)}${ua_un}<br>b = ${eb.v}${pw(eb)}${ub_un}<span class="sep">;</span>u(b) = ${eb.u}${pw(eb)}${ub_un}`;
+  $('r-details').innerHTML = `<li>Ajustement par moindres carrés (comme <code class="in">np.polyfit</code>): a = ${nb(a)}, b = ${nb(b)}</li>
+    <li>Incertitudes-types: écarts-types de a et b sur ${M.toLocaleString('fr-FR')} expériences virtuelles (${loi === 'unif' ? 'tirages uniformes sur [x − √3 u, x + √3 u]' : 'tirages gaussiens d\'écart-type u'})</li>`;
+  const bad = zs.filter(z => !(Math.abs(z) <= 2)).length, def = zs.every(isFinite);
+  const v = $('r-verdict');
+  if (!def) { v.className = 'verdict ko'; v.textContent = 'Écarts normalisés non définis pour certains points: leurs incertitudes sont nulles.'; }
+  else if (!bad) { v.className = 'verdict ok'; v.innerHTML = 'Tous les écarts normalisés vérifient |z<sub>i</sub>| ≤ 2: le modèle affine est compatible avec les mesures.'; }
+  else { v.className = 'verdict ko'; v.innerHTML = `${bad} point${bad > 1 ? 's' : ''} sur ${n} ${bad > 1 ? 'ont' : 'a'} un écart normalisé |z<sub>i</sub>| > 2: le modèle affine n'est pas validé (ou les incertitudes sont sous-estimées).`; }
+  COMPAR['r-z'] = { choix: true, a: { v: a, u: ua }, b: { v: b, u: ub } }; majZ('r-z');
+  dessinerReg();
+  // code Python
+  const arr = t => '[' + t.map(String).join(', ') + ']';
+  const tir = (v, u) => loi === 'unif' ? `rd.uniform(${v} - np.sqrt(3)*${u}, ${v} + np.sqrt(3)*${u})` : `rd.normal(${v}, ${u})`;
+  let c = 'import numpy as np\nimport numpy.random as rd\nimport matplotlib.pyplot as plt\n\n';
+  c += `# x: ${xn}${xu ? ' (' + xu + ')' : ''}    y: ${yn}${yu ? ' (' + yu + ')' : ''}\n`;
+  c += `x = np.array(${arr(x)})\nu_x = np.array(${arr(ux)})\ny = np.array(${arr(y)})\nu_y = np.array(${arr(uy)})\n\n`;
+  c += `a, b = np.polyfit(x, y, 1)     # régression linéaire y = a x + b\n\n`;
+  c += `M = ${M}   # nombre d'expériences virtuelles\na_sim = np.zeros(M)\nb_sim = np.zeros(M)\nfor k in range(M):\n`;
+  c += `    x_k = ${tir('x', 'u_x')}\n    y_k = ${tir('y', 'u_y')}\n    a_sim[k], b_sim[k] = np.polyfit(x_k, y_k, 1)\n\n`;
+  c += `u_a = np.std(a_sim, ddof=1)\nu_b = np.std(b_sim, ddof=1)\nprint("a =", a, "; u(a) =", u_a)\nprint("b =", b, "; u(b) =", u_b)\n\n`;
+  c += `# Validation graphique\nplt.errorbar(x, y, xerr=u_x, yerr=u_y, fmt='o')\nxx = np.linspace(min(x), max(x), 100)\nplt.plot(xx, a*xx + b)\n`;
+  c += `plt.xlabel("${xn}${xu ? ' (' + xu + ')' : ''}")\nplt.ylabel("${yn}${yu ? ' (' + yu + ')' : ''}")\nplt.show()\n\n`;
+  c += `# Écarts normalisés au modèle\nz = (y - (a*x + b)) / np.sqrt(u_y**2 + (a*u_x)**2)\nplt.plot(x, z, 'o')\nplt.axhline(2, ls='--')\nplt.axhline(-2, ls='--')\nplt.xlabel("${xn}${xu ? ' (' + xu + ')' : ''}")\nplt.ylabel("écart normalisé")\nplt.show()\n`;
+  poserCode('r-code', c);
+}
+function graduations(min, max, n) {
+  const pas0 = (max - min) / n, p = Math.pow(10, Math.floor(Math.log10(pas0))), r = pas0 / p;
+  const pas = (r < 1.5 ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10) * p;
+  const t = []; for (let v = Math.ceil(min / pas) * pas; v <= max + pas * 1e-9; v += pas) t.push(+v.toPrecision(12));
+  return t;
+}
+function cadre(cv, hauteur) {
+  const d = Math.min(2, window.devicePixelRatio || 1), w = cv.clientWidth || 500;
+  cv.width = w * d; cv.height = hauteur * d; cv.style.height = hauteur + 'px';
+  const g = cv.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, w, hauteur);
+  return { g, w, h: hauteur };
+}
+function axes(g, X0, Y0, W, H, xmin, xmax, ymin, ymax, xl, yl) {
+  const sx = v => X0 + (v - xmin) / (xmax - xmin) * W, sy = v => Y0 + H - (v - ymin) / (ymax - ymin) * H;
+  g.font = '12px system-ui, sans-serif'; g.fillStyle = '#5a6270'; g.strokeStyle = '#e6e9ee'; g.lineWidth = 1;
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  graduations(xmin, xmax, 6).forEach(v => { const x = sx(v); g.beginPath(); g.moveTo(x + 0.5, Y0); g.lineTo(x + 0.5, Y0 + H); g.stroke(); g.fillText(nb(v, 4), x, Y0 + H + 5); });
+  g.textAlign = 'right'; g.textBaseline = 'middle';
+  graduations(ymin, ymax, 5).forEach(v => { const y = sy(v); g.beginPath(); g.moveTo(X0, y + 0.5); g.lineTo(X0 + W, y + 0.5); g.stroke(); g.fillText(nb(v, 4), X0 - 6, y); });
+  g.strokeStyle = '#9aa3ad'; g.strokeRect(X0 + 0.5, Y0 + 0.5, W, H);
+  g.fillStyle = '#333'; g.textAlign = 'center'; g.textBaseline = 'bottom'; g.fillText(xl, X0 + W / 2, Y0 + H + 36);
+  g.save(); g.translate(14, Y0 + H / 2); g.rotate(-Math.PI / 2); g.textBaseline = 'top'; g.fillText(yl, 0, 0); g.restore();
+  return { sx, sy };
+}
+function dessinerReg() {
+  const c1 = cadre($('r-g1'), 300), c2 = cadre($('r-g2'), 170);
+  if (!REG) return;
+  const R = REG, n = R.x.length;
+  // graphe 1
+  let xmin = Math.min(...R.x.map((v, i) => v - R.ux[i])), xmax = Math.max(...R.x.map((v, i) => v + R.ux[i]));
+  let ymin = Math.min(...R.y.map((v, i) => v - R.uy[i])), ymax = Math.max(...R.y.map((v, i) => v + R.uy[i]));
+  const ex = (xmax - xmin) * 0.06 || 1, ey = (ymax - ymin) * 0.08 || 1; xmin -= ex; xmax += ex; ymin -= ey; ymax += ey;
+  if (xmin > 0 && xmin < (xmax - xmin) * 0.5) xmin = 0;
+  if (ymin > 0 && ymin < (ymax - ymin) * 0.5) ymin = 0;
+  const lab = (nm, un) => nm + (un ? ' (' + un + ')' : '');
+  let g = c1.g; const X0 = 66, Y0 = 14, W = c1.w - X0 - 16, H = c1.h - Y0 - 46;
+  const A = axes(g, X0, Y0, W, H, xmin, xmax, ymin, ymax, lab(R.xn, R.xu), lab(R.yn, R.yu));
+  g.save(); g.beginPath(); g.rect(X0, Y0, W, H); g.clip();
+  g.strokeStyle = '#d0453a'; g.lineWidth = 1.8; g.beginPath(); g.moveTo(A.sx(xmin), A.sy(R.a * xmin + R.b)); g.lineTo(A.sx(xmax), A.sy(R.a * xmax + R.b)); g.stroke();
+  g.strokeStyle = '#1f3f73'; g.lineWidth = 1.4; g.fillStyle = '#1f3f73';
+  for (let i = 0; i < n; i++) {
+    const x = A.sx(R.x[i]), y = A.sy(R.y[i]), x1 = A.sx(R.x[i] - R.ux[i]), x2 = A.sx(R.x[i] + R.ux[i]), y1 = A.sy(R.y[i] - R.uy[i]), y2 = A.sy(R.y[i] + R.uy[i]);
+    g.beginPath(); g.moveTo(x1, y); g.lineTo(x2, y); g.moveTo(x, y1); g.lineTo(x, y2);
+    g.moveTo(x1, y - 3); g.lineTo(x1, y + 3); g.moveTo(x2, y - 3); g.lineTo(x2, y + 3); g.moveTo(x - 3, y1); g.lineTo(x + 3, y1); g.moveTo(x - 3, y2); g.lineTo(x + 3, y2);
+    g.stroke(); g.beginPath(); g.arc(x, y, 2.5, 0, 2 * Math.PI); g.fill();
+  }
+  g.restore();
+  g.font = '12px system-ui, sans-serif'; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillStyle = '#5a6270';
+  g.fillText('barres: ± u   —   droite: y = a x + b', X0 + 8, Y0 + 6);
+  // graphe 2: écarts normalisés
+  g = c2.g; const H2 = c2.h - Y0 - 46;
+  const zmax = Math.max(3, ...R.zs.filter(isFinite).map(Math.abs)) * 1.1;
+  const B = axes(g, X0, Y0, W, H2, xmin, xmax, -zmax, zmax, lab(R.xn, R.xu), 'z');
+  g.save(); g.beginPath(); g.rect(X0, Y0, W, H2); g.clip();
+  g.fillStyle = 'rgba(30,125,58,0.08)'; g.fillRect(X0, B.sy(2), W, B.sy(-2) - B.sy(2));
+  g.setLineDash([5, 4]); g.strokeStyle = '#1e7d3a'; g.lineWidth = 1.2;
+  [2, -2].forEach(v => { g.beginPath(); g.moveTo(X0, B.sy(v)); g.lineTo(X0 + W, B.sy(v)); g.stroke(); });
+  g.setLineDash([]); g.strokeStyle = '#9aa3ad'; g.beginPath(); g.moveTo(X0, B.sy(0)); g.lineTo(X0 + W, B.sy(0)); g.stroke();
+  for (let i = 0; i < n; i++) {
+    if (!isFinite(R.zs[i])) continue;
+    g.fillStyle = Math.abs(R.zs[i]) <= 2 ? '#1f3f73' : '#b42318';
+    g.beginPath(); g.arc(B.sx(R.x[i]), B.sy(R.zs[i]), 3.5, 0, 2 * Math.PI); g.fill();
+  }
+  g.restore();
+  g.font = '12px system-ui, sans-serif'; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillStyle = '#5a6270';
+  g.fillText('écarts normalisés z_i (zone |z| ≤ 2 en vert)', X0 + 8, Y0 + 6);
+}
+$('r-go').addEventListener('click', () => majReg(true));
+
+/* ===================== DÉMARRAGE ===================== */
+blocZ('d-z', false); blocZ('p-z', false); blocZ('mc-z', false); blocZ('r-z', true);
+initPropag(); initMC();
+const lienD = debounce(majDirecte), lienP = debounce(majPropag), lienM = debounce(majMC, 350), lienR = debounce(() => majReg(false), 300);
+$('m-directe').addEventListener('input', e => { if (!e.target.closest('.comparer')) lienD(); });
+$('m-directe').addEventListener('change', e => { if (!e.target.closest('.comparer')) majDirecte(); });
+$('m-propag').addEventListener('input', e => { if (!e.target.closest('.comparer')) lienP(); });
+$('m-propag').addEventListener('change', e => { if (!e.target.closest('.comparer')) majPropag(); });
+$('m-mc').addEventListener('input', e => { if (!e.target.closest('.comparer')) lienM(); });
+$('m-mc').addEventListener('change', e => { if (!e.target.closest('.comparer') && e.target.tagName === 'SELECT') majMC(); });
+$('m-reg').addEventListener('input', e => { if (!e.target.closest('.comparer')) lienR(); });
+$('m-reg').addEventListener('change', e => { if (!e.target.closest('.comparer') && e.target.tagName === 'SELECT') majReg(false); });
+pBody.addEventListener('click', e => { if (e.target.classList.contains('suppr')) { e.target.closest('tr').remove(); majPropag(); } });
+mcBody.addEventListener('click', e => { if (e.target.classList.contains('suppr')) { e.target.closest('tr').remove(); majMC(); } });
+window.addEventListener('resize', debounce(dessinerReg, 120));
+majDirecte(); majPropag(); majMC(); majReg(true);
+try { const o = localStorage.getItem('incert-onglet'); if (o && MODES.includes(o)) ouvrir(o); } catch (e) {}
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

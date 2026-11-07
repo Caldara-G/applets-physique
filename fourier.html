@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Synthèse de Fourier — MP* Malherbe</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px; color: #222; background: #eef0f3;
+}
+#app { display: flex; height: 100vh; }
+#principal { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0;
+  padding: 8px; gap: 8px; }
+.ligne-zones { display: flex; gap: 8px; min-height: 0; }
+.zone { position: relative; flex: 1; min-height: 0; min-width: 0; background: #fff;
+  border: 1px solid #d5d9df; border-radius: 6px; overflow: hidden; }
+.zone canvas { position: absolute; left: 0; top: 0; touch-action: none; }
+#panneau { width: 340px; flex: none; overflow-y: auto; background: #fff;
+  border-left: 1px solid #d5d9df; padding: 10px 14px 20px; }
+#panneau h1 { font-size: 16px; margin: 4px 0 2px; }
+.retour { font-size: 12px; color: #4a6fa5; text-decoration: none; }
+.retour:hover { text-decoration: underline; }
+.section { margin: 8px 0; padding-bottom: 8px; border-bottom: 1px solid #eceef1; }
+.section:last-child { border-bottom: none; }
+.titre { font-weight: 600; margin-bottom: 4px; color: #333; }
+.choix { display: flex; align-items: center; gap: 6px; padding: 1px 0; cursor: pointer;
+  user-select: none; }
+.choix input { margin: 0 2px 0 0; }
+.choix.off { color: #aaa; cursor: default; }
+.curseur { margin: 7px 0; }
+.curseur .tete { display: flex; justify-content: space-between; align-items: center;
+  gap: 6px; }
+.curseur .valeur { display: flex; align-items: center; gap: 2px; flex: none; }
+.saisie { width: 66px; text-align: right; font: inherit; padding: 1px 4px;
+  border: 1px solid #c9cdd3; border-radius: 3px; }
+.pm { width: 20px; height: 20px; padding: 0; border: 1px solid #c9cdd3;
+  background: #f5f6f8; border-radius: 3px; cursor: pointer; line-height: 1; }
+.pm:hover { background: #e6e9ee; }
+input[type=range] { width: 100%; margin: 3px 0 0; accent-color: #3b6fb6; }
+.boutons { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+button.b { padding: 5px 10px; border: 1px solid #b8bec8; background: #f3f4f6;
+  border-radius: 4px; cursor: pointer; font: inherit; }
+button.b:hover { background: #e4e7ec; }
+button.b.actif { background: #dce7f7; border-color: #7f9fcf; }
+.info { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 4px;
+  padding: 6px 8px; line-height: 1.5; }
+.note { font-size: 11.5px; color: #666; font-style: italic; line-height: 1.4; }
+.dialogue { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: none;
+  align-items: center; justify-content: center; z-index: 10; }
+.dialogue .boite { background: #fff; border-radius: 8px; padding: 16px 20px;
+  min-width: 340px; box-shadow: 0 6px 30px rgba(0,0,0,0.25); }
+.dialogue table td { padding: 3px 6px; }
+.dialogue input[type=text] { width: 80px; font: inherit; padding: 2px 4px; }
+.erreur { color: #c62828; }
+@media (max-width: 900px) {
+  #app { flex-direction: column; height: auto; }
+  #principal { height: 75vh; }
+  #panneau { width: 100%; border-left: none; border-top: 1px solid #d5d9df; }
+}
+.haut { display: flex; justify-content: space-between; align-items: center; }
+.etiquette { font-size: 11.5px; font-weight: 600; color: #fff; background: #3b5f96;
+  border-radius: 10px; padding: 2px 9px; letter-spacing: 0.02em; }
+.filigrane { position: absolute; right: 16px; bottom: 14px; z-index: 5; pointer-events: none;
+  font-size: 13px; font-weight: 700; color: #3b5f96; background: rgba(255,255,255,0.82);
+  border: 1px solid rgba(59,95,150,0.35); border-radius: 12px; padding: 3px 11px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="principal">
+    <div class="zone" id="z_t" data-mt-nom="Signal" style="flex: 1.5"></div>
+    <div class="ligne-zones" style="flex: 1">
+      <div class="zone" id="z_h" data-mt-nom="Harmoniques"></div>
+      <div class="zone" id="z_s" data-mt-nom="Spectre" style="flex: 0.7"></div>
+    </div>
+  </div>
+  <div id="panneau"></div>
+</div>
+<script>
+"use strict";
+/* ======================================================================
+   Bibliothèque commune aux applets (aucune dépendance externe)
+   - interface: sections, curseurs (−/+, saisie, molette), boutons radio,
+     cases à cocher, boutons
+   - canvas: adaptation à la taille et à la résolution de l'écran,
+     repères gradués, courbes, flèches, légendes
+   - 3D: projection en perspective, rotation à la souris, tri en profondeur
+   ====================================================================== */
+
+// ---------------------------------------------------------------- DOM
+function el(tag, attrs, parent) {
+  const e = document.createElement(tag);
+  if (attrs) {
+    for (const k in attrs) {
+      const v = attrs[k];
+      if (k === "text") e.textContent = v;
+      else if (k === "html") e.innerHTML = v;
+      else if (k === "class") e.className = v;
+      else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v);
+    }
+  }
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+/** Nombre écrit avec une virgule décimale. */
+function fmt(v, d) {
+  if (v === Infinity) return "∞";
+  if (v === -Infinity) return "−∞";
+  if (!isFinite(v)) return "—";
+  let s = v.toFixed(d);
+  if (/^-0(\.0*)?$/.test(s)) s = s.slice(1);
+  return s.replace(".", ",").replace("-", "−");
+}
+
+function section(parent, titre) {
+  const s = el("div", { class: "section" }, parent);
+  if (titre) el("div", { class: "titre", html: titre }, s);
+  return s;
+}
+
+/** Curseur avec boutons −/+, saisie au clavier et molette.
+    o = {label, min, max, val, pas, dec, onchange} */
+function curseur(parent, o) {
+  const ligne = el("div", { class: "curseur" }, parent);
+  const tete = el("div", { class: "tete" }, ligne);
+  el("span", { html: o.label }, tete);
+  const zone = el("span", { class: "valeur" }, tete);
+  const moins = el("button", { class: "pm", text: "−", title: "diminuer" }, zone);
+  const saisie = el("input", { type: "text", class: "saisie" }, zone);
+  const plus = el("button", { class: "pm", text: "+", title: "augmenter" }, zone);
+  const r = el("input", { type: "range", min: o.min, max: o.max, step: "any" }, ligne);
+  const dec = o.dec !== undefined ? o.dec
+    : Math.max(0, -Math.floor(Math.log10(o.pas) + 1e-9));
+  let v = o.val;
+  function borne(x) {
+    x = Math.min(Math.max(x, o.min), o.max);
+    return +(o.min + Math.round((x - o.min) / o.pas) * o.pas).toFixed(10);
+  }
+  function afficher() { r.value = v; saisie.value = fmt(v, dec); }
+  function regler(x, silencieux) {
+    x = borne(x);
+    const change = Math.abs(x - v) > 1e-12;
+    v = x;
+    afficher();
+    if (change && !silencieux && o.onchange) o.onchange(v);
+  }
+  r.addEventListener("input", () => regler(parseFloat(r.value)));
+  saisie.addEventListener("change", () => {
+    const x = parseFloat(saisie.value.replace(",", ".").replace("−", "-"));
+    if (isFinite(x)) regler(x); else afficher();
+  });
+  saisie.addEventListener("keydown", (e) => { if (e.key === "Enter") saisie.blur(); });
+  moins.addEventListener("click", () => regler(v - o.pas));
+  plus.addEventListener("click", () => regler(v + o.pas));
+  r.addEventListener("keydown", (e) => {
+    const sauts = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1,
+                    PageUp: 10, PageDown: -10 };
+    if (e.key in sauts) { e.preventDefault(); regler(v + sauts[e.key] * o.pas); }
+  });
+  ligne.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    regler(v + (e.deltaY < 0 ? 1 : -1) * o.pas * (e.shiftKey ? 10 : 1));
+  }, { passive: false });
+  afficher();
+  return {
+    get: () => v,
+    set: (x, silencieux) => regler(x, silencieux),
+    ligne,
+    montrer: (b) => { ligne.style.display = b ? "" : "none"; },
+  };
+}
+
+/** Groupe de boutons radio. onchange(valeur, indice). */
+function radios(parent, titre, options, actif, onchange) {
+  const s = section(parent, titre);
+  const nom = "r" + Math.random().toString(36).slice(2);
+  const items = options.map((opt, i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "radio", name: nom }, lab);
+    el("span", { html: opt }, lab);
+    if (i === actif) inp.checked = true;
+    inp.addEventListener("change", () => {
+      if (inp.checked && onchange) onchange(opt, i);
+    });
+    return { inp, lab };
+  });
+  return {
+    indice: () => items.findIndex((o) => o.inp.checked),
+    valeur: () => options[items.findIndex((o) => o.inp.checked)],
+    set: (i, silencieux) => {
+      items[i].inp.checked = true;
+      if (!silencieux && onchange) onchange(options[i], i);
+    },
+    desactiver: (i, b) => {
+      items[i].inp.disabled = b;
+      items[i].lab.classList.toggle("off", b);
+    },
+    section: s,
+  };
+}
+
+/** Cases à cocher. options = [[libellé, coché], ...]. onchange(indice, état). */
+function cases(parent, titre, options, onchange) {
+  const s = section(parent, titre);
+  const items = options.map(([texte, coche], i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "checkbox" }, lab);
+    inp.checked = coche;
+    el("span", { html: texte }, lab);
+    inp.addEventListener("change", () => onchange && onchange(i, inp.checked));
+    return inp;
+  });
+  return {
+    get: (i) => items[i].checked,
+    set: (i, b, silencieux) => {
+      items[i].checked = b;
+      if (!silencieux && onchange) onchange(i, b);
+    },
+    section: s,
+  };
+}
+
+function boutons(parent) { return el("div", { class: "boutons" }, parent); }
+function bouton(parent, texte, onclick) {
+  return el("button", { class: "b", html: texte, onclick }, parent);
+}
+
+/** En-tête du panneau de commandes. */
+function entete(panneau, titre) {
+  const haut = el("div", { class: "haut" }, panneau);
+  el("a", { class: "retour", href: "index.html", text: "← Sommaire" }, haut);
+  el("span", { class: "etiquette", text: "MP* Malherbe" }, haut);
+  // filigrane visible en permanence sur la zone de simulation
+  const principal = document.getElementById("principal");
+  if (principal) el("div", { class: "filigrane", text: "MP* Malherbe" }, principal);
+  el("h1", { html: titre }, panneau);
+}
+
+// ---------------------------------------------------------------- canvas
+/** Canvas qui remplit son conteneur et se redessine quand il change de taille. */
+function canevas(conteneur, dessiner) {
+  const cv = el("canvas", null, conteneur);
+  const ctx = cv.getContext("2d");
+  const obj = { cv, ctx, w: 1, h: 1, dessiner };
+  function taille() {
+    const r = conteneur.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    obj.w = Math.max(10, Math.floor(r.width));
+    obj.h = Math.max(10, Math.floor(r.height));
+    cv.width = Math.round(obj.w * dpr);
+    cv.height = Math.round(obj.h * dpr);
+    cv.style.width = obj.w + "px";
+    cv.style.height = obj.h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (obj.dessiner) obj.dessiner(obj);
+  }
+  obj.effacer = (fond) => {
+    ctx.fillStyle = fond || "#fff";
+    ctx.fillRect(0, 0, obj.w, obj.h);
+  };
+  new ResizeObserver(taille).observe(conteneur);
+  taille();
+  return obj;
+}
+
+/** Graduations « rondes » entre a et b (environ n intervalles). */
+function graduations(a, b, n) {
+  const brut = Math.abs(b - a) / Math.max(n, 1);
+  const mag = Math.pow(10, Math.floor(Math.log10(brut)));
+  const r = brut / mag;
+  const pas = (r < 1.5 ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10) * mag;
+  const dec = Math.max(0, -Math.floor(Math.log10(pas) + 1e-9));
+  const vals = [];
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  for (let v = Math.ceil(lo / pas - 1e-9) * pas; v <= hi + pas * 1e-9; v += pas) {
+    vals.push(Math.abs(v) < pas * 1e-9 ? 0 : v);
+  }
+  return { vals, dec, pas };
+}
+
+/** Dessine un repère gradué dans le cadre {x, y, w, h} et renvoie les
+    fonctions de passage X(u), Y(v) (et inverses). */
+function repere(ctx, cadre, xmin, xmax, ymin, ymax, o) {
+  o = o || {};
+  const { x, y, w, h } = cadre;
+  const R = {
+    cadre, xmin, xmax, ymin, ymax,
+    X: (u) => x + (u - xmin) / (xmax - xmin) * w,
+    Y: (v) => y + h - (v - ymin) / (ymax - ymin) * h,
+    invX: (px) => xmin + (px - x) / w * (xmax - xmin),
+    invY: (py) => ymin + (y + h - py) / h * (ymax - ymin),
+  };
+  ctx.save();
+  ctx.fillStyle = o.fond || "#fff";
+  ctx.fillRect(x, y, w, h);
+  const gx = graduations(xmin, xmax, o.nx || Math.max(2, w / 85));
+  const gy = graduations(ymin, ymax, o.ny || Math.max(2, h / 45));
+  ctx.lineWidth = 1;
+  if (o.grille !== false) {
+    ctx.strokeStyle = "#e6e8eb";
+    ctx.beginPath();
+    for (const v of gx.vals) { const p = Math.round(R.X(v)) + 0.5; ctx.moveTo(p, y); ctx.lineTo(p, y + h); }
+    for (const v of gy.vals) { const p = Math.round(R.Y(v)) + 0.5; ctx.moveTo(x, p); ctx.lineTo(x + w, p); }
+    ctx.stroke();
+  }
+  if (o.zero && ymin < 0 && ymax > 0) {
+    ctx.strokeStyle = "#999";
+    ctx.beginPath(); ctx.moveTo(x, R.Y(0)); ctx.lineTo(x + w, R.Y(0)); ctx.stroke();
+  }
+  ctx.strokeStyle = "#666";
+  ctx.strokeRect(x + 0.5, y + 0.5, w, h);
+  ctx.fillStyle = "#333";
+  ctx.font = "11px system-ui, sans-serif";
+  if (o.etiquettesX !== false) {
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (const v of gx.vals) ctx.fillText(fmt(v, gx.dec), R.X(v), y + h + 3);
+  }
+  if (o.etiquettesY !== false) {
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (const v of gy.vals) ctx.fillText(fmt(v, gy.dec), x - 4, R.Y(v));
+  }
+  ctx.font = "12px system-ui, sans-serif";
+  if (o.xlabel) {
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.fillText(o.xlabel, x + w / 2, y + h + 18);
+  }
+  if (o.ylabel) {
+    ctx.save();
+    ctx.translate(x - (o.decY || 38), y + h / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.fillText(o.ylabel, 0, 0);
+    ctx.restore();
+  }
+  if (o.titre) {
+    ctx.font = "bold 12.5px system-ui, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.fillText(o.titre, x + w / 2, y - 5);
+  }
+  ctx.restore();
+  return R;
+}
+
+/** Restreint le dessin au cadre du repère. */
+function clipper(ctx, R) {
+  const c = R.cadre;
+  ctx.beginPath();
+  ctx.rect(c.x, c.y, c.w, c.h);
+  ctx.clip();
+}
+
+/** Courbe y(x); les valeurs non finies interrompent le tracé. */
+function courbe(ctx, R, xs, ys, couleur, lw, tirets) {
+  ctx.save();
+  clipper(ctx, R);
+  ctx.strokeStyle = couleur;
+  ctx.lineWidth = lw || 1.5;
+  ctx.lineJoin = "round";
+  if (tirets) ctx.setLineDash(tirets);
+  ctx.beginPath();
+  let leve = true;
+  for (let i = 0; i < xs.length; i++) {
+    const yv = ys[i];
+    if (!isFinite(yv) || !isFinite(xs[i])) { leve = true; continue; }
+    const px = R.X(xs[i]), py = Math.max(-1e5, Math.min(1e5, R.Y(yv)));
+    if (leve) { ctx.moveTo(px, py); leve = false; } else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Flèche entre deux points (coordonnées écran). */
+function fleche(ctx, x0, y0, x1, y1, couleur, lw, tete) {
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy);
+  ctx.save();
+  ctx.strokeStyle = couleur; ctx.fillStyle = couleur;
+  ctx.lineWidth = lw || 2; ctx.lineCap = "round";
+  if (L < 0.5) { ctx.restore(); return; }
+  const t = Math.min(tete || 10, 0.45 * L);
+  const ux = dx / L, uy = dy / L;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1 - ux * t * 0.8, y1 - uy * t * 0.8);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - ux * t - uy * t * 0.45, y1 - uy * t + ux * t * 0.45);
+  ctx.lineTo(x1 - ux * t + uy * t * 0.45, y1 - uy * t - ux * t * 0.45);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/** Légende: items = [[texte, couleur, tirets|"point"|"bande"], ...]. */
+function legende(ctx, x, y, items, o) {
+  o = o || {};
+  ctx.save();
+  ctx.font = (o.taille || 11.5) + "px system-ui, sans-serif";
+  const larg = Math.max(...items.map((it) => ctx.measureText(it[0]).width)) + 36;
+  const h = items.length * 17 + 8;
+  if (o.droite) x -= larg;
+  ctx.fillStyle = "rgba(255,255,255,0.88)";
+  ctx.strokeStyle = "#ccc";
+  ctx.fillRect(x, y, larg, h);
+  ctx.strokeRect(x + 0.5, y + 0.5, larg, h);
+  items.forEach(([texte, couleur, style], i) => {
+    const yy = y + 12 + 17 * i;
+    ctx.strokeStyle = couleur; ctx.fillStyle = couleur;
+    ctx.lineWidth = 2;
+    if (style === "point") {
+      ctx.beginPath(); ctx.arc(x + 17, yy, 4, 0, 2 * Math.PI); ctx.fill();
+    } else if (style === "bande") {
+      ctx.globalAlpha = 0.35; ctx.fillRect(x + 6, yy - 5, 22, 10); ctx.globalAlpha = 1;
+    } else {
+      ctx.setLineDash(style || []);
+      ctx.beginPath(); ctx.moveTo(x + 6, yy); ctx.lineTo(x + 28, yy); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.fillStyle = "#222";
+    ctx.textBaseline = "middle";
+    ctx.fillText(texte, x + 33, yy);
+  });
+  ctx.restore();
+}
+
+function texte(ctx, s, x, y, o) {
+  o = o || {};
+  ctx.save();
+  ctx.font = (o.gras ? "bold " : "") + (o.taille || 12) + "px system-ui, sans-serif";
+  ctx.fillStyle = o.couleur || "#222";
+  ctx.textAlign = o.align || "left";
+  ctx.textBaseline = o.base || "alphabetic";
+  ctx.fillText(s, x, y);
+  ctx.restore();
+}
+
+/** Teinte HSV (h dans [0,1[) -> "rgb(...)" ; utilisée pour la phase. */
+function couleurPhase(h) {
+  h = ((h % 1) + 1) % 1;
+  const i = Math.floor(h * 6), f = h * 6 - i;
+  const q = 1 - f, t = f;
+  const [r, g, b] = [[1, t, 0], [q, 1, 0], [0, 1, t], [0, q, 1], [t, 0, 1], [1, 0, q]][i % 6];
+  return [Math.round(255 * r), Math.round(255 * g), Math.round(255 * b)];
+}
+
+/** Couleur RVB (0..1) associée à une longueur d'onde en nm (D. Bruton). */
+function lambdaVersRGB(lam) {
+  let r = 0, g = 0, b = 0;
+  if (lam >= 380 && lam < 440) { r = -(lam - 440) / 60; b = 1; }
+  else if (lam < 490) { g = (lam - 440) / 50; b = 1; }
+  else if (lam < 510) { g = 1; b = -(lam - 510) / 20; }
+  else if (lam < 580) { r = (lam - 510) / 70; g = 1; }
+  else if (lam < 645) { r = 1; g = -(lam - 645) / 65; }
+  else if (lam <= 780) { r = 1; }
+  let f = 1;
+  if (lam >= 380 && lam < 420) f = 0.3 + 0.7 * (lam - 380) / 40;
+  else if (lam > 700 && lam <= 780) f = 0.3 + 0.7 * (780 - lam) / 80;
+  if (lam < 380 || lam > 780) f = 0;
+  return [r * f, g * f, b * f];
+}
+
+// ---------------------------------------------------------------- 3D
+/** Rotation de la vue à la souris (glisser) et zoom (molette).
+    v = {azim, elev, zoom} en degrés. */
+function vue3D(cv, v, redessiner) {
+  let prec = null;
+  cv.style.cursor = "grab";
+  cv.addEventListener("pointerdown", (e) => {
+    prec = [e.clientX, e.clientY];
+    cv.setPointerCapture(e.pointerId);
+    cv.style.cursor = "grabbing";
+  });
+  cv.addEventListener("pointermove", (e) => {
+    if (!prec) return;
+    v.azim -= (e.clientX - prec[0]) * 0.4;
+    v.elev = Math.max(-89, Math.min(89, v.elev + (e.clientY - prec[1]) * 0.4));
+    prec = [e.clientX, e.clientY];
+    redessiner();
+  });
+  const fin = () => { prec = null; cv.style.cursor = "grab"; };
+  cv.addEventListener("pointerup", fin);
+  cv.addEventListener("pointercancel", fin);
+  cv.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    v.zoom = Math.max(0.3, Math.min(5, v.zoom * Math.exp(-e.deltaY * 0.001)));
+    redessiner();
+  }, { passive: false });
+}
+
+/** Projection perspective. Repère direct (X, Y, Z), Z vers le haut.
+    Renvoie p -> [xécran, yécran, profondeur] (profondeur > 0 : vers l'œil). */
+function projection3D(v, w, h, centre, echelle) {
+  const a = v.azim * Math.PI / 180, e = v.elev * Math.PI / 180;
+  const ca = Math.cos(a), sa = Math.sin(a), ce = Math.cos(e), se = Math.sin(e);
+  const u = [ce * ca, ce * sa, se];          // vers l'observateur
+  const r = [-sa, ca, 0];                     // droite de l'écran
+  const hz = [-se * ca, -se * sa, ce];        // haut de l'écran
+  const s = echelle * v.zoom;
+  const dist = 9 * echelle;                   // distance de l'œil (pixels)
+  return function (p) {
+    const x = p[0] - centre[0], y = p[1] - centre[1], z = p[2] - centre[2];
+    const sx = (x * r[0] + y * r[1]) * s;
+    const sy = (x * hz[0] + y * hz[1] + z * hz[2]) * s;
+    const d = (x * u[0] + y * u[1] + z * u[2]) * s;
+    const f = dist / (dist - d);
+    return [w / 2 + sx * f, h / 2 - sy * f, d];
+  };
+}
+
+/** Rendu d'une liste de primitives triées de l'arrière vers l'avant.
+    {type: "ligne"|"poly"|"texte"|"point", pts, prof, couleur, lw, alpha, ...} */
+function rendre(ctx, prims) {
+  prims.sort((p, q) => p.prof - q.prof);
+  for (const p of prims) {
+    ctx.save();
+    ctx.globalAlpha = p.alpha === undefined ? 1 : p.alpha;
+    if (p.type === "ligne") {
+      ctx.strokeStyle = p.couleur; ctx.lineWidth = p.lw || 1;
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+      if (p.tirets) ctx.setLineDash(p.tirets);
+      ctx.beginPath();
+      ctx.moveTo(p.pts[0][0], p.pts[0][1]);
+      for (let i = 1; i < p.pts.length; i++) ctx.lineTo(p.pts[i][0], p.pts[i][1]);
+      ctx.stroke();
+    } else if (p.type === "fleche") {
+      fleche(ctx, p.pts[0][0], p.pts[0][1], p.pts[1][0], p.pts[1][1], p.couleur,
+             p.lw || 2, p.tete || 9);
+    } else if (p.type === "poly") {
+      ctx.fillStyle = p.couleur;
+      ctx.beginPath();
+      ctx.moveTo(p.pts[0][0], p.pts[0][1]);
+      for (let i = 1; i < p.pts.length; i++) ctx.lineTo(p.pts[i][0], p.pts[i][1]);
+      ctx.closePath();
+      ctx.fill();
+      if (p.bord) { ctx.globalAlpha = 0.7; ctx.strokeStyle = p.bord; ctx.lineWidth = 1; ctx.stroke(); }
+    } else if (p.type === "texte") {
+      ctx.fillStyle = p.couleur || "#222";
+      ctx.font = (p.gras ? "bold " : "") + (p.taille || 13) + "px system-ui, sans-serif";
+      ctx.textAlign = p.align || "center"; ctx.textBaseline = "middle";
+      ctx.fillText(p.texte, p.pts[0][0], p.pts[0][1]);
+    } else if (p.type === "point") {
+      ctx.fillStyle = p.couleur;
+      ctx.beginPath(); ctx.arc(p.pts[0][0], p.pts[0][1], p.r || 3, 0, 2 * Math.PI); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+// ---------------------------------------------------------------- animation
+/** Boucle d'animation: pas(dt en s) appelée à chaque image. */
+function boucle(pas) {
+  let t0 = null;
+  function image(t) {
+    const dt = t0 === null ? 0 : Math.min(0.1, (t - t0) / 1000);
+    t0 = t;
+    pas(dt);
+    requestAnimationFrame(image);
+  }
+  requestAnimationFrame(image);
+}
+
+// ---------------------------------------------------------------- outils numériques
+/** Un pas de Runge-Kutta 4 pour dy/dt = f(t, y) (y: tableau). */
+function rk4(f, t, y, h) {
+  const n = y.length;
+  const k1 = f(t, y);
+  const y2 = y.map((v, i) => v + 0.5 * h * k1[i]);
+  const k2 = f(t + 0.5 * h, y2);
+  const y3 = y.map((v, i) => v + 0.5 * h * k2[i]);
+  const k3 = f(t + 0.5 * h, y3);
+  const y4 = y.map((v, i) => v + h * k3[i]);
+  const k4 = f(t + h, y4);
+  const r = new Array(n);
+  for (let i = 0; i < n; i++) r[i] = y[i] + h * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]) / 6;
+  return r;
+}
+
+/** Intégrales elliptiques complètes K(k) et E(k) (moyenne arithmético-géométrique). */
+function elliptiques(k) {
+  let a = 1, b = Math.sqrt(Math.max(0, 1 - k * k)), c = k, somme = 0.5 * c * c, p = 1;
+  for (let i = 0; i < 40 && Math.abs(c) > 1e-15; i++) {
+    const an = 0.5 * (a + b);
+    c = 0.5 * (a - b);
+    b = Math.sqrt(a * b);
+    a = an;
+    p *= 2;
+    somme += 0.5 * p * c * c;
+  }
+  const K = Math.PI / (2 * a);
+  return [K, K * (1 - somme)];
+}
+
+/** Lignes de niveau (carrés marchants) d'une grille V (nx × ny, ligne j = j-ième y).
+    Niveaux k·pas (|k·pas| ≤ vmax). Renvoie une liste de {k, seg} avec seg =
+    [i1, j1, i2, j2, ...] en coordonnées de grille (réelles). */
+function isolignes(V, nx, ny, pas, vmax) {
+  const parNiveau = new Map();
+  for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+    const a = V[j * nx + i], b = V[j * nx + i + 1], c = V[(j + 1) * nx + i + 1], d = V[(j + 1) * nx + i];
+    if (!(isFinite(a) && isFinite(b) && isFinite(c) && isFinite(d))) continue;
+    const mn = Math.max(Math.min(a, b, c, d), -vmax), mx = Math.min(Math.max(a, b, c, d), vmax);
+    const k0 = Math.ceil(mn / pas), k1 = Math.floor(mx / pas);
+    for (let k = k0; k <= k1; k++) {
+      const L = k * pas;
+      const idx = (a > L ? 1 : 0) | (b > L ? 2 : 0) | (c > L ? 4 : 0) | (d > L ? 8 : 0);
+      if (idx === 0 || idx === 15) continue;
+      let seg = parNiveau.get(k);
+      if (!seg) { seg = []; parNiveau.set(k, seg); }
+      const t = (u, v) => (L - u) / (v - u);
+      const bas = () => [i + t(a, b), j], droite = () => [i + 1, j + t(b, c)];
+      const haut = () => [i + t(d, c), j + 1], gauche = () => [i, j + t(a, d)];
+      const aj = (p, q) => seg.push(p[0], p[1], q[0], q[1]);
+      switch (idx) {
+        case 1: case 14: aj(bas(), gauche()); break;
+        case 2: case 13: aj(bas(), droite()); break;
+        case 3: case 12: aj(gauche(), droite()); break;
+        case 4: case 11: aj(droite(), haut()); break;
+        case 6: case 9: aj(bas(), haut()); break;
+        case 7: case 8: aj(gauche(), haut()); break;
+        case 5: case 10: {
+          const centre = (a + b + c + d) / 4 > L;
+          if ((idx === 5) === centre) { aj(bas(), droite()); aj(gauche(), haut()); }
+          else { aj(bas(), gauche()); aj(droite(), haut()); }
+        }
+      }
+    }
+  }
+  return [...parNiveau.entries()].map(([k, seg]) => ({ k, seg }));
+}
+
+/** Trace une grille de valeurs comme image: couleur(v) -> [r, g, b, a] (0..255).
+    La grille (nx × ny) couvre le rectangle écran (x, y, w, h), ligne j = 0 en bas. */
+function carteCouleur(ctx, V, nx, ny, couleur, x, y, w, h) {
+  const off = document.createElement("canvas");
+  off.width = nx; off.height = ny;
+  const oc = off.getContext("2d"), img = oc.createImageData(nx, ny);
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const c = couleur(V[j * nx + i]), d = ((ny - 1 - j) * nx + i) * 4;
+    img.data[d] = c[0]; img.data[d + 1] = c[1]; img.data[d + 2] = c[2]; img.data[d + 3] = c[3] === undefined ? 255 : c[3];
+  }
+  oc.putImageData(img, 0, 0);
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(off, x, y, w, h);
+  ctx.restore();
+}
+
+/** Palette divergente bleu-blanc-rouge pour u dans [−1, 1]. */
+function divergente(u) {
+  u = Math.max(-1, Math.min(1, u));
+  if (u >= 0) return [255, Math.round(255 * (1 - 0.8 * u)), Math.round(255 * (1 - 0.85 * u))];
+  return [Math.round(255 * (1 + 0.85 * u)), Math.round(255 * (1 + 0.6 * u)), 255];
+}
+/** Palette séquentielle (noir -> jaune clair) pour u dans [0, 1]. */
+function sequentielle(u) {
+  u = Math.max(0, Math.min(1, u));
+  return [Math.round(255 * Math.min(1, 1.6 * u)), Math.round(255 * Math.max(0, Math.min(1, 1.8 * u - 0.45))),
+          Math.round(255 * Math.max(0, 2.2 * u - 1.2) * 0.9 + 40 * (1 - u))];
+}
+</script>
+<script>
+/* ======================================================================
+   Synthèse de Fourier: somme partielle S_N(t) = a0 + Σ_{n ≤ N} (a_n cos nωt + b_n sin nωt)
+   pour des signaux usuels de période T = 1. Option: moyenne de Fejér
+   (coefficients pondérés par 1 − n/(N+1)), qui supprime le phénomène de Gibbs.
+   ====================================================================== */
+const SIGNAUX = ["Créneau", "Triangle", "Dent de scie", "Sinusoïde redressée (double alternance)", "Train d'impulsions"];
+let info = null;
+const etat = { signal: 0, N: 5, alpha: 0.25, fejer: false, composantes: true, auto: false };
+
+/** Coefficients [n, a_n, b_n] (n ≥ 1) et valeur moyenne a0. */
+function coefficients(nmax) {
+  const c = [];
+  let a0 = 0;
+  for (let n = 1; n <= nmax; n++) {
+    let a = 0, b = 0;
+    switch (etat.signal) {
+      case 0: if (n % 2) b = 4 / (Math.PI * n); break;
+      case 1: if (n % 2) a = 8 / (Math.PI * Math.PI * n * n); break;
+      case 2: b = 2 * (n % 2 ? 1 : -1) / (Math.PI * n); break;
+      case 3: a = -4 / (Math.PI * (4 * n * n - 1)); break;
+      default: a = 2 * Math.sin(Math.PI * n * etat.alpha) / (Math.PI * n);
+    }
+    c.push([n, a, b]);
+  }
+  if (etat.signal === 3) a0 = 2 / Math.PI;
+  if (etat.signal === 4) a0 = etat.alpha;
+  return [a0, c];
+}
+function ideal(t) {
+  const u = ((t % 1) + 1) % 1, v = u > 0.5 ? u - 1 : u;     // v dans ]−1/2, 1/2]
+  switch (etat.signal) {
+    case 0: return u < 0.5 ? 1 : -1;
+    case 1: return 1 - 4 * Math.abs(v);
+    case 2: return 2 * v;
+    case 3: return Math.abs(Math.sin(Math.PI * u));
+    default: return Math.abs(v) < etat.alpha / 2 ? 1 : 0;
+  }
+}
+function somme(t, a0, c, N) {
+  let s = a0;
+  for (const [n, a, b] of c) {
+    if (n > N) break;
+    const w = etat.fejer ? 1 - n / (N + 1) : 1;
+    s += w * (a * Math.cos(2 * Math.PI * n * t) + b * Math.sin(2 * Math.PI * n * t));
+  }
+  return s;
+}
+
+// ------------------------------------------------------------- tracés
+const TS = Array.from({ length: 1601 }, (_, i) => -1 + 2 * i / 1600);
+function dessinerTemps(o) {
+  const ctx = o.ctx;
+  o.effacer();
+  const N = etat.N, [a0, c] = coefficients(N);
+  const R = repere(ctx, { x: 56, y: 28, w: o.w - 74, h: o.h - 68 }, -1, 1, -1.5, 1.5,
+    { xlabel: "t / T", zero: true, titre: `Somme partielle jusqu'au rang N = ${N}` + (etat.fejer ? " (moyenne de Fejér)" : "") });
+  courbe(ctx, R, TS, TS.map(ideal), "#9aa7b8", 2);
+  const s = TS.map((t) => somme(t, a0, c, N));
+  courbe(ctx, R, TS, s, "#d32f2f", 2);
+  const ext = Math.max(...s), sup = Math.max(...TS.map(ideal));
+  if (info) info.innerHTML = `Maximum de la somme partielle: ${fmt(ext, 3)} (signal: ${fmt(sup, 2)})` +
+    (etat.signal === 0 || etat.signal === 2 ? `<br>Dépassement (Gibbs): ${fmt(100 * (ext - sup) / 2, 1)} % du saut` : "");
+  legende(ctx, R.cadre.x + R.cadre.w - 6, R.cadre.y + 6, [["signal", "#9aa7b8"], ["somme partielle", "#d32f2f"]], { droite: true });
+}
+function dessinerHarmoniques(o) {
+  const ctx = o.ctx;
+  o.effacer();
+  const [a0, c] = coefficients(Math.min(etat.N, 6));
+  const R = repere(ctx, { x: 56, y: 28, w: o.w - 74, h: o.h - 68 }, -1, 1, -1.4, 1.4,
+    { xlabel: "t / T", zero: true, titre: "Premières composantes" });
+  if (!etat.composantes) return;
+  const couleurs = ["#1f5fbf", "#2e9d3a", "#ef6c00", "#8e24aa", "#00897b", "#c2185b"];
+  if (a0) courbe(ctx, R, [-1, 1], [a0, a0], "#555", 1.5, [5, 4]);
+  c.forEach(([n, a, b], i) => {
+    if (Math.hypot(a, b) < 1e-12) return;
+    courbe(ctx, R, TS, TS.map((t) => a * Math.cos(2 * Math.PI * n * t) + b * Math.sin(2 * Math.PI * n * t)),
+           couleurs[i % 6], 1.5);
+  });
+  const items = c.filter(([, a, b]) => Math.hypot(a, b) > 1e-12).map(([n], i) => ["rang " + n, couleurs[(n - 1) % 6]]);
+  void items;
+}
+function dessinerSpectre(o) {
+  const ctx = o.ctx;
+  o.effacer();
+  const nmax = 20, [a0, c] = coefficients(nmax);
+  const R = repere(ctx, { x: 46, y: 28, w: o.w - 60, h: o.h - 68 }, -0.5, nmax + 0.5, 0, 1.4,
+    { xlabel: "rang n", titre: "Spectre d'amplitude", ny: 3 });
+  ctx.save(); clipper(ctx, R);
+  const lb = Math.max(2, 0.5 * (R.X(1) - R.X(0)));
+  const barre = (n, A, actif) => { ctx.fillStyle = actif ? "#d32f2f" : "#cfd5dd"; ctx.fillRect(R.X(n) - lb / 2, R.Y(A), lb, R.Y(0) - R.Y(A)); };
+  barre(0, Math.abs(a0), true);
+  for (const [n, a, b] of c) barre(n, Math.hypot(a, b), n <= etat.N);
+  ctx.restore();
+}
+
+// ------------------------------------------------------------- interface
+const panneau = document.getElementById("panneau");
+entete(panneau, "Synthèse de Fourier");
+const cvT = canevas(document.getElementById("z_t"), dessinerTemps);
+const cvH = canevas(document.getElementById("z_h"), dessinerHarmoniques);
+const cvS = canevas(document.getElementById("z_s"), dessinerSpectre);
+radios(panneau, "Signal", SIGNAUX, 0, (_, i) => { etat.signal = i; maj(); });
+const sP = section(panneau, "Synthèse");
+const cN = curseur(sP, { label: "rang maximal N", min: 0, max: 200, val: etat.N, pas: 1,
+  onchange: (v) => { etat.N = v; maj(); } });
+const cAl = curseur(sP, { label: "rapport cyclique α des impulsions", min: 0.05, max: 0.95, val: etat.alpha, pas: 0.05,
+  onchange: (v) => { etat.alpha = v; maj(); } });
+const bb = boutons(sP);
+const bAuto = bouton(bb, "Construire pas à pas", () => {
+  etat.auto = !etat.auto;
+  if (etat.auto && etat.N >= 60) { etat.N = 0; cN.set(0, true); }
+  bAuto.textContent = etat.auto ? "Arrêter" : "Construire pas à pas";
+});
+cases(panneau, "Options", [["moyenne de Fejér (supprime l'effet Gibbs)", false], ["afficher les premières composantes", true]],
+  (i, b) => { if (i === 0) etat.fejer = b; else etat.composantes = b; maj(); });
+info = el("div", { class: "info" }, panneau);
+el("div", { class: "info", style: "margin-top:8px", html:
+  "Créneau: b<sub>n</sub> = 4/(nπ), n impair<br>Triangle: a<sub>n</sub> = 8/(n²π²), n impair<br>" +
+  "Dent de scie: b<sub>n</sub> = 2(−1)<sup>n+1</sup>/(nπ)<br>Sinusoïde redressée: a<sub>0</sub> = 2/π, " +
+  "a<sub>n</sub> = −4/(π(4n² − 1))<br>Impulsions: a<sub>0</sub> = α, a<sub>n</sub> = 2 sin(nπα)/(nπ)" }, panneau);
+el("p", { class: "note", html:
+  "Effet Gibbs: au voisinage d'une discontinuité, la somme partielle dépasse d'environ 9 % du saut, " +
+  "quel que soit N. Les signaux continus (triangle, sinusoïde redressée) convergent bien plus vite: " +
+  "leurs coefficients décroissent en 1/n² au lieu de 1/n." }, panneau);
+
+function maj() {
+  cAl.montrer(etat.signal === 4);
+  dessinerTemps(cvT); dessinerHarmoniques(cvH); dessinerSpectre(cvS);
+}
+maj();
+let acc = 0;
+boucle((dt) => {
+  if (!etat.auto) return;
+  acc += dt;
+  if (acc > (etat.N < 10 ? 0.7 : 0.15)) {
+    acc = 0;
+    if (etat.N >= 60) { etat.auto = false; bAuto.textContent = "Construire pas à pas"; return; }
+    etat.N++; cN.set(etat.N, true); maj();
+  }
+});
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>
