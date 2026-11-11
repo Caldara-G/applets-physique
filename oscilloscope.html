@@ -247,6 +247,7 @@ details.aide li { margin-bottom: 3px; }
           </div>
           <div class="g-bas">
             <button class="tk" id="gOut" style="padding:6px 10px"><i class="led"></i>Sortie</button>
+            <button class="tk" id="gArb" style="padding:6px 10px" title="Forme arbitraire: rejouer les points d'un fichier CSV ou texte">Charger un<br>fichier (Arb)</button>
             <div class="col"><div class="bnc"></div><span class="kl">Sortie 50 Ω</span></div>
             <div class="col"><div class="bnc"></div><span class="kl">Sync</span></div>
           </div>
@@ -1575,7 +1576,7 @@ function gSoft(i) {
     if (w === '+' || w === '-') { G.wpage = w === '+' ? 1 : 0; dessinerG(); return; }
     const avant = G.wave;
     G.wave = w; if (!WPARAMS[w].includes(G.sel)) G.sel = WPARAMS[w][0];
-    if (w === 'arb' && avant !== 'arb') { arbAppliquer(); G.menu = 'params'; return; }
+    if (w === 'arb') { if (avant !== 'arb') arbAppliquer(); G.menu = 'params'; dessinerG(); return; }
     apresG(); return;
   }
   if (G.menu === 'params') {
@@ -1727,6 +1728,7 @@ function dessinerG() {
   document.getElementById('gG').addEventListener('click', () => gCurseur(1));
   document.getElementById('gD').addEventListener('click', () => gCurseur(-1));
   document.getElementById('gOut').addEventListener('click', () => { G.out = !G.out; apresG(); });
+  document.getElementById('gArb').addEventListener('click', () => arbChoisir());
   gcv.addEventListener('pointerdown', e => {
     const r = gcv.getBoundingClientRect(), x = (e.clientX - r.left) * 320 / r.width, y = (e.clientY - r.top) * 220 / r.height;
     if (y >= 188) { gSoft(Math.floor(x / (320 / 6))); return; }
