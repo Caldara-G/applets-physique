@@ -276,6 +276,7 @@ details.aide li { margin-bottom: 3px; }
       <li><b>Touches de menu</b> (Curseurs, Mesures, Voie 1…): elles affichent un menu en bas de l'écran, piloté par les six touches sous l'écran. Les cases marquées ↻ se règlent avec la molette <b>Réglage</b>.</li>
       <li><b>Curseurs</b>: ils se déplacent aussi en les faisant glisser directement sur l'écran.</li>
       <li><b>GBF</b>: choisir un paramètre avec les touches sous l'écran, puis le modifier avec la molette (le chiffre souligné change; ◀ ▶ déplacent ce chiffre) ou au pavé numérique, en terminant par l'unité.</li>
+      <li><b>Forme arbitraire (Arb)</b>: « Formes d'onde » → « Arb », puis « Charger fichier » (ou glisser un fichier sur le générateur). Fichiers texte ou CSV: une colonne de temps puis une ou plusieurs colonnes de tension (fichiers de l'oscilloscope DSOX, de LaboAnalyse, de Python; séparateur et virgule décimale détectés). Le générateur rejoue les points en boucle, comme un convertisseur numérique-analogique: filtre « Normal » (points reliés) ou « Pas » (tension bloquée entre deux échantillons). Amplitude, décalage et fréquence de répétition sont réglés d'après le fichier et restent modifiables.</li>
       <li><b>Charge 50 Ω ou Haute Z</b>: réglé sur 50 Ω, le générateur affiche la tension qu'il délivrerait sur une charge de 50 Ω; branché sur l'oscilloscope (1 MΩ), on mesure le double. La résistance de sortie de 50 Ω est prise en compte dans le montage.</li>
       <li><b>Défauts simulés</b>: bruit de l'entrée, quantification sur 8 bits, écrêtage hors écran, bande passante (70 MHz, 20 MHz avec la limite, environ 6 MHz avec une sonde ×1), couplage CA (coupure 3,5 Hz), gigue de déclenchement, sondes ×10 dont l'atténuation doit être déclarée dans le menu de la voie.</li>
       <li><b>Phase(1→2)</b>: comme sur l'appareil réel, elle est positive quand la voie 2 est en retard sur la voie 1; le déphasage de la fonction de transfert est alors son opposé.</li>
@@ -311,7 +312,7 @@ function hashG(i) {
 /* ---------- états des appareils ---------- */
 function defautsGBF() {
   return { wave: 'sine', freq: 1000, vpp: 2, offset: 0, duty: 50, sym: 100, pw: 100e-6, pe: 10e-9, nbw: 1e6,
-    load: 'HZ', out: true, ampU: 'Vpp', sel: 'freq',
+    load: 'HZ', out: true, ampU: 'Vpp', sel: 'freq', arbf: 'normal', wpage: 0,
     ce: { freq: 2, amp: -1, off: -1, duty: 0, sym: 0, pw: -6, pe: -9, nbw: 5 },
     menu: 'params', entry: null, msg: '', msgT: 0 };
 }
@@ -332,6 +333,67 @@ function defautsScope() {
 }
 const CIR = { type: 'RC_C', R: 1000, C: 100e-9, L: 10e-3, r: 10, probe: [1, 1] };
 let G = defautsGBF();
+/* ---------- forme arbitraire: points chargés depuis un fichier ---------- */
+const ARB_MAX = 20000;                   // nombre maximal de points rejoués
+function arbExemple() {                  // triangle échantillonné (20 points par période, 2 périodes)
+  const n = 40, t = new Float64Array(n), u = new Float64Array(n);
+  for (let i = 0; i < n; i++) { const ph = (i % 20) / 20; t[i] = i * 5e-5; u[i] = ph < 0.5 ? -1 + 4 * ph : 3 - 4 * ph; }
+  return arbPreparer('exemple (triangle)', t, [u], ['u'], 0);
+}
+function arbPreparer(nom, t, cols, noms, col) {
+  const x = cols[col], n = x.length;
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < n; i++) { if (x[i] < mn) mn = x[i]; if (x[i] > mx) mx = x[i]; }
+  const mid = (mn + mx) / 2, half = (mx - mn) / 2, v = new Float64Array(n);
+  let q = 0;
+  for (let i = 0; i < n; i++) { v[i] = half > 0 ? (x[i] - mid) / half : 0; q += v[i] * v[i]; }
+  const dt = t && n > 1 ? (t[n - 1] - t[0]) / (n - 1) : null;
+  return { nom, t, cols, noms, col, v, n, dt, T0: dt ? n * dt : null, vmin: mn, vmax: mx, rms: Math.sqrt(q / Math.max(1, n)) };
+}
+function nombre(s) {
+  s = s.trim().replace(/^"|"$/g, '');
+  if (s === '') return NaN;
+  return /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(s) ? parseFloat(s) : NaN;
+}
+function arbLire(texte, nom) {           // renvoie un objet ARB ou lève une erreur explicite
+  const lignes = texte.replace(/\r/g, '').split('\n');
+  let sep = null;
+  for (const l of lignes) { if (l.includes(';')) { sep = ';'; break; } if (l.includes('\t')) { sep = '\t'; break; } }
+  const decoupe = l => {
+    if (sep) return l.split(sep).map(c => c.replace(',', '.'));
+    if (l.includes(',')) return l.split(',');
+    return l.trim().split(/\s+/);
+  };
+  const rows = []; let entete = null, nc = 0;
+  for (const l of lignes) {
+    if (!l.trim()) continue;
+    const c = decoupe(l), v = c.map(nombre);
+    const ok = v.filter(x => isFinite(x)).length;
+    if (ok >= 1 && ok >= v.filter((x, i) => c[i].trim() !== '').length) {
+      if (!nc) nc = v.length;
+      rows.push(v);
+    } else if (!rows.length && !entete) entete = c.map(x => x.trim().replace(/^"|"$/g, ''));
+  }
+  if (rows.length < 2) throw new Error('aucune donnée numérique trouvée');
+  const lignesOk = rows.filter(r => r.length >= nc && r.slice(0, nc).every(x => isFinite(x)));
+  if (lignesOk.length < 2) throw new Error('colonnes incomplètes');
+  let t = null, debut = 0;
+  if (nc >= 2) {
+    let croissant = true;
+    for (let i = 1; i < lignesOk.length; i++) if (!(lignesOk[i][0] > lignesOk[i - 1][0])) { croissant = false; break; }
+    if (croissant) { t = Float64Array.from(lignesOk, r => r[0]); debut = 1; }
+  }
+  if (nc - debut < 1) throw new Error('aucune colonne de tension');
+  let k = Math.max(1, Math.ceil(lignesOk.length / ARB_MAX));
+  const sel = lignesOk.filter((r, i) => i % k === 0);
+  const cols = [], noms = [];
+  for (let j = debut; j < nc; j++) { cols.push(Float64Array.from(sel, r => r[j])); const e = entete && entete[j] ? entete[j] : ''; noms.push(/^\d+$/.test(e) ? 'voie ' + e : (e || 'colonne ' + (j + 1))); }
+  const tt = t ? Float64Array.from(sel, r => r[0]) : null;
+  const a = arbPreparer(nom, tt, cols, noms, 0);
+  a.reduit = k;
+  return a;
+}
+let ARB = arbExemple();
 let S = defautsScope();
 let MOD = null, INP = null, TAB = null;
 const ECACHE = new Map();
@@ -444,6 +506,12 @@ function buildInput() {
   } else if (G.wave === 'pulse') {
     const w = Math.min(G.pw, 0.99 * T), e = Math.min(G.pe, 0.4 * w, 0.4 * (T - w));
     pts = [[0, -1], [e, 1], [w, 1], [w + e, -1]];
+  } else if (G.wave === 'arb') {         // points du fichier rejoués périodiquement (CNA)
+    const v = ARB.v, n = v.length, h = T / n; pts = [];
+    if (G.arbf === 'pas') {
+      const te = Math.min(8.4e-9, 1e-3 * h);
+      for (let i = 0; i < n; i++) { pts.push([i * h, v[i]]); pts.push([(i + 1) * h - te, v[i]]); }
+    } else for (let i = 0; i < n; i++) pts.push([i * h, v[i]]);
   } else {                               // bruit: valeurs gaussiennes reliées linéairement
     const Nn = 16384, sp = 1 / (2.5 * G.nbw); T = Nn * sp; rs = 24681357; pts = [];
     for (let i = 0; i < Nn; i++) pts.push([i * sp, clamp(gaussR() / 3.3, -1, 1)]);
@@ -454,7 +522,7 @@ function buildInput() {
     cT[i] = pts[i][0]; uP[i] = A * pts[i][1] + O;
     sP[i] = (A * nx[1] + O - uP[i]) / (nx[0] - pts[i][0]);
   }
-  INP = { kind: 'pwl', T, cT, uP, sP, noise: G.wave === 'noise', dc: false };
+  INP = { kind: 'pwl', T, cT, uP, sP, noise: G.wave === 'noise', dc: false, arb: G.wave === 'arb', dense: n > 4096 };
 }
 
 /* ---------- propagation exacte (entrée affine par morceaux) ---------- */
@@ -537,7 +605,7 @@ function rebuild() {
   }
   const T = INP.T, cT = INP.cT;
   let nodes;
-  if (INP.noise) nodes = Float64Array.from(cT);
+  if (INP.noise || INP.dense) nodes = Float64Array.from(cT);
   else {
     const M = 4096, arr = [], tol = 1e-9 * T; let ci = 0;
     for (let j = 0; j < M; j++) {
@@ -931,7 +999,7 @@ function autoScale() {
   let td;
   if (INP.noise) td = 1 / G.nbw;
   else if (INP.dc) td = 100e-6;
-  else td = INP.T / 5;
+  else td = INP.arb ? INP.T / 10 : INP.T / 5;
   S.tdiv = TDIV.find(v => v >= td * 0.999) || TDIV[TDIV.length - 1];
   S.horiz = 'Normal'; S.delay = 0;
   S.trig.src = premier; S.trig.pente = 1; S.trig.mode = 'Auto';
@@ -1415,15 +1483,15 @@ cv.addEventListener('pointercancel', () => { glisse = null; });
 
 /* ========================= GBF ========================= */
 const WPARAMS = { sine: ['freq', 'amp', 'off'], square: ['freq', 'amp', 'off', 'duty'], ramp: ['freq', 'amp', 'off', 'sym'],
-  pulse: ['freq', 'amp', 'off', 'pw', 'pe'], noise: ['nbw', 'amp', 'off'], dc: ['off'] };
-const WNOM = { sine: 'Sinus', square: 'Carré', ramp: 'Rampe', pulse: 'Impulsion', noise: 'Bruit', dc: 'Continu' };
-const WORDRE = ['sine', 'square', 'ramp', 'pulse', 'noise', 'dc'];
+  pulse: ['freq', 'amp', 'off', 'pw', 'pe'], noise: ['nbw', 'amp', 'off'], dc: ['off'], arb: ['freq', 'amp', 'off'] };
+const WNOM = { sine: 'Sinus', square: 'Carré', ramp: 'Rampe', pulse: 'Impulsion', noise: 'Bruit', dc: 'Continu', arb: 'Arb' };
+const WPAGES = [['sine', 'square', 'ramp', 'pulse', 'arb', '+'], ['noise', 'dc', null, null, null, '-']];
 const Vmax = () => G.load === '50' ? 5 : 10;
 const vppMin = () => G.load === '50' ? 1e-3 : 2e-3;
-const fmax = () => G.wave === 'ramp' ? 200e3 : 20e6;
+const fmax = () => G.wave === 'ramp' ? 200e3 : (G.wave === 'arb' ? Math.min(20e6, 250e6 / ARB.n) : 20e6);
 function ampK() {
   if (G.ampU !== 'Vrms') return 1;
-  return { sine: 1 / (2 * Math.SQRT2), square: 0.5, ramp: 1 / (2 * Math.sqrt(3)), pulse: 0.5, noise: 1 / 6.6, dc: 1 }[G.wave];
+  return { sine: 1 / (2 * Math.SQRT2), square: 0.5, ramp: 1 / (2 * Math.sqrt(3)), pulse: 0.5, noise: 1 / 6.6, dc: 1, arb: ARB.rms / 2 || 0.5 }[G.wave];
 }
 const GP = {
   freq: { nom: 'Fréquence', court: 'Fréquence', get: () => G.freq, set: v => { G.freq = v; }, lim: () => [1e-6, fmax()], u: () => 'Hz', pref: 'auto', dec: 6, ce: [-6, 7] },
@@ -1503,11 +1571,22 @@ function gSoft(i) {
     apresG(); return;
   }
   if (G.menu === 'waves') {
-    const w = WORDRE[i]; if (!w) return;
+    const w = WPAGES[G.wpage][i]; if (!w) return;
+    if (w === '+' || w === '-') { G.wpage = w === '+' ? 1 : 0; dessinerG(); return; }
+    const avant = G.wave;
     G.wave = w; if (!WPARAMS[w].includes(G.sel)) G.sel = WPARAMS[w][0];
+    if (w === 'arb' && avant !== 'arb') { arbAppliquer(); G.menu = 'params'; return; }
     apresG(); return;
   }
-  if (G.menu === 'params') { const k = WPARAMS[G.wave][i]; if (k) { G.sel = k; dessinerG(); } return; }
+  if (G.menu === 'params') {
+    if (G.wave === 'arb' && i >= 3) {
+      if (i === 3) arbChoisir();
+      else if (i === 4) { G.arbf = G.arbf === 'pas' ? 'normal' : 'pas'; apresG(); }
+      else if (i === 5 && ARB.cols.length > 1) { ARB = arbPreparer(ARB.nom, ARB.t, ARB.cols, ARB.noms, (ARB.col + 1) % ARB.cols.length); ARB.reduit = 1; arbAppliquer(); gMsg('Colonne: ' + ARB.noms[ARB.col]); }
+      return;
+    }
+    const k = WPARAMS[G.wave][i]; if (k) { G.sel = k; dessinerG(); } return;
+  }
   if (G.menu === 'units') { if (i === 0) { G.ampU = G.ampU === 'Vpp' ? 'Vrms' : 'Vpp'; dessinerG(); } return; }
   if (G.menu === 'sortie') {
     if (i === 0) {
@@ -1518,8 +1597,15 @@ function gSoft(i) {
 }
 function gEtiquettes() {
   if (G.menu === 'entry') { const U = unites(G.entry.key).map(u => ({ l1: u[0], l2: '' })); while (U.length < 5) U.push(null); U.push({ l1: 'Annuler', l2: '' }); return U; }
-  if (G.menu === 'waves') return WORDRE.map(w => ({ l1: WNOM[w], l2: '', on: w === G.wave }));
-  if (G.menu === 'params') { const L = WPARAMS[G.wave].map(k => ({ l1: GP[k].court, l2: '', on: k === G.sel })); while (L.length < 6) L.push(null); return L; }
+  if (G.menu === 'waves') return WPAGES[G.wpage].map(w => !w ? null : (w === '+' ? { l1: 'Autres', l2: '▸' } : (w === '-' ? { l1: '◂ Retour', l2: '' } : { l1: WNOM[w], l2: '', on: w === G.wave })));
+  if (G.menu === 'params') {
+    const L = WPARAMS[G.wave].map(k => ({ l1: GP[k].court, l2: '', on: k === G.sel }));
+    if (G.wave === 'arb') {
+      L.push({ l1: 'Charger', l2: 'fichier…' }, { l1: 'Filtre', l2: G.arbf === 'pas' ? 'Pas' : 'Normal' });
+      L.push(ARB.cols.length > 1 ? { l1: 'Colonne', l2: (ARB.col + 1) + '/' + ARB.cols.length } : null);
+    }
+    while (L.length < 6) L.push(null); return L;
+  }
   if (G.menu === 'units') return [{ l1: 'Amplitude', l2: G.ampU }, null, null, null, null, null];
   return [{ l1: 'Charge', l2: G.load === '50' ? '50 Ω' : 'Haute Z' }, { l1: 'Réglages', l2: 'par défaut' }, null, null, null, null];
 }
@@ -1531,8 +1617,41 @@ function forme(ph) {
     case 'ramp': { const s = G.sym / 100; if (s <= 0) return 1 - 2 * ph; if (s >= 1) return -1 + 2 * ph; return ph < s ? -1 + 2 * ph / s : 1 - 2 * (ph - s) / (1 - s); }
     case 'pulse': return ph < Math.min(0.95, G.pw * G.freq) ? 1 : -1;
     case 'noise': return clamp(hashG(Math.floor(ph * 60) + 17) / 2.5, -1, 1);
+    case 'arb': {
+      const n = ARB.n, x = ph * n, i = Math.floor(x) % n;
+      if (G.arbf === 'pas') return ARB.v[i];
+      const j = (i + 1) % n, f = x - Math.floor(x); return ARB.v[i] + (ARB.v[j] - ARB.v[i]) * f;
+    }
     default: return 0;
   }
+}
+function arbAppliquer() {               // règle le générateur d'après le fichier chargé
+  G.wave = 'arb';
+  if (ARB.T0) G.freq = +(1 / ARB.T0).toPrecision(9);
+  const vpp = Math.max(ARB.vmax - ARB.vmin, vppMin()), mid = (ARB.vmax + ARB.vmin) / 2;
+  const g = G.load === '50' ? 0.5 : 1;   // en 50 Ω, le générateur affiche la moitié de la f.é.m.
+  G.vpp = vpp * g; G.offset = mid * g;
+  if (G.vpp > 2 * Vmax()) { G.vpp = 2 * Vmax(); gMsg('Amplitude limitée'); }
+  G.sel = 'freq'; G.menu = 'params';
+  apresG();
+}
+let arbInput = null;
+function arbChoisir() {
+  if (!arbInput) {
+    arbInput = document.createElement('input'); arbInput.type = 'file'; arbInput.accept = '.csv,.txt,.dat,.tsv,text/plain,text/csv';
+    arbInput.style.display = 'none'; document.body.appendChild(arbInput);
+    arbInput.addEventListener('change', () => { const f = arbInput.files[0]; arbInput.value = ''; if (f) arbFichier(f); });
+  }
+  arbInput.click();
+}
+function arbFichier(f) {
+  const lecteur = new FileReader();
+  lecteur.onload = () => {
+    try { ARB = arbLire(String(lecteur.result), f.name); arbAppliquer(); gMsg('Fichier chargé: ' + ARB.n + ' points'); }
+    catch (err) { gMsg('Fichier illisible: ' + (err.message || err)); }
+  };
+  lecteur.onerror = () => gMsg('Lecture impossible');
+  lecteur.readAsText(f);
 }
 function dessinerG() {
   const g = gctx; g.setTransform(dprG, 0, 0, dprG, 0, 0);
@@ -1555,6 +1674,12 @@ function dessinerG() {
     const x = 10 + i * 106 / 220; i ? g.lineTo(x, y) : g.moveTo(x, y);
   }
   g.stroke(); g.lineWidth = 1;
+  if (G.wave === 'arb' && !G.entry && !(G.msg && performance.now() < G.msgT)) {
+    g.fillStyle = '#9fb6cf'; g.font = '10px ' + FC; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    const nm = ARB.nom.length > 22 ? ARB.nom.slice(0, 21) + '…' : ARB.nom;
+    g.fillText(nm, 8, 130); g.fillText(ARB.n + ' points' + (ARB.reduit > 1 ? ' (1 sur ' + ARB.reduit + ')' : ''), 8, 143);
+    if (ARB.cols.length > 1) g.fillText('colonne: ' + ARB.noms[ARB.col].slice(0, 14), 8, 156);
+  }
   // paramètres
   let y = 26;
   for (const key of WPARAMS[G.wave]) {
@@ -1609,6 +1734,12 @@ function dessinerG() {
   });
 })();
 molette('gKnob', d => gTourner(d), null, 'Molette du générateur');
+(function () {                            // glisser-déposer d'un fichier sur le générateur
+  const z = document.getElementById('instG');
+  z.addEventListener('dragover', e => { e.preventDefault(); z.style.outline = '3px dashed #5aa0ff'; });
+  z.addEventListener('dragleave', () => { z.style.outline = ''; });
+  z.addEventListener('drop', e => { e.preventDefault(); z.style.outline = ''; const f = e.dataTransfer.files[0]; if (f) arbFichier(f); });
+})();
 
 /* ========================= MONTAGE ========================= */
 const TYPES = [
