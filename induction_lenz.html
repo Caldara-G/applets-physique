@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Induction et loi de Lenz — MP* Malherbe</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px; color: #222; background: #eef0f3;
+}
+#app { display: flex; height: 100vh; }
+#principal { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0;
+  padding: 8px; gap: 8px; }
+.ligne-zones { display: flex; gap: 8px; min-height: 0; }
+.zone { position: relative; flex: 1; min-height: 0; min-width: 0; background: #fff;
+  border: 1px solid #d5d9df; border-radius: 6px; overflow: hidden; }
+.zone canvas { position: absolute; left: 0; top: 0; touch-action: none; }
+#panneau { width: 340px; flex: none; overflow-y: auto; background: #fff;
+  border-left: 1px solid #d5d9df; padding: 10px 14px 20px; }
+#panneau h1 { font-size: 16px; margin: 4px 0 2px; }
+.retour { font-size: 12px; color: #4a6fa5; text-decoration: none; }
+.retour:hover { text-decoration: underline; }
+.section { margin: 8px 0; padding-bottom: 8px; border-bottom: 1px solid #eceef1; }
+.section:last-child { border-bottom: none; }
+.titre { font-weight: 600; margin-bottom: 4px; color: #333; }
+.choix { display: flex; align-items: center; gap: 6px; padding: 1px 0; cursor: pointer;
+  user-select: none; }
+.choix input { margin: 0 2px 0 0; }
+.choix.off { color: #aaa; cursor: default; }
+.curseur { margin: 7px 0; }
+.curseur .tete { display: flex; justify-content: space-between; align-items: center;
+  gap: 6px; }
+.curseur .valeur { display: flex; align-items: center; gap: 2px; flex: none; }
+.saisie { width: 66px; text-align: right; font: inherit; padding: 1px 4px;
+  border: 1px solid #c9cdd3; border-radius: 3px; }
+.pm { width: 20px; height: 20px; padding: 0; border: 1px solid #c9cdd3;
+  background: #f5f6f8; border-radius: 3px; cursor: pointer; line-height: 1; }
+.pm:hover { background: #e6e9ee; }
+input[type=range] { width: 100%; margin: 3px 0 0; accent-color: #3b6fb6; }
+.boutons { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+button.b { padding: 5px 10px; border: 1px solid #b8bec8; background: #f3f4f6;
+  border-radius: 4px; cursor: pointer; font: inherit; }
+button.b:hover { background: #e4e7ec; }
+button.b.actif { background: #dce7f7; border-color: #7f9fcf; }
+.info { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 4px;
+  padding: 6px 8px; line-height: 1.5; }
+.note { font-size: 11.5px; color: #666; font-style: italic; line-height: 1.4; }
+.dialogue { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: none;
+  align-items: center; justify-content: center; z-index: 10; }
+.dialogue .boite { background: #fff; border-radius: 8px; padding: 16px 20px;
+  min-width: 340px; box-shadow: 0 6px 30px rgba(0,0,0,0.25); }
+.dialogue table td { padding: 3px 6px; }
+.dialogue input[type=text] { width: 80px; font: inherit; padding: 2px 4px; }
+.erreur { color: #c62828; }
+@media (max-width: 900px) {
+  #app { flex-direction: column; height: auto; }
+  #principal { height: 75vh; }
+  #panneau { width: 100%; border-left: none; border-top: 1px solid #d5d9df; }
+}
+.haut { display: flex; justify-content: space-between; align-items: center; }
+.etiquette { font-size: 11.5px; font-weight: 600; color: #fff; background: #3b5f96;
+  border-radius: 10px; padding: 2px 9px; letter-spacing: 0.02em; }
+.filigrane { position: absolute; right: 16px; bottom: 14px; z-index: 5; pointer-events: none;
+  font-size: 13px; font-weight: 700; color: #3b5f96; background: rgba(255,255,255,0.82);
+  border: 1px solid rgba(59,95,150,0.35); border-radius: 12px; padding: 3px 11px; }
+.etapes { display: flex; flex-direction: column; gap: 3px; margin-bottom: 4px; }
+button.b.etape { text-align: left; padding: 4px 8px; }
+button.b:disabled { opacity: 0.45; cursor: default; }
+.explication { line-height: 1.55; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="principal">
+    <div class="zone" id="z_vue" data-mt-nom="Schéma" style="flex: 1"></div>
+  </div>
+  <div id="panneau"></div>
+</div>
+<script>
+"use strict";
+/* ======================================================================
+   Bibliothèque commune aux applets (aucune dépendance externe)
+   - interface: sections, curseurs (−/+, saisie, molette), boutons radio,
+     cases à cocher, boutons
+   - canvas: adaptation à la taille et à la résolution de l'écran,
+     repères gradués, courbes, flèches, légendes
+   - 3D: projection en perspective, rotation à la souris, tri en profondeur
+   ====================================================================== */
+
+// ---------------------------------------------------------------- DOM
+function el(tag, attrs, parent) {
+  const e = document.createElement(tag);
+  if (attrs) {
+    for (const k in attrs) {
+      const v = attrs[k];
+      if (k === "text") e.textContent = v;
+      else if (k === "html") e.innerHTML = v;
+      else if (k === "class") e.className = v;
+      else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v);
+    }
+  }
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+/** Nombre écrit avec une virgule décimale. */
+function fmt(v, d) {
+  if (v === Infinity) return "∞";
+  if (v === -Infinity) return "−∞";
+  if (!isFinite(v)) return "—";
+  let s = v.toFixed(d);
+  if (/^-0(\.0*)?$/.test(s)) s = s.slice(1);
+  return s.replace(".", ",").replace("-", "−");
+}
+
+function section(parent, titre) {
+  const s = el("div", { class: "section" }, parent);
+  if (titre) el("div", { class: "titre", html: titre }, s);
+  return s;
+}
+
+/** Curseur avec boutons −/+, saisie au clavier et molette.
+    o = {label, min, max, val, pas, dec, onchange} */
+function curseur(parent, o) {
+  const ligne = el("div", { class: "curseur" }, parent);
+  const tete = el("div", { class: "tete" }, ligne);
+  el("span", { html: o.label }, tete);
+  const zone = el("span", { class: "valeur" }, tete);
+  const moins = el("button", { class: "pm", text: "−", title: "diminuer" }, zone);
+  const saisie = el("input", { type: "text", class: "saisie" }, zone);
+  const plus = el("button", { class: "pm", text: "+", title: "augmenter" }, zone);
+  const r = el("input", { type: "range", min: o.min, max: o.max, step: "any" }, ligne);
+  const dec = o.dec !== undefined ? o.dec
+    : Math.max(0, -Math.floor(Math.log10(o.pas) + 1e-9));
+  let v = o.val;
+  function borne(x) {
+    x = Math.min(Math.max(x, o.min), o.max);
+    return +(o.min + Math.round((x - o.min) / o.pas) * o.pas).toFixed(10);
+  }
+  function afficher() { r.value = v; saisie.value = fmt(v, dec); }
+  function regler(x, silencieux) {
+    x = borne(x);
+    const change = Math.abs(x - v) > 1e-12;
+    v = x;
+    afficher();
+    if (change && !silencieux && o.onchange) o.onchange(v);
+  }
+  r.addEventListener("input", () => regler(parseFloat(r.value)));
+  saisie.addEventListener("change", () => {
+    const x = parseFloat(saisie.value.replace(",", ".").replace("−", "-"));
+    if (isFinite(x)) regler(x); else afficher();
+  });
+  saisie.addEventListener("keydown", (e) => { if (e.key === "Enter") saisie.blur(); });
+  moins.addEventListener("click", () => regler(v - o.pas));
+  plus.addEventListener("click", () => regler(v + o.pas));
+  r.addEventListener("keydown", (e) => {
+    const sauts = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1,
+                    PageUp: 10, PageDown: -10 };
+    if (e.key in sauts) { e.preventDefault(); regler(v + sauts[e.key] * o.pas); }
+  });
+  ligne.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    regler(v + (e.deltaY < 0 ? 1 : -1) * o.pas * (e.shiftKey ? 10 : 1));
+  }, { passive: false });
+  afficher();
+  return {
+    get: () => v,
+    set: (x, silencieux) => regler(x, silencieux),
+    ligne,
+    montrer: (b) => { ligne.style.display = b ? "" : "none"; },
+  };
+}
+
+/** Groupe de boutons radio. onchange(valeur, indice). */
+function radios(parent, titre, options, actif, onchange) {
+  const s = section(parent, titre);
+  const nom = "r" + Math.random().toString(36).slice(2);
+  const items = options.map((opt, i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "radio", name: nom }, lab);
+    el("span", { html: opt }, lab);
+    if (i === actif) inp.checked = true;
+    inp.addEventListener("change", () => {
+      if (inp.checked && onchange) onchange(opt, i);
+    });
+    return { inp, lab };
+  });
+  return {
+    indice: () => items.findIndex((o) => o.inp.checked),
+    valeur: () => options[items.findIndex((o) => o.inp.checked)],
+    set: (i, silencieux) => {
+      items[i].inp.checked = true;
+      if (!silencieux && onchange) onchange(options[i], i);
+    },
+    desactiver: (i, b) => {
+      items[i].inp.disabled = b;
+      items[i].lab.classList.toggle("off", b);
+    },
+    section: s,
+  };
+}
+
+/** Cases à cocher. options = [[libellé, coché], ...]. onchange(indice, état). */
+function cases(parent, titre, options, onchange) {
+  const s = section(parent, titre);
+  const items = options.map(([texte, coche], i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "checkbox" }, lab);
+    inp.checked = coche;
+    el("span", { html: texte }, lab);
+    inp.addEventListener("change", () => onchange && onchange(i, inp.checked));
+    return inp;
+  });
+  return {
+    get: (i) => items[i].checked,
+    set: (i, b, silencieux) => {
+      items[i].checked = b;
+      if (!silencieux && onchange) onchange(i, b);
+    },
+    section: s,
+  };
+}
+
+function boutons(parent) { return el("div", { class: "boutons" }, parent); }
+function bouton(parent, texte, onclick) {
+  return el("button", { class: "b", html: texte, onclick }, parent);
+}
+
+/** En-tête du panneau de commandes. */
+function entete(panneau, titre) {
+  const haut = el("div", { class: "haut" }, panneau);
+  el("a", { class: "retour", href: "animations.html", text: "← Animations" }, haut);
+  el("span", { class: "etiquette", text: "MP* Malherbe" }, haut);
+  // filigrane visible en permanence sur la zone de simulation
+  const principal = document.getElementById("principal");
+  if (principal) el("div", { class: "filigrane", text: "MP* Malherbe" }, principal);
+  el("h1", { html: titre }, panneau);
+}
+
+// ---------------------------------------------------------------- canvas
+/** Canvas qui remplit son conteneur et se redessine quand il change de taille. */
+function canevas(conteneur, dessiner) {
+  const cv = el("canvas", null, conteneur);
+  const ctx = cv.getContext("2d");
+  const obj = { cv, ctx, w: 1, h: 1, dessiner };
+  function taille() {
+    const r = conteneur.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    obj.w = Math.max(10, Math.floor(r.width));
+    obj.h = Math.max(10, Math.floor(r.height));
+    cv.width = Math.round(obj.w * dpr);
+    cv.height = Math.round(obj.h * dpr);
+    cv.style.width = obj.w + "px";
+    cv.style.height = obj.h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (obj.dessiner) obj.dessiner(obj);
+  }
+  obj.effacer = (fond) => {
+    ctx.fillStyle = fond || "#fff";
+    ctx.fillRect(0, 0, obj.w, obj.h);
+  };
+  new ResizeObserver(taille).observe(conteneur);
+  taille();
+  return obj;
+}
+
+function boucle(pas) {
+  let t0 = null;
+  function image(t) {
+    const dt = t0 === null ? 0 : Math.min(0.1, (t - t0) / 1000);
+    t0 = t;
+    pas(dt);
+    requestAnimationFrame(image);
+  }
+  requestAnimationFrame(image);
+}
+
+// ====================================================================== applet
+/* Induction et loi de Lenz: (1) aimant qui approche ou s'éloigne d'une spire;
+   (2) rail de Laplace dans un champ uniforme. Raisonnement en signes, sans valeurs numériques. */
+
+const COUL = { B: "#1f5fbf", flux: "#9ec5f0", i: "#c62828", Bi: "#7b2d8e", F: "#2e7d32", n: "#e67e22", circ: "#333" };
+const p = { cas: 0, etape: 0, tau: 0, t: 0, lecture: true, pole: 1, mouv: 1, sensB: 1, sensV: 1, vitesse: 1 };
+// pole: 1 si le pôle Nord fait face à la spire; mouv: 1 approche, −1 éloignement
+// sensB: 1 si B sort de l'écran (rail); sensV: 1 si la tige va vers la droite
+
+const ETAPES = ["La situation", "Variation du flux", "Orientation et f.é.m.", "Courant induit", "Loi de Lenz"];
+
+// ---------------------------------------------------------------- interface
+const panneau = document.getElementById("panneau");
+entete(panneau, "Induction et loi de Lenz");
+radios(panneau, "Situation", ["aimant et spire", "rail de Laplace"], 0, (v, i) => { p.cas = i; majReglages(); aller(0); });
+const sEt = section(panneau, "Étapes");
+const listeEt = el("div", { class: "etapes" }, sEt);
+const boutonsEt = ETAPES.map((t, k) =>
+  el("button", { class: "b etape", html: (k + 1) + ". " + t, onclick: () => aller(k) }, listeEt));
+const bt = boutons(sEt);
+const bPrec = bouton(bt, "◀ Précédente", () => aller(p.etape - 1));
+bouton(bt, "⟲ Rejouer", () => aller(p.etape));
+const bSuiv = bouton(bt, "Suivante ▶", () => aller(p.etape + 1));
+const explication = el("div", { class: "info explication" }, section(panneau, "Raisonnement"));
+const sReg = section(panneau, "Réglages");
+const rPole = radios(sReg, "Pôle tourné vers la spire", ["Nord", "Sud"], 0, (v, i) => { p.pole = i === 0 ? 1 : -1; aller(p.etape); });
+const rMouv = radios(sReg, "Mouvement de l'aimant", ["il s'approche", "il s'éloigne"], 0, (v, i) => { p.mouv = i === 0 ? 1 : -1; aller(p.etape); });
+const rB = radios(sReg, "Champ magnétique", ["sortant de l'écran ⊙", "entrant dans l'écran ⊗"], 0, (v, i) => { p.sensB = i === 0 ? 1 : -1; aller(p.etape); });
+const rV = radios(sReg, "Mouvement de la tige", ["vers la droite", "vers la gauche"], 0, (v, i) => { p.sensV = i === 0 ? 1 : -1; aller(p.etape); });
+curseur(sReg, { label: "Vitesse de l'animation", min: 0.3, max: 2, val: 1, pas: 0.1, onchange: (v) => { p.vitesse = v; } });
+function majReglages() {
+  [rPole, rMouv].forEach((r) => (r.section.style.display = p.cas === 0 ? "" : "none"));
+  [rB, rV].forEach((r) => (r.section.style.display = p.cas === 1 ? "" : "none"));
+}
+
+// signes (convention: normale orientée n, sens positif du circuit par la règle de la main droite)
+function signes() {
+  if (p.cas === 0) {
+    // spire dans le plan x = 0, normale n = +ux (vers l'aimant); le champ de l'aimant sur l'axe
+    // sort du pôle Nord: si N fait face à la spire, B est selon −ux au niveau de la spire.
+    const Bx = -p.pole, dAbs = p.mouv;            // |B| croît si l'aimant approche
+    const dPhi = Bx * dAbs, e = -dPhi;
+    return { Bx, dPhi, e, i: e };
+  }
+  const Bz = p.sensB, dS = p.sensV;               // S = ℓ x croît si la tige va vers la droite
+  const dPhi = Bz * dS, e = -dPhi;
+  return { Bz, dPhi, e, i: e };
+}
+const mot = (s, plus, moins) => (s > 0 ? plus : moins);
+function texteEtape() {
+  const s = signes(), e = p.etape, L = [];
+  if (p.cas === 0) {
+    L.push("Un aimant, pôle <b>" + mot(p.pole, "Nord", "Sud") + "</b> tourné vers la spire, <b>" + mot(p.mouv, "s'approche", "s'éloigne") +
+      "</b> de la spire fixe. Le champ de l'aimant traverse la spire.");
+    if (e >= 1) L.push("<b>Flux.</b> Le champ de l'aimant au niveau de la spire " + mot(p.mouv, "augmente", "diminue") +
+      " en norme: le flux à travers la spire varie. Il y a induction (circuit fixe dans un champ variable: cas de Neumann).");
+    if (e >= 2) L.push("<b>Orientation.</b> On oriente la spire: normale <b style='color:" + COUL.n + "'>n</b> vers l'aimant, sens positif donné par la règle de la main droite. " +
+      "Φ = <b>B</b>·<b>n</b> S est " + mot(s.Bx, "positif", "négatif") + " et dΦ/dt " + mot(s.dPhi, "&gt; 0", "&lt; 0") +
+      ". Loi de Faraday: e = −dΦ/dt " + mot(s.e, "&gt; 0", "&lt; 0") + ".");
+  } else {
+    L.push("Une tige conductrice glisse sur deux rails reliés par une résistance, dans un champ <b>B</b> uniforme " +
+      mot(p.sensB, "sortant de l'écran", "entrant dans l'écran") + ". Un opérateur déplace la tige " + mot(p.sensV, "vers la droite", "vers la gauche") + ".");
+    if (e >= 1) L.push("<b>Flux.</b> La surface du circuit " + mot(p.sensV, "augmente", "diminue") +
+      ": le flux de <b>B</b> varie. Il y a induction (circuit mobile dans un champ permanent: cas de Lorentz).");
+    if (e >= 2) L.push("<b>Orientation.</b> On oriente le circuit dans le sens trigonométrique: normale <b style='color:" + COUL.n + "'>n</b> sortant de l'écran. " +
+      "Φ = B S " + mot(s.Bz, "&gt; 0", "&lt; 0") + ", dΦ/dt " + mot(s.dPhi, "&gt; 0", "&lt; 0") + ", donc e = −dΦ/dt " + mot(s.e, "&gt; 0", "&lt; 0") + ".");
+  }
+  if (e >= 3) L.push("<b style='color:" + COUL.i + "'>Courant induit.</b> i = e/R est " + mot(s.i, "positif", "négatif") +
+    ": il circule dans le sens " + mot(s.i, "positif", "négatif (opposé à l'orientation choisie)") + ".");
+  if (e >= 4) {
+    if (p.cas === 0) L.push("<b>Loi de Lenz.</b> Le courant induit crée un <b style='color:" + COUL.Bi + "'>champ induit</b> qui " +
+      mot(p.mouv, "s'oppose à l'augmentation", "compense la diminution") + " du flux. La spire se comporte comme un aimant qui présente un pôle <b>" +
+      mot(p.mouv, mot(p.pole, "Nord", "Sud"), mot(p.pole, "Sud", "Nord")) + "</b> à l'aimant: elle le <b style='color:" + COUL.F + "'>" +
+      mot(p.mouv, "repousse", "retient") + "</b>. Les effets s'opposent toujours à la cause qui leur a donné naissance.");
+    else L.push("<b>Loi de Lenz.</b> La tige parcourue par i subit la <b style='color:" + COUL.F + "'>force de Laplace</b> " +
+      "<b>F</b> = i <b>ℓ</b> ∧ <b>B</b>, qui est opposée à sa vitesse: elle la <b>freine</b>, quel que soit le sens de <b>B</b> ou du mouvement. " +
+      "L'opérateur doit fournir un travail, converti en énergie électrique puis en chaleur dans la résistance.");
+  }
+  return L.join("<br><br>");
+}
+function majBoutons() {
+  boutonsEt.forEach((b, k) => b.classList.toggle("actif", k === p.etape));
+  bPrec.disabled = p.etape === 0; bSuiv.disabled = p.etape === ETAPES.length - 1;
+  explication.innerHTML = texteEtape();
+}
+function aller(k) {
+  if (k < 0 || k >= ETAPES.length) return;
+  p.etape = k; p.tau = 0; p.t = 0; majBoutons();
+}
+
+// ---------------------------------------------------------------- dessin
+const cv = canevas(document.getElementById("z_vue"), () => {});
+let V = null;
+function cadrer() {
+  const k = Math.min(cv.w / 11, (cv.h * 0.68) / 6);
+  V = { k, X: (P) => [cv.w / 2 + k * P[0], cv.h * 0.36 - k * P[1]] };
+}
+function fl(ctx, A, B, coul, larg, texte, alpha) {
+  const [x1, y1] = V.X(A), [x2, y2] = V.X(B), L = Math.hypot(x2 - x1, y2 - y1);
+  if (L < 3) return;
+  const a = Math.atan2(y2 - y1, x2 - x1), h = Math.min(13, 0.45 * L);
+  ctx.save(); ctx.globalAlpha = alpha === undefined ? 1 : alpha; ctx.strokeStyle = coul; ctx.fillStyle = coul; ctx.lineWidth = larg || 2;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2 - 0.7 * h * Math.cos(a), y2 - 0.7 * h * Math.sin(a)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - h * Math.cos(a - 0.4), y2 - h * Math.sin(a - 0.4));
+  ctx.lineTo(x2 - h * Math.cos(a + 0.4), y2 - h * Math.sin(a + 0.4)); ctx.closePath(); ctx.fill();
+  if (texte) { ctx.font = "bold 14px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(texte, x2 + 16 * Math.cos(a), y2 + 16 * Math.sin(a)); }
+  ctx.restore();
+}
+function txt(ctx, P, t, coul, police, dx, dy) {
+  const [x, y] = V.X(P); ctx.save(); ctx.fillStyle = coul; ctx.font = police || "bold 14px system-ui";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(t, x + (dx || 0), y + (dy || 0)); ctx.restore();
+}
+/** Petit graphe qualitatif (sans graduations) d'une grandeur f(u), u ∈ [0, 1], tracé jusqu'à u0. */
+function graphe(ctx, x0, y0, w, h, f, u0, titre, coul) {
+  ctx.save(); ctx.strokeStyle = "#999"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x0, y0 - h / 2); ctx.lineTo(x0 + w, y0 - h / 2); ctx.moveTo(x0, y0 - h); ctx.lineTo(x0, y0); ctx.stroke();
+  ctx.fillStyle = "#555"; ctx.font = "13px system-ui"; ctx.fillText(titre, x0 + 6, y0 - h - 4);
+  ctx.fillText("t", x0 + w - 8, y0 - h / 2 + 14);
+  ctx.strokeStyle = coul; ctx.lineWidth = 2.2; ctx.beginPath();
+  for (let i = 0; i <= 100; i++) { const u = u0 * i / 100, x = x0 + w * u, y = y0 - h / 2 - 0.45 * h * f(u); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+  ctx.stroke(); ctx.restore();
+}
+
+// --- aimant et spire
+const R_SP = 1.1;
+function xAimant(u) { const a = 4.2, b = 1.6; return p.mouv > 0 ? a + (b - a) * u : b + (a - b) * u; }
+function Baxe(x) { return 1 / Math.pow(x * x + R_SP * R_SP, 1.5); }          // champ d'un dipôle sur son axe (forme)
+function lignesAimant(ctx, xa) {
+  // dipôle centré au milieu de l'aimant, lignes r = L sin²θ
+  const c = xa + 0.9;
+  ctx.save(); ctx.strokeStyle = COUL.B; ctx.globalAlpha = 0.45; ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.rect(0, 0, cv.w, cv.h * 0.66); ctx.clip();
+  for (const L0 of [1.3, 2.0, 2.9]) for (const sg of [1, -1]) {
+    ctx.beginPath();
+    for (let i = 1; i < 120; i++) {
+      const th = Math.PI * i / 120, r = L0 * Math.sin(th) ** 2, P = [c + r * Math.cos(th), sg * r * Math.sin(th)];
+      const [x, y] = V.X(P); if (i > 1) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function dessinerAimant(ctx) {
+  const s = signes(), e = p.etape, u = Math.min(1, p.t), xa = xAimant(u);
+  lignesAimant(ctx, xa);
+  // aimant: de xa à xa + 1.8, pôle tourné vers la spire à gauche
+  const [x1, y1] = V.X([xa, 0.35]), [x2, y2] = V.X([xa + 1.8, -0.35]), xm = (x1 + x2) / 2;
+  const gauche = p.pole > 0 ? "#d32f2f" : "#1565c0", droite = p.pole > 0 ? "#1565c0" : "#d32f2f";
+  ctx.fillStyle = gauche; ctx.fillRect(x1, y1, xm - x1, y2 - y1);
+  ctx.fillStyle = droite; ctx.fillRect(xm, y1, x2 - xm, y2 - y1);
+  ctx.fillStyle = "#fff"; ctx.font = "bold 16px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(p.pole > 0 ? "N" : "S", (x1 + xm) / 2, (y1 + y2) / 2); ctx.fillText(p.pole > 0 ? "S" : "N", (xm + x2) / 2, (y1 + y2) / 2);
+  fl(ctx, [xa + 0.9, 0.7], [xa + 0.9 - 0.8 * p.mouv, 0.7], "#555", 2, p.mouv > 0 ? "v" : "v", 1);
+  // spire (vue en perspective: ellipse)
+  const [cx, cy] = V.X([0, 0]);
+  // flux: disque coloré dont l'intensité suit |B|
+  if (e >= 1) { ctx.save(); ctx.globalAlpha = Math.min(0.85, 0.15 + 2.2 * Baxe(xa)); ctx.fillStyle = COUL.flux;
+    ctx.beginPath(); ctx.ellipse(cx, cy, 0.28 * V.k, R_SP * V.k, 0, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
+  }
+  ctx.save(); ctx.strokeStyle = COUL.circ; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(cx, cy, 0.28 * V.k, R_SP * V.k, 0, 0, 2 * Math.PI); ctx.stroke(); ctx.restore();
+  // champ de l'aimant au centre de la spire
+  if (e >= 1) fl(ctx, [0, 0], [s.Bx * Math.min(2.2, 0.4 + 3 * Baxe(xa)), 0], COUL.B, 3, "B");
+  if (e >= 2) { fl(ctx, [0, -R_SP - 0.25], [0.8, -R_SP - 0.25], COUL.n, 2.5, "n");
+    // sens positif: flèche sur la partie avant de la spire (vers le bas vu depuis l'aimant ... règle main droite)
+    courantSpire(ctx, 1, COUL.n, 0.6); }
+  if (e >= 3) courantSpire(ctx, s.i, COUL.i, 1);
+  if (e >= 4) {
+    fl(ctx, [0, -0.5], [0.9 * s.i, -0.5], COUL.Bi, 3, "B induit");
+    fl(ctx, [xa + 0.9, -0.75], [xa + 0.9 + 0.9 * p.mouv, -0.75], COUL.F, 3, "F");
+  }
+  // graphes qualitatifs
+  const gw = cv.w * 0.36, gh = cv.h * 0.2, gy = cv.h - 18;
+  if (e >= 1) graphe(ctx, 30, gy, gw, gh, (w) => (e >= 2 ? s.Bx : -1) * Baxe(xAimant(w)) / Baxe(1.6), u, e >= 2 ? "Φ(t)" : "|Φ(t)|", COUL.B);
+  if (e >= 2) {
+    // e = −dΦ/dt avec Φ ∝ Bx·Baxe(x(t)): dérivée analytique, normalisée par sa valeur maximale
+    const dB = (x) => -3 * x / Math.pow(x * x + R_SP * R_SP, 2.5), dxdu = p.mouv > 0 ? -2.6 : 2.6;
+    const emax = Math.abs(dB(1.6) * 2.6);
+    graphe(ctx, cv.w * 0.55, gy, gw, gh, (w) => -s.Bx * dB(xAimant(w)) * dxdu / emax, u, "e(t) = −dΦ/dt", COUL.i);
+  }
+}
+/** Flèches du sens de parcours sur la spire (sens positif si sg > 0, règle de la main droite avec n = +ux). */
+function courantSpire(ctx, sg, coul, alpha) {
+  // projection: le point (0, y, z) de la spire est dessiné en (0,28 z, y), z vers l'observateur.
+  // Sens positif (n = +ux): t = n ∧ u_r, vers le bas en z > 0 (à droite de l'ellipse), vers le haut en z < 0.
+  const [cx, cy] = V.X([0, 0]), a = 0.28 * V.k, b = R_SP * V.k;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = coul; ctx.strokeStyle = coul; ctx.lineWidth = 2;
+  for (const th of [0, Math.PI]) {
+    const x = cx + a * Math.cos(th), y = cy + b * Math.sin(th);
+    const dir = (th === 0 ? 1 : -1) * sg;              // +1: vers le bas à l'écran (avant de la spire: z > 0)
+    ctx.beginPath(); ctx.moveTo(x, y + 12 * dir); ctx.lineTo(x - 7, y - 4 * dir); ctx.lineTo(x + 7, y - 4 * dir); ctx.closePath(); ctx.fill();
+  }
+  ctx.font = "bold 14px system-ui"; ctx.fillText(coul === COUL.i ? "i" : "+", cx + a + 10, cy - 18);
+  ctx.restore();
+}
+
+// --- rail de Laplace
+function dessinerRail(ctx) {
+  const s = signes(), e = p.etape, u = Math.min(1, p.t);
+  const x0 = -4, xb = p.sensV > 0 ? -1 + 3.5 * u : 2.5 - 3.5 * u, yh = 1.3, yb = -1.3;
+  // champ B (points ou croix)
+  for (let i = -5; i <= 5; i++) for (let j = -2; j <= 2; j++) {
+    const [x, y] = V.X([i * 0.95, j * 0.9]);
+    ctx.save(); ctx.strokeStyle = COUL.B; ctx.fillStyle = COUL.B; ctx.globalAlpha = 0.45; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.arc(x, y, 6, 0, 2 * Math.PI); ctx.stroke();
+    if (p.sensB > 0) { ctx.beginPath(); ctx.arc(x, y, 1.8, 0, 2 * Math.PI); ctx.fill(); }
+    else { ctx.beginPath(); ctx.moveTo(x - 4, y - 4); ctx.lineTo(x + 4, y + 4); ctx.moveTo(x + 4, y - 4); ctx.lineTo(x - 4, y + 4); ctx.stroke(); }
+    ctx.restore();
+  }
+  // surface du circuit
+  if (e >= 1) { const [a1, b1] = V.X([x0, yh]), [a2, b2] = V.X([xb, yb]); ctx.save(); ctx.globalAlpha = 0.35; ctx.fillStyle = COUL.flux;
+    ctx.fillRect(a1, b1, a2 - a1, b2 - b1); ctx.restore(); }
+  // rails, résistance, tige
+  ctx.save(); ctx.strokeStyle = COUL.circ; ctx.lineWidth = 3;
+  for (const y of [yh, yb]) { const [a1, b1] = V.X([x0, y]), [a2] = V.X([5, y]); ctx.beginPath(); ctx.moveTo(a1, b1); ctx.lineTo(a2, b1); ctx.stroke(); }
+  const [rx, ry1] = V.X([x0, yh]), [, ry2] = V.X([x0, yb]);
+  ctx.beginPath(); ctx.moveTo(rx, ry1); ctx.lineTo(rx, ry2); ctx.stroke();
+  ctx.fillStyle = "#fff"; ctx.fillRect(rx - 9, (ry1 + ry2) / 2 - 22, 18, 44); ctx.strokeRect(rx - 9, (ry1 + ry2) / 2 - 22, 18, 44);
+  ctx.fillStyle = "#333"; ctx.font = "bold 14px system-ui"; ctx.fillText("R", rx - 32, (ry1 + ry2) / 2 + 5);
+  const [bx, by1] = V.X([xb, yh + 0.25]), [, by2] = V.X([xb, yb - 0.25]);
+  ctx.strokeStyle = "#8d6e63"; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(bx, by1); ctx.lineTo(bx, by2); ctx.stroke();
+  ctx.restore();
+  fl(ctx, [xb, yh + 0.55], [xb + 0.9 * p.sensV, yh + 0.55], "#555", 2, "v");
+  if (e >= 2) { // orientation trigonométrique
+    ctx.save(); ctx.strokeStyle = COUL.n; ctx.lineWidth = 2; const [cx, cy] = V.X([(x0 + xb) / 2, 0]);
+    ctx.beginPath(); ctx.arc(cx, cy, 0.55 * V.k, 0.3, 2 * Math.PI - 0.3); ctx.stroke();
+    const ang = 0.3, xa = cx + 0.55 * V.k * Math.cos(ang), ya = cy + 0.55 * V.k * Math.sin(ang);
+    ctx.fillStyle = COUL.n; ctx.beginPath(); ctx.moveTo(xa, ya - 9); ctx.lineTo(xa - 6, ya + 3); ctx.lineTo(xa + 6, ya + 3); ctx.closePath(); ctx.fill();
+    ctx.font = "bold 14px system-ui"; ctx.fillText("+  (n ⊙)", cx - 26, cy + 5); ctx.restore();
+  }
+  if (e >= 3) { // courant: sens trigo si i > 0 → monte dans la tige (à droite)
+    const up = s.i > 0;
+    fl(ctx, [xb + 0.3, up ? -0.5 : 0.5], [xb + 0.3, up ? 0.5 : -0.5], COUL.i, 3, "i");
+    fl(ctx, [x0 - 0.3, up ? 0.5 : -0.5], [x0 - 0.3, up ? -0.5 : 0.5], COUL.i, 3);
+  }
+  if (e >= 4) { const F = s.i * s.Bz;   // F = i ℓ ey ∧ Bz ez = i Bz ℓ ex
+    fl(ctx, [xb, 0], [xb + 1.2 * Math.sign(F), 0], COUL.F, 3.5, "F"); }
+  const gw = cv.w * 0.36, gh = cv.h * 0.2, gy = cv.h - 18;
+  if (e >= 1) graphe(ctx, 30, gy, gw, gh, (w) => (e >= 2 ? s.Bz : 1) * (p.sensV > 0 ? 0.2 + 0.8 * w : 1 - 0.8 * w), u, e >= 2 ? "Φ(t)" : "|Φ(t)|", COUL.B);
+  if (e >= 2) graphe(ctx, cv.w * 0.55, gy, gw, gh, () => 0.7 * s.e, u, "e(t) = −dΦ/dt", COUL.i);
+}
+
+function dessiner() {
+  const ctx = cv.ctx; cv.effacer("#fff"); cadrer();
+  if (p.cas === 0) dessinerAimant(ctx); else dessinerRail(ctx);
+}
+
+// ---------------------------------------------------------------- boucle
+majReglages(); majBoutons();
+boucle((dt) => { if (p.t < 1) p.t = Math.min(1, p.t + dt * 0.35 * p.vitesse); dessiner(); });
+
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>
