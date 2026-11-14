@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diffusion thermique — MP* Malherbe</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px; color: #222; background: #eef0f3;
+}
+#app { display: flex; height: 100vh; }
+#principal { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0;
+  padding: 8px; gap: 8px; }
+.ligne-zones { display: flex; gap: 8px; min-height: 0; }
+.zone { position: relative; flex: 1; min-height: 0; min-width: 0; background: #fff;
+  border: 1px solid #d5d9df; border-radius: 6px; overflow: hidden; }
+.zone canvas { position: absolute; left: 0; top: 0; touch-action: none; }
+#panneau { width: 340px; flex: none; overflow-y: auto; background: #fff;
+  border-left: 1px solid #d5d9df; padding: 10px 14px 20px; }
+#panneau h1 { font-size: 16px; margin: 4px 0 2px; }
+.retour { font-size: 12px; color: #4a6fa5; text-decoration: none; }
+.retour:hover { text-decoration: underline; }
+.section { margin: 8px 0; padding-bottom: 8px; border-bottom: 1px solid #eceef1; }
+.section:last-child { border-bottom: none; }
+.titre { font-weight: 600; margin-bottom: 4px; color: #333; }
+.choix { display: flex; align-items: center; gap: 6px; padding: 1px 0; cursor: pointer;
+  user-select: none; }
+.choix input { margin: 0 2px 0 0; }
+.choix.off { color: #aaa; cursor: default; }
+.curseur { margin: 7px 0; }
+.curseur .tete { display: flex; justify-content: space-between; align-items: center;
+  gap: 6px; }
+.curseur .valeur { display: flex; align-items: center; gap: 2px; flex: none; }
+.saisie { width: 66px; text-align: right; font: inherit; padding: 1px 4px;
+  border: 1px solid #c9cdd3; border-radius: 3px; }
+.pm { width: 20px; height: 20px; padding: 0; border: 1px solid #c9cdd3;
+  background: #f5f6f8; border-radius: 3px; cursor: pointer; line-height: 1; }
+.pm:hover { background: #e6e9ee; }
+input[type=range] { width: 100%; margin: 3px 0 0; accent-color: #3b6fb6; }
+.boutons { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+button.b { padding: 5px 10px; border: 1px solid #b8bec8; background: #f3f4f6;
+  border-radius: 4px; cursor: pointer; font: inherit; }
+button.b:hover { background: #e4e7ec; }
+button.b.actif { background: #dce7f7; border-color: #7f9fcf; }
+.info { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 4px;
+  padding: 6px 8px; line-height: 1.5; }
+.note { font-size: 11.5px; color: #666; font-style: italic; line-height: 1.4; }
+.dialogue { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: none;
+  align-items: center; justify-content: center; z-index: 10; }
+.dialogue .boite { background: #fff; border-radius: 8px; padding: 16px 20px;
+  min-width: 340px; box-shadow: 0 6px 30px rgba(0,0,0,0.25); }
+.dialogue table td { padding: 3px 6px; }
+.dialogue input[type=text] { width: 80px; font: inherit; padding: 2px 4px; }
+.erreur { color: #c62828; }
+@media (max-width: 900px) {
+  #app { flex-direction: column; height: auto; }
+  #principal { height: 75vh; }
+  #panneau { width: 100%; border-left: none; border-top: 1px solid #d5d9df; }
+}
+.haut { display: flex; justify-content: space-between; align-items: center; }
+.etiquette { font-size: 11.5px; font-weight: 600; color: #fff; background: #3b5f96;
+  border-radius: 10px; padding: 2px 9px; letter-spacing: 0.02em; }
+.filigrane { position: absolute; right: 16px; bottom: 14px; z-index: 5; pointer-events: none;
+  font-size: 13px; font-weight: 700; color: #3b5f96; background: rgba(255,255,255,0.82);
+  border: 1px solid rgba(59,95,150,0.35); border-radius: 12px; padding: 3px 11px; }
+.etapes { display: flex; flex-direction: column; gap: 3px; margin-bottom: 4px; }
+button.b.etape { text-align: left; padding: 4px 8px; }
+button.b:disabled { opacity: 0.45; cursor: default; }
+.explication { line-height: 1.55; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="principal">
+    <div class="zone" id="z_vue" data-mt-nom="Barre et profil" style="flex: 1"></div>
+  </div>
+  <div id="panneau"></div>
+</div>
+<script>
+"use strict";
+/* ======================================================================
+   Bibliothèque commune aux applets (aucune dépendance externe)
+   - interface: sections, curseurs (−/+, saisie, molette), boutons radio,
+     cases à cocher, boutons
+   - canvas: adaptation à la taille et à la résolution de l'écran,
+     repères gradués, courbes, flèches, légendes
+   - 3D: projection en perspective, rotation à la souris, tri en profondeur
+   ====================================================================== */
+
+// ---------------------------------------------------------------- DOM
+function el(tag, attrs, parent) {
+  const e = document.createElement(tag);
+  if (attrs) {
+    for (const k in attrs) {
+      const v = attrs[k];
+      if (k === "text") e.textContent = v;
+      else if (k === "html") e.innerHTML = v;
+      else if (k === "class") e.className = v;
+      else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v);
+    }
+  }
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+/** Nombre écrit avec une virgule décimale. */
+function fmt(v, d) {
+  if (v === Infinity) return "∞";
+  if (v === -Infinity) return "−∞";
+  if (!isFinite(v)) return "—";
+  let s = v.toFixed(d);
+  if (/^-0(\.0*)?$/.test(s)) s = s.slice(1);
+  return s.replace(".", ",").replace("-", "−");
+}
+
+function section(parent, titre) {
+  const s = el("div", { class: "section" }, parent);
+  if (titre) el("div", { class: "titre", html: titre }, s);
+  return s;
+}
+
+/** Curseur avec boutons −/+, saisie au clavier et molette.
+    o = {label, min, max, val, pas, dec, onchange} */
+function curseur(parent, o) {
+  const ligne = el("div", { class: "curseur" }, parent);
+  const tete = el("div", { class: "tete" }, ligne);
+  el("span", { html: o.label }, tete);
+  const zone = el("span", { class: "valeur" }, tete);
+  const moins = el("button", { class: "pm", text: "−", title: "diminuer" }, zone);
+  const saisie = el("input", { type: "text", class: "saisie" }, zone);
+  const plus = el("button", { class: "pm", text: "+", title: "augmenter" }, zone);
+  const r = el("input", { type: "range", min: o.min, max: o.max, step: "any" }, ligne);
+  const dec = o.dec !== undefined ? o.dec
+    : Math.max(0, -Math.floor(Math.log10(o.pas) + 1e-9));
+  let v = o.val;
+  function borne(x) {
+    x = Math.min(Math.max(x, o.min), o.max);
+    return +(o.min + Math.round((x - o.min) / o.pas) * o.pas).toFixed(10);
+  }
+  function afficher() { r.value = v; saisie.value = fmt(v, dec); }
+  function regler(x, silencieux) {
+    x = borne(x);
+    const change = Math.abs(x - v) > 1e-12;
+    v = x;
+    afficher();
+    if (change && !silencieux && o.onchange) o.onchange(v);
+  }
+  r.addEventListener("input", () => regler(parseFloat(r.value)));
+  saisie.addEventListener("change", () => {
+    const x = parseFloat(saisie.value.replace(",", ".").replace("−", "-"));
+    if (isFinite(x)) regler(x); else afficher();
+  });
+  saisie.addEventListener("keydown", (e) => { if (e.key === "Enter") saisie.blur(); });
+  moins.addEventListener("click", () => regler(v - o.pas));
+  plus.addEventListener("click", () => regler(v + o.pas));
+  r.addEventListener("keydown", (e) => {
+    const sauts = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1,
+                    PageUp: 10, PageDown: -10 };
+    if (e.key in sauts) { e.preventDefault(); regler(v + sauts[e.key] * o.pas); }
+  });
+  ligne.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    regler(v + (e.deltaY < 0 ? 1 : -1) * o.pas * (e.shiftKey ? 10 : 1));
+  }, { passive: false });
+  afficher();
+  return {
+    get: () => v,
+    set: (x, silencieux) => regler(x, silencieux),
+    ligne,
+    montrer: (b) => { ligne.style.display = b ? "" : "none"; },
+  };
+}
+
+/** Groupe de boutons radio. onchange(valeur, indice). */
+function radios(parent, titre, options, actif, onchange) {
+  const s = section(parent, titre);
+  const nom = "r" + Math.random().toString(36).slice(2);
+  const items = options.map((opt, i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "radio", name: nom }, lab);
+    el("span", { html: opt }, lab);
+    if (i === actif) inp.checked = true;
+    inp.addEventListener("change", () => {
+      if (inp.checked && onchange) onchange(opt, i);
+    });
+    return { inp, lab };
+  });
+  return {
+    indice: () => items.findIndex((o) => o.inp.checked),
+    valeur: () => options[items.findIndex((o) => o.inp.checked)],
+    set: (i, silencieux) => {
+      items[i].inp.checked = true;
+      if (!silencieux && onchange) onchange(options[i], i);
+    },
+    desactiver: (i, b) => {
+      items[i].inp.disabled = b;
+      items[i].lab.classList.toggle("off", b);
+    },
+    section: s,
+  };
+}
+
+/** Cases à cocher. options = [[libellé, coché], ...]. onchange(indice, état). */
+function cases(parent, titre, options, onchange) {
+  const s = section(parent, titre);
+  const items = options.map(([texte, coche], i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "checkbox" }, lab);
+    inp.checked = coche;
+    el("span", { html: texte }, lab);
+    inp.addEventListener("change", () => onchange && onchange(i, inp.checked));
+    return inp;
+  });
+  return {
+    get: (i) => items[i].checked,
+    set: (i, b, silencieux) => {
+      items[i].checked = b;
+      if (!silencieux && onchange) onchange(i, b);
+    },
+    section: s,
+  };
+}
+
+function boutons(parent) { return el("div", { class: "boutons" }, parent); }
+function bouton(parent, texte, onclick) {
+  return el("button", { class: "b", html: texte, onclick }, parent);
+}
+
+/** En-tête du panneau de commandes. */
+function entete(panneau, titre) {
+  const haut = el("div", { class: "haut" }, panneau);
+  el("a", { class: "retour", href: "animations.html", text: "← Animations" }, haut);
+  el("span", { class: "etiquette", text: "MP* Malherbe" }, haut);
+  // filigrane visible en permanence sur la zone de simulation
+  const principal = document.getElementById("principal");
+  if (principal) el("div", { class: "filigrane", text: "MP* Malherbe" }, principal);
+  el("h1", { html: titre }, panneau);
+}
+
+// ---------------------------------------------------------------- canvas
+/** Canvas qui remplit son conteneur et se redessine quand il change de taille. */
+function canevas(conteneur, dessiner) {
+  const cv = el("canvas", null, conteneur);
+  const ctx = cv.getContext("2d");
+  const obj = { cv, ctx, w: 1, h: 1, dessiner };
+  function taille() {
+    const r = conteneur.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    obj.w = Math.max(10, Math.floor(r.width));
+    obj.h = Math.max(10, Math.floor(r.height));
+    cv.width = Math.round(obj.w * dpr);
+    cv.height = Math.round(obj.h * dpr);
+    cv.style.width = obj.w + "px";
+    cv.style.height = obj.h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (obj.dessiner) obj.dessiner(obj);
+  }
+  obj.effacer = (fond) => {
+    ctx.fillStyle = fond || "#fff";
+    ctx.fillRect(0, 0, obj.w, obj.h);
+  };
+  new ResizeObserver(taille).observe(conteneur);
+  taille();
+  return obj;
+}
+
+function boucle(pas) {
+  let t0 = null;
+  function image(t) {
+    const dt = t0 === null ? 0 : Math.min(0.1, (t - t0) / 1000);
+    t0 = t;
+    pas(dt);
+    requestAnimationFrame(image);
+  }
+  requestAnimationFrame(image);
+}
+// ---------------------------------------------------------------- outils communs de dessin
+function texteIndices(ctx, x, y, t, police, aligne) {
+  const morceaux = []; let i = 0;
+  while (i < t.length) {
+    if (t[i] === "_") { if (t[i + 1] === "{") { const j = t.indexOf("}", i); morceaux.push([t.slice(i + 2, j), 1]); i = j + 1; }
+      else { morceaux.push([t[i + 1], 1]); i += 2; } }
+    else { let j = i; while (j < t.length && t[j] !== "_") j++; morceaux.push([t.slice(i, j), 0]); i = j; }
+  }
+  const taille = parseInt((police.match(/(\d+)px/) || [0, 14])[1]), petite = police.replace(/\d+px/, Math.round(taille * 0.7) + "px");
+  let L = 0; morceaux.forEach(([m, ind]) => { ctx.font = ind ? petite : police; L += ctx.measureText(m).width; });
+  let xx = aligne === "g" ? x : aligne === "d" ? x - L : x - L / 2; ctx.textAlign = "left";
+  morceaux.forEach(([m, ind]) => { ctx.font = ind ? petite : police; ctx.fillText(m, xx, y + (ind ? taille * 0.3 : 0)); xx += ctx.measureText(m).width; });
+}
+function txt(ctx, x, y, t, coul, police, aligne) { ctx.save(); ctx.fillStyle = coul; texteIndices(ctx, x, y, t, police || "bold 14px system-ui", aligne); ctx.restore(); }
+function fleche(ctx, x1, y1, x2, y2, coul, larg) {
+  const a = Math.atan2(y2 - y1, x2 - x1), L = Math.hypot(x2 - x1, y2 - y1);
+  if (L < 2) return;
+  const t = Math.min(12, L * 0.6);
+  ctx.save(); ctx.strokeStyle = coul; ctx.fillStyle = coul; ctx.lineWidth = larg || 2;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2 - 0.7 * t * Math.cos(a), y2 - 0.7 * t * Math.sin(a)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - t * Math.cos(a - 0.4), y2 - t * Math.sin(a - 0.4));
+  ctx.lineTo(x2 - t * Math.cos(a + 0.4), y2 - t * Math.sin(a + 0.4)); ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function trace(ctx, pts, coul, larg, tirets) {
+  if (pts.length < 2) return;
+  ctx.save(); ctx.strokeStyle = coul; ctx.lineWidth = larg; ctx.setLineDash(tirets || []); ctx.beginPath();
+  pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); ctx.restore();
+}
+function seg(ctx, A, B, coul, larg, tirets) { trace(ctx, [A, B], coul, larg, tirets); }
+function point(ctx, P, n, coul, dx, dy, r) {
+  ctx.save(); ctx.fillStyle = coul; ctx.beginPath(); ctx.arc(P[0], P[1], r || 4, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
+  if (n) txt(ctx, P[0] + (dx || 0), P[1] + (dy || 0), n, coul, "bold 14px system-ui");
+}
+/** Glissière sans affichage de valeur numérique. */
+function glissiere(parent, label, min, max, val, onchange) {
+  const l = el("div", { class: "curseur" }, parent);
+  el("div", { html: label }, l);
+  const r = el("input", { type: "range", min, max, step: (max - min) / 500, value: val }, l);
+  r.style.width = "100%"; r.addEventListener("input", () => onchange(parseFloat(r.value)));
+  return { r, l };
+}
+const fr = (u, a, b) => Math.max(0, Math.min(1, (u - a) / (b - a)));
+/** Interface standard des étapes. */
+function interfaceEtapes(titre) {
+  const panneau = document.getElementById("panneau");
+  entete(panneau, titre);
+  const sEt = section(panneau, "Étapes");
+  const liste = el("div", { class: "etapes" }, sEt);
+  const boutonsEt = ETAPES.map((e, k) => el("button", { class: "b etape", html: (k + 1) + ". " + e.titre, onclick: () => aller(k) }, liste));
+  const bt = boutons(sEt);
+  const bPrec = bouton(bt, "◀ Précédente", () => aller(p.etape - 1));
+  bouton(bt, "⟲ Rejouer", () => aller(p.etape));
+  const bSuiv = bouton(bt, "Suivante ▶", () => aller(p.etape + 1));
+  const explication = el("div", { class: "info explication" }, section(panneau, "Raisonnement"));
+  const maj = () => {
+    boutonsEt.forEach((b, k) => b.classList.toggle("actif", k === p.etape));
+    bPrec.disabled = p.etape === 0; bSuiv.disabled = p.etape === ETAPES.length - 1;
+    explication.innerHTML = "<b>" + (p.etape + 1) + ". " + ETAPES[p.etape].titre + "</b><br>" + ETAPES[p.etape].texte;
+  };
+  return { panneau, sEt, bt, explication, maj };
+}
+
+// ====================================================================== applet
+/* Diffusion thermique à une dimension: bilan sur une tranche, loi de Fourier, équation de la chaleur,
+   étalement en √(Dt), régime permanent. Résolution numérique par différences finies (schéma explicite). */
+
+const COUL = { T: "#c62828", j: "#e67e22", tranche: "#1565c0", env: "#7b2d8e" };
+const p = { etape: 0, tau: 0, t: 0, vitesse: 1, D: 0.002, ts: 0 };
+
+const ETAPES = [
+  { titre: "Bilan sur une tranche", texte:
+    "Barre de section S, calorifugée latéralement; température T(x, t). On isole la <span style='color:" + COUL.tranche + "'><b>tranche [x, x + dx]</b></span>.<br>" +
+    "Entre t et t + dt, elle reçoit j<sub>Q</sub>(x) S dt à gauche et cède j<sub>Q</sub>(x + dx) S dt à droite (" +
+    "<span style='color:" + COUL.j + "'>j<sub>Q</sub></span>: densité de flux thermique). Premier principe:<br>" +
+    "<b>ρ c S dx ∂T/∂t dt = [j<sub>Q</sub>(x) − j<sub>Q</sub>(x + dx)] S dt</b>, soit <b>ρ c ∂T/∂t = −∂j<sub>Q</sub>/∂x</b>." },
+  { titre: "Loi de Fourier", texte:
+    "Le flux thermique va du chaud vers le froid, proportionnellement au gradient: <b>j<sub>Q</sub> = −λ ∂T/∂x</b> (λ: conductivité thermique).<br>" +
+    "Les flèches <span style='color:" + COUL.j + "'>orange</span> sont proportionnelles à j<sub>Q</sub>: nulles au sommet du profil, maximales là où la pente est la plus forte." },
+  { titre: "Équation de la chaleur", texte:
+    "En combinant: <b>∂T/∂t = D ∂²T/∂x²</b>, avec la diffusivité thermique <b>D = λ / (ρ c)</b>.<br>" +
+    "Lecture: là où le profil est <b>concave</b> (∂²T/∂x² &lt; 0, sommet), T diminue; là où il est <b>convexe</b>, T augmente. " +
+    "Le profil s'aplatit. Équation d'ordre 1 en temps: <b>irréversible</b>." },
+  { titre: "Étalement en √(Dt)", texte:
+    "Le pic s'étale: sa largeur croît comme <span style='color:" + COUL.env + "'><b>√(D t)</b></span> et non comme t (pas de propagation à vitesse constante).<br>" +
+    "Analyse dimensionnelle: sur une longueur L, le temps caractéristique de diffusion est <b>τ ≈ L² / D</b>. Doubler la distance quadruple le temps." },
+  { titre: "Régime permanent", texte:
+    "Extrémités maintenues à T<sub>1</sub> (gauche) et T<sub>2</sub> (droite). Aux temps longs (t ≫ L²/D), ∂T/∂t = 0: ∂²T/∂x² = 0, le profil devient <b>affine</b>.<br>" +
+    "Le flux est alors <b>uniforme</b>: Φ = λ S (T<sub>1</sub> − T<sub>2</sub>) / L = (T<sub>1</sub> − T<sub>2</sub>) / R<sub>th</sub>, avec la " +
+    "<b>résistance thermique R<sub>th</sub> = L / (λ S)</b>." },
+];
+
+// ---------------------------------------------------------------- interface
+const { panneau, sEt, bt, explication, maj } = interfaceEtapes("Diffusion thermique");
+const sReg = section(panneau, "Réglages");
+glissiere(sReg, "Diffusivité thermique <b>D</b>", 0.0006, 0.005, p.D, (v) => { p.D = v; });
+curseur(sReg, { label: "Vitesse de l'animation", min: 0.2, max: 3, val: 1, pas: 0.1, onchange: (v) => { p.vitesse = v; } });
+
+// ---------------------------------------------------------------- simulation
+const N = 161, dx = 1 / (N - 1), S0 = 0.05;
+let T = new Float64Array(N);
+function initialiser() {
+  p.ts = 0;
+  for (let i = 0; i < N; i++) {
+    const x = i * dx;
+    T[i] = p.etape === 4 ? 0 : Math.exp(-((x - 0.5) ** 2) / (2 * S0 * S0));
+  }
+  if (p.etape === 4) T[0] = 1;
+}
+function avancer(duree) {
+  const dtm = 0.4 * dx * dx / p.D; let reste = duree;
+  const U = new Float64Array(N);
+  while (reste > 0) {
+    const h = Math.min(dtm, reste);
+    for (let i = 1; i < N - 1; i++) U[i] = T[i] + p.D * h / (dx * dx) * (T[i + 1] - 2 * T[i] + T[i - 1]);
+    U[0] = p.etape === 4 ? 1 : 0; U[N - 1] = 0;
+    T.set(U); reste -= h; p.ts += h;
+  }
+}
+function aller(k) { if (k < 0 || k >= ETAPES.length) return; p.etape = k; p.tau = 0; initialiser(); maj(); }
+
+// ---------------------------------------------------------------- dessin
+const cv = canevas(document.getElementById("z_vue"), () => {});
+function couleurT(v) {
+  v = Math.max(0, Math.min(1, v));
+  const a = [33, 102, 172], m = [247, 247, 247], b = [198, 40, 40];
+  const c = v < 0.5 ? a.map((x, i) => x + (m[i] - x) * v * 2) : m.map((x, i) => x + (b[i] - x) * (v - 0.5) * 2);
+  return "rgb(" + c.map(Math.round).join(",") + ")";
+}
+function dessiner() {
+  const ctx = cv.ctx; cv.effacer("#fff");
+  const e = p.etape, x0 = 70, x1 = cv.w - 40, X = (x) => x0 + (x1 - x0) * x;
+  // barre colorée
+  const yb = 50, hb = Math.min(70, cv.h * 0.12);
+  for (let i = 0; i < N - 1; i++) { ctx.fillStyle = couleurT(T[i]); ctx.fillRect(X(i * dx), yb, X(dx) - x0 + 1, hb); }
+  ctx.save(); ctx.strokeStyle = "#333"; ctx.lineWidth = 1.5; ctx.strokeRect(x0, yb, x1 - x0, hb); ctx.restore();
+  txt(ctx, x0, yb - 12, "barre calorifugée latéralement", "#555", "13px system-ui", "g");
+  if (e === 4) { txt(ctx, x0 - 8, yb + hb / 2 + 5, "T_1", COUL.T, "bold 15px system-ui", "d"); txt(ctx, x1 + 8, yb + hb / 2 + 5, "T_2", "#2166ac", "bold 15px system-ui", "g"); }
+  // flux sur la barre
+  const grad = (i) => (T[Math.min(N - 1, i + 1)] - T[Math.max(0, i - 1)]) / (2 * dx);
+  const sj = e === 4 ? 0.06 * (x1 - x0) : 0.012 * (x1 - x0);
+  if (e >= 1) for (let i = 4; i < N - 1; i += 8) {
+    const j = -grad(i), L = sj * j * Math.sqrt(p.D / 0.002);
+    if (Math.abs(L) > 2) fleche(ctx, X(i * dx) - L / 2, yb + hb / 2, X(i * dx) + L / 2, yb + hb / 2, COUL.j, 2.4);
+  }
+  // graphe T(x)
+  const yg0 = yb + hb + 50, yg1 = cv.h - 40, Y = (v) => yg1 - (yg1 - yg0) * v / 1.1;
+  fleche(ctx, x0, yg1, x1 + 15, yg1, "#333", 1.3); fleche(ctx, x0, yg1, x0, yg0 - 10, "#333", 1.3);
+  txt(ctx, x1 + 12, yg1 + 20, "x", "#333", "italic 16px 'Times New Roman', serif");
+  txt(ctx, x0 - 10, yg0, "T", "#333", "italic bold 16px 'Times New Roman', serif", "d");
+  const pts = []; for (let i = 0; i < N; i++) pts.push([X(i * dx), Y(T[i])]);
+  if (e === 3) {   // profil initial pour comparaison
+    const p0 = []; for (let i = 0; i < N; i++) p0.push([X(i * dx), Y(Math.exp(-((i * dx - 0.5) ** 2) / (2 * S0 * S0)))]);
+    trace(ctx, p0, "#bbb", 1.5, [5, 4]);
+  }
+  if (e === 4) trace(ctx, [[X(0), Y(1)], [X(1), Y(0)]], "#bbb", 1.5, [5, 4]);
+  trace(ctx, pts, COUL.T, 3);
+  // étape 1: tranche
+  if (e === 0) {
+    const xa = 0.58, xb = 0.64, ia = Math.round(xa / dx), ib = Math.round(xb / dx);
+    ctx.save(); ctx.fillStyle = "rgba(21,101,192,0.18)"; ctx.fillRect(X(xa), yb - 4, X(xb) - X(xa), hb + 8);
+    ctx.fillRect(X(xa), yg0, X(xb) - X(xa), yg1 - yg0); ctx.restore();
+    seg(ctx, [X(xa), yb - 6], [X(xa), yg1], COUL.tranche, 1.2, [4, 3]); seg(ctx, [X(xb), yb - 6], [X(xb), yg1], COUL.tranche, 1.2, [4, 3]);
+    txt(ctx, X(xa), yg1 + 18, "x", COUL.tranche, "italic 15px 'Times New Roman', serif"); txt(ctx, X(xb), yg1 + 18, "x + dx", COUL.tranche, "italic 15px 'Times New Roman', serif");
+    const ja = -grad(ia), jb = -grad(ib), s = 0.012 * (x1 - x0), yy = yb + hb + 22;
+    fleche(ctx, X(xa) - s * ja, yy, X(xa), yy, COUL.j, 3); fleche(ctx, X(xb), yy, X(xb) + s * jb, yy, COUL.j, 3);
+    txt(ctx, X(xa) - s * ja - 6, yy + 5, "j_Q(x)", COUL.j, "bold 14px system-ui", "d");
+    txt(ctx, X(xb) + s * jb + 6, yy + 5, "j_Q(x + dx)", COUL.j, "bold 14px system-ui", "g");
+  }
+  // étape 2: tangentes
+  if (e === 1) for (const xq of [0.42, 0.5, 0.58]) {
+    const i = Math.round(xq / dx), g = grad(i), xa = xq - 0.06, xb = xq + 0.06;
+    seg(ctx, [X(xa), Y(T[i] + g * (xa - xq))], [X(xb), Y(T[i] + g * (xb - xq))], "#555", 1.5);
+    point(ctx, [X(xq), Y(T[i])], "", "#555", 0, 0, 3.5);
+  }
+  // étape 3: concavité
+  if (e === 2) {
+    txt(ctx, X(0.5), Y(1.05) - 6, "concave: T diminue ↓", COUL.T, "bold 13px system-ui");
+    txt(ctx, X(0.25), Y(0.2), "convexe: T augmente ↑", "#2166ac", "bold 13px system-ui");
+    txt(ctx, X(0.75), Y(0.2), "convexe: T augmente ↑", "#2166ac", "bold 13px system-ui");
+  }
+  // étape 4: largeur
+  if (e === 3) {
+    const sg = Math.sqrt(S0 * S0 + 2 * p.D * p.ts), yy = Y(0.55);
+    fleche(ctx, X(0.5), yy, X(0.5 - sg), yy, COUL.env, 2); fleche(ctx, X(0.5), yy, X(0.5 + sg), yy, COUL.env, 2);
+    txt(ctx, X(0.5 + sg) + 8, yy + 5, "largeur ∝ √(D t)", COUL.env, "bold 14px system-ui", "g");
+  }
+  if (e === 4) txt(ctx, X(0.62), Y(0.75), "profil affine (régime permanent)", "#888", "13px system-ui", "g");
+}
+
+// ---------------------------------------------------------------- boucle
+initialiser(); maj();
+// ---- enchaînement automatique de toutes les étapes (durée de chaque étape: temps de lecture de l'explication)
+const ench = { on: false, t: 0, der: null };
+const bEnch = bouton(bt, "▶ Tout enchaîner", () => {
+  ench.on = !ench.on;
+  if (ench.on) aller(p.etape === ETAPES.length - 1 ? 0 : p.etape);
+  ench.t = 0; majEnch();
+});
+const barreEnch = el("div", { style: "height:4px;background:#e3e8ef;border-radius:2px;margin-top:6px;display:none" }, sEt);
+const jaugeEnch = el("div", { style: "height:4px;width:0;background:#3d6fb3;border-radius:2px" }, barreEnch);
+function majEnch() { bEnch.innerHTML = ench.on ? "■ Arrêter" : "▶ Tout enchaîner"; barreEnch.style.display = ench.on ? "" : "none"; }
+function dureeEnch() { const n = (explication.innerText || "").split(/\s+/).length; return 5 + n / 4; }
+{ const allerInitial = aller; aller = (k) => { ench.t = 0; allerInitial(k); }; }
+function tickEnch(ts) {
+  const dt = ench.der === null ? 0 : Math.min(0.1, (ts - ench.der) / 1000); ench.der = ts;
+  if (ench.on) {
+    ench.t += dt; const D = dureeEnch(); jaugeEnch.style.width = Math.min(100, 100 * ench.t / D) + "%";
+    if (ench.t >= D) { if (p.etape < ETAPES.length - 1) aller(p.etape + 1); else { ench.on = false; majEnch(); } }
+  }
+  requestAnimationFrame(tickEnch);
+}
+requestAnimationFrame(tickEnch);
+
+boucle((dt) => {
+  p.tau += dt * 0.3 * p.vitesse;
+  if (p.etape >= 2) avancer(Math.min(0.1, dt) * p.vitesse * (p.etape === 4 ? 40 : 1.5));
+  dessiner();
+});
+
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>
