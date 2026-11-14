@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dipôle électrostatique — MP* Malherbe</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px; color: #222; background: #eef0f3;
+}
+#app { display: flex; height: 100vh; }
+#principal { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0;
+  padding: 8px; gap: 8px; }
+.ligne-zones { display: flex; gap: 8px; min-height: 0; }
+.zone { position: relative; flex: 1; min-height: 0; min-width: 0; background: #fff;
+  border: 1px solid #d5d9df; border-radius: 6px; overflow: hidden; }
+.zone canvas { position: absolute; left: 0; top: 0; touch-action: none; }
+#panneau { width: 340px; flex: none; overflow-y: auto; background: #fff;
+  border-left: 1px solid #d5d9df; padding: 10px 14px 20px; }
+#panneau h1 { font-size: 16px; margin: 4px 0 2px; }
+.retour { font-size: 12px; color: #4a6fa5; text-decoration: none; }
+.retour:hover { text-decoration: underline; }
+.section { margin: 8px 0; padding-bottom: 8px; border-bottom: 1px solid #eceef1; }
+.section:last-child { border-bottom: none; }
+.titre { font-weight: 600; margin-bottom: 4px; color: #333; }
+.choix { display: flex; align-items: center; gap: 6px; padding: 1px 0; cursor: pointer;
+  user-select: none; }
+.choix input { margin: 0 2px 0 0; }
+.choix.off { color: #aaa; cursor: default; }
+.curseur { margin: 7px 0; }
+.curseur .tete { display: flex; justify-content: space-between; align-items: center;
+  gap: 6px; }
+.curseur .valeur { display: flex; align-items: center; gap: 2px; flex: none; }
+.saisie { width: 66px; text-align: right; font: inherit; padding: 1px 4px;
+  border: 1px solid #c9cdd3; border-radius: 3px; }
+.pm { width: 20px; height: 20px; padding: 0; border: 1px solid #c9cdd3;
+  background: #f5f6f8; border-radius: 3px; cursor: pointer; line-height: 1; }
+.pm:hover { background: #e6e9ee; }
+input[type=range] { width: 100%; margin: 3px 0 0; accent-color: #3b6fb6; }
+.boutons { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+button.b { padding: 5px 10px; border: 1px solid #b8bec8; background: #f3f4f6;
+  border-radius: 4px; cursor: pointer; font: inherit; }
+button.b:hover { background: #e4e7ec; }
+button.b.actif { background: #dce7f7; border-color: #7f9fcf; }
+.info { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 4px;
+  padding: 6px 8px; line-height: 1.5; }
+.note { font-size: 11.5px; color: #666; font-style: italic; line-height: 1.4; }
+.dialogue { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: none;
+  align-items: center; justify-content: center; z-index: 10; }
+.dialogue .boite { background: #fff; border-radius: 8px; padding: 16px 20px;
+  min-width: 340px; box-shadow: 0 6px 30px rgba(0,0,0,0.25); }
+.dialogue table td { padding: 3px 6px; }
+.dialogue input[type=text] { width: 80px; font: inherit; padding: 2px 4px; }
+.erreur { color: #c62828; }
+@media (max-width: 900px) {
+  #app { flex-direction: column; height: auto; }
+  #principal { height: 75vh; }
+  #panneau { width: 100%; border-left: none; border-top: 1px solid #d5d9df; }
+}
+.haut { display: flex; justify-content: space-between; align-items: center; }
+.etiquette { font-size: 11.5px; font-weight: 600; color: #fff; background: #3b5f96;
+  border-radius: 10px; padding: 2px 9px; letter-spacing: 0.02em; }
+.filigrane { position: absolute; right: 16px; bottom: 14px; z-index: 5; pointer-events: none;
+  font-size: 13px; font-weight: 700; color: #3b5f96; background: rgba(255,255,255,0.82);
+  border: 1px solid rgba(59,95,150,0.35); border-radius: 12px; padding: 3px 11px; }
+.etapes { display: flex; flex-direction: column; gap: 3px; margin-bottom: 4px; }
+button.b.etape { text-align: left; padding: 4px 8px; }
+button.b:disabled { opacity: 0.45; cursor: default; }
+.explication { line-height: 1.55; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="principal">
+    <div class="zone" id="z_vue" data-mt-nom="Plan méridien" style="flex: 1"></div>
+  </div>
+  <div id="panneau"></div>
+</div>
+<script>
+"use strict";
+/* ======================================================================
+   Bibliothèque commune aux applets (aucune dépendance externe)
+   - interface: sections, curseurs (−/+, saisie, molette), boutons radio,
+     cases à cocher, boutons
+   - canvas: adaptation à la taille et à la résolution de l'écran,
+     repères gradués, courbes, flèches, légendes
+   - 3D: projection en perspective, rotation à la souris, tri en profondeur
+   ====================================================================== */
+
+// ---------------------------------------------------------------- DOM
+function el(tag, attrs, parent) {
+  const e = document.createElement(tag);
+  if (attrs) {
+    for (const k in attrs) {
+      const v = attrs[k];
+      if (k === "text") e.textContent = v;
+      else if (k === "html") e.innerHTML = v;
+      else if (k === "class") e.className = v;
+      else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v);
+    }
+  }
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+/** Nombre écrit avec une virgule décimale. */
+function fmt(v, d) {
+  if (v === Infinity) return "∞";
+  if (v === -Infinity) return "−∞";
+  if (!isFinite(v)) return "—";
+  let s = v.toFixed(d);
+  if (/^-0(\.0*)?$/.test(s)) s = s.slice(1);
+  return s.replace(".", ",").replace("-", "−");
+}
+
+function section(parent, titre) {
+  const s = el("div", { class: "section" }, parent);
+  if (titre) el("div", { class: "titre", html: titre }, s);
+  return s;
+}
+
+/** Curseur avec boutons −/+, saisie au clavier et molette.
+    o = {label, min, max, val, pas, dec, onchange} */
+function curseur(parent, o) {
+  const ligne = el("div", { class: "curseur" }, parent);
+  const tete = el("div", { class: "tete" }, ligne);
+  el("span", { html: o.label }, tete);
+  const zone = el("span", { class: "valeur" }, tete);
+  const moins = el("button", { class: "pm", text: "−", title: "diminuer" }, zone);
+  const saisie = el("input", { type: "text", class: "saisie" }, zone);
+  const plus = el("button", { class: "pm", text: "+", title: "augmenter" }, zone);
+  const r = el("input", { type: "range", min: o.min, max: o.max, step: "any" }, ligne);
+  const dec = o.dec !== undefined ? o.dec
+    : Math.max(0, -Math.floor(Math.log10(o.pas) + 1e-9));
+  let v = o.val;
+  function borne(x) {
+    x = Math.min(Math.max(x, o.min), o.max);
+    return +(o.min + Math.round((x - o.min) / o.pas) * o.pas).toFixed(10);
+  }
+  function afficher() { r.value = v; saisie.value = fmt(v, dec); }
+  function regler(x, silencieux) {
+    x = borne(x);
+    const change = Math.abs(x - v) > 1e-12;
+    v = x;
+    afficher();
+    if (change && !silencieux && o.onchange) o.onchange(v);
+  }
+  r.addEventListener("input", () => regler(parseFloat(r.value)));
+  saisie.addEventListener("change", () => {
+    const x = parseFloat(saisie.value.replace(",", ".").replace("−", "-"));
+    if (isFinite(x)) regler(x); else afficher();
+  });
+  saisie.addEventListener("keydown", (e) => { if (e.key === "Enter") saisie.blur(); });
+  moins.addEventListener("click", () => regler(v - o.pas));
+  plus.addEventListener("click", () => regler(v + o.pas));
+  r.addEventListener("keydown", (e) => {
+    const sauts = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1,
+                    PageUp: 10, PageDown: -10 };
+    if (e.key in sauts) { e.preventDefault(); regler(v + sauts[e.key] * o.pas); }
+  });
+  ligne.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    regler(v + (e.deltaY < 0 ? 1 : -1) * o.pas * (e.shiftKey ? 10 : 1));
+  }, { passive: false });
+  afficher();
+  return {
+    get: () => v,
+    set: (x, silencieux) => regler(x, silencieux),
+    ligne,
+    montrer: (b) => { ligne.style.display = b ? "" : "none"; },
+  };
+}
+
+/** Groupe de boutons radio. onchange(valeur, indice). */
+function radios(parent, titre, options, actif, onchange) {
+  const s = section(parent, titre);
+  const nom = "r" + Math.random().toString(36).slice(2);
+  const items = options.map((opt, i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "radio", name: nom }, lab);
+    el("span", { html: opt }, lab);
+    if (i === actif) inp.checked = true;
+    inp.addEventListener("change", () => {
+      if (inp.checked && onchange) onchange(opt, i);
+    });
+    return { inp, lab };
+  });
+  return {
+    indice: () => items.findIndex((o) => o.inp.checked),
+    valeur: () => options[items.findIndex((o) => o.inp.checked)],
+    set: (i, silencieux) => {
+      items[i].inp.checked = true;
+      if (!silencieux && onchange) onchange(options[i], i);
+    },
+    desactiver: (i, b) => {
+      items[i].inp.disabled = b;
+      items[i].lab.classList.toggle("off", b);
+    },
+    section: s,
+  };
+}
+
+/** Cases à cocher. options = [[libellé, coché], ...]. onchange(indice, état). */
+function cases(parent, titre, options, onchange) {
+  const s = section(parent, titre);
+  const items = options.map(([texte, coche], i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "checkbox" }, lab);
+    inp.checked = coche;
+    el("span", { html: texte }, lab);
+    inp.addEventListener("change", () => onchange && onchange(i, inp.checked));
+    return inp;
+  });
+  return {
+    get: (i) => items[i].checked,
+    set: (i, b, silencieux) => {
+      items[i].checked = b;
+      if (!silencieux && onchange) onchange(i, b);
+    },
+    section: s,
+  };
+}
+
+function boutons(parent) { return el("div", { class: "boutons" }, parent); }
+function bouton(parent, texte, onclick) {
+  return el("button", { class: "b", html: texte, onclick }, parent);
+}
+
+/** En-tête du panneau de commandes. */
+function entete(panneau, titre) {
+  const haut = el("div", { class: "haut" }, panneau);
+  el("a", { class: "retour", href: "animations.html", text: "← Animations" }, haut);
+  el("span", { class: "etiquette", text: "MP* Malherbe" }, haut);
+  // filigrane visible en permanence sur la zone de simulation
+  const principal = document.getElementById("principal");
+  if (principal) el("div", { class: "filigrane", text: "MP* Malherbe" }, principal);
+  el("h1", { html: titre }, panneau);
+}
+
+// ---------------------------------------------------------------- canvas
+/** Canvas qui remplit son conteneur et se redessine quand il change de taille. */
+function canevas(conteneur, dessiner) {
+  const cv = el("canvas", null, conteneur);
+  const ctx = cv.getContext("2d");
+  const obj = { cv, ctx, w: 1, h: 1, dessiner };
+  function taille() {
+    const r = conteneur.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    obj.w = Math.max(10, Math.floor(r.width));
+    obj.h = Math.max(10, Math.floor(r.height));
+    cv.width = Math.round(obj.w * dpr);
+    cv.height = Math.round(obj.h * dpr);
+    cv.style.width = obj.w + "px";
+    cv.style.height = obj.h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (obj.dessiner) obj.dessiner(obj);
+  }
+  obj.effacer = (fond) => {
+    ctx.fillStyle = fond || "#fff";
+    ctx.fillRect(0, 0, obj.w, obj.h);
+  };
+  new ResizeObserver(taille).observe(conteneur);
+  taille();
+  return obj;
+}
+
+function boucle(pas) {
+  let t0 = null;
+  function image(t) {
+    const dt = t0 === null ? 0 : Math.min(0.1, (t - t0) / 1000);
+    t0 = t;
+    pas(dt);
+    requestAnimationFrame(image);
+  }
+  requestAnimationFrame(image);
+}
+// ---------------------------------------------------------------- outils communs de dessin
+function texteIndices(ctx, x, y, t, police, aligne) {
+  const morceaux = []; let i = 0;
+  while (i < t.length) {
+    if (t[i] === "_") { if (t[i + 1] === "{") { const j = t.indexOf("}", i); morceaux.push([t.slice(i + 2, j), 1]); i = j + 1; }
+      else { morceaux.push([t[i + 1], 1]); i += 2; } }
+    else { let j = i; while (j < t.length && t[j] !== "_") j++; morceaux.push([t.slice(i, j), 0]); i = j; }
+  }
+  const taille = parseInt((police.match(/(\d+)px/) || [0, 14])[1]), petite = police.replace(/\d+px/, Math.round(taille * 0.7) + "px");
+  let L = 0; morceaux.forEach(([m, ind]) => { ctx.font = ind ? petite : police; L += ctx.measureText(m).width; });
+  let xx = aligne === "g" ? x : aligne === "d" ? x - L : x - L / 2; ctx.textAlign = "left";
+  morceaux.forEach(([m, ind]) => { ctx.font = ind ? petite : police; ctx.fillText(m, xx, y + (ind ? taille * 0.3 : 0)); xx += ctx.measureText(m).width; });
+}
+function txt(ctx, x, y, t, coul, police, aligne) { ctx.save(); ctx.fillStyle = coul; texteIndices(ctx, x, y, t, police || "bold 14px system-ui", aligne); ctx.restore(); }
+function fleche(ctx, x1, y1, x2, y2, coul, larg) {
+  const a = Math.atan2(y2 - y1, x2 - x1), L = Math.hypot(x2 - x1, y2 - y1);
+  if (L < 2) return;
+  const t = Math.min(12, L * 0.6);
+  ctx.save(); ctx.strokeStyle = coul; ctx.fillStyle = coul; ctx.lineWidth = larg || 2;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2 - 0.7 * t * Math.cos(a), y2 - 0.7 * t * Math.sin(a)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - t * Math.cos(a - 0.4), y2 - t * Math.sin(a - 0.4));
+  ctx.lineTo(x2 - t * Math.cos(a + 0.4), y2 - t * Math.sin(a + 0.4)); ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function trace(ctx, pts, coul, larg, tirets) {
+  if (pts.length < 2) return;
+  ctx.save(); ctx.strokeStyle = coul; ctx.lineWidth = larg; ctx.setLineDash(tirets || []); ctx.beginPath();
+  pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); ctx.restore();
+}
+function seg(ctx, A, B, coul, larg, tirets) { trace(ctx, [A, B], coul, larg, tirets); }
+function point(ctx, P, n, coul, dx, dy, r) {
+  ctx.save(); ctx.fillStyle = coul; ctx.beginPath(); ctx.arc(P[0], P[1], r || 4, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
+  if (n) txt(ctx, P[0] + (dx || 0), P[1] + (dy || 0), n, coul, "bold 14px system-ui");
+}
+/** Glissière sans affichage de valeur numérique. */
+function glissiere(parent, label, min, max, val, onchange) {
+  const l = el("div", { class: "curseur" }, parent);
+  el("div", { html: label }, l);
+  const r = el("input", { type: "range", min, max, step: (max - min) / 500, value: val }, l);
+  r.style.width = "100%"; r.addEventListener("input", () => onchange(parseFloat(r.value)));
+  return { r, l };
+}
+const fr = (u, a, b) => Math.max(0, Math.min(1, (u - a) / (b - a)));
+/** Interface standard des étapes. */
+function interfaceEtapes(titre) {
+  const panneau = document.getElementById("panneau");
+  entete(panneau, titre);
+  const sEt = section(panneau, "Étapes");
+  const liste = el("div", { class: "etapes" }, sEt);
+  const boutonsEt = ETAPES.map((e, k) => el("button", { class: "b etape", html: (k + 1) + ". " + e.titre, onclick: () => aller(k) }, liste));
+  const bt = boutons(sEt);
+  const bPrec = bouton(bt, "◀ Précédente", () => aller(p.etape - 1));
+  bouton(bt, "⟲ Rejouer", () => aller(p.etape));
+  const bSuiv = bouton(bt, "Suivante ▶", () => aller(p.etape + 1));
+  const explication = el("div", { class: "info explication" }, section(panneau, "Raisonnement"));
+  const maj = () => {
+    boutonsEt.forEach((b, k) => b.classList.toggle("actif", k === p.etape));
+    bPrec.disabled = p.etape === 0; bSuiv.disabled = p.etape === ETAPES.length - 1;
+    explication.innerHTML = "<b>" + (p.etape + 1) + ". " + ETAPES[p.etape].titre + "</b><br>" + ETAPES[p.etape].texte;
+  };
+  return { panneau, sEt, bt, explication, maj };
+}
+
+// ====================================================================== applet
+/* Dipôle électrostatique: doublet de charges, potentiel exact, approximation dipolaire (r ≫ a),
+   champ en coordonnées polaires, lignes de champ et équipotentielles, dipôle dans un champ extérieur. */
+
+const COUL = { plus: "#c62828", moins: "#1565c0", V: "#7b2d8e", Va: "#e67e22", E: "#2e7d32", p: "#111" };
+const p = { etape: 0, tau: 0, t: 0, vitesse: 1, W: 3, th: 1.2, om: 0 };
+
+const ETAPES = [
+  { titre: "Le doublet", texte:
+    "Deux charges <span style='color:" + COUL.moins + "'><b>−q</b></span> en A et <span style='color:" + COUL.plus + "'><b>+q</b></span> en B, distantes de <b>a</b>. " +
+    "On définit le <b>moment dipolaire</b> <b>p = q AB</b> (orienté de la charge négative vers la charge positive).<br>" +
+    "On étudie le potentiel et le champ en un point M repéré par r = OM et l'angle θ entre p et OM (O milieu de AB)." },
+  { titre: "Potentiel exact", texte:
+    "Par superposition: <b>V(M) = (q / 4πε<sub>0</sub>) (1/BM − 1/AM)</b>.<br>" +
+    "Les <span style='color:" + COUL.V + "'><b>équipotentielles</b></span> (traits pleins) entourent chaque charge; le plan médiateur de AB est l'équipotentielle V = 0 " +
+    "(antisymétrie de la distribution)." },
+  { titre: "Approximation dipolaire", texte:
+    "Loin du doublet (<b>r ≫ a</b>), un développement limité donne <b>V(M) ≈ p cos θ / (4πε<sub>0</sub> r²)</b>.<br>" +
+    "On s'éloigne: les équipotentielles exactes (violet) se confondent avec celles du modèle dipolaire (<span style='color:" + COUL.Va + "'><b>orange, tirets</b></span>). " +
+    "Le potentiel décroît en <b>1/r²</b>, plus vite que celui d'une charge isolée: la charge totale est nulle." },
+  { titre: "Champ électrique", texte:
+    "<b>E = −grad V</b> en coordonnées polaires:<br>" +
+    "<b>E<sub>r</sub> = 2p cos θ / (4πε<sub>0</sub> r³)</b>, <b>E<sub>θ</sub> = p sin θ / (4πε<sub>0</sub> r³)</b>.<br>" +
+    "Le champ décroît en <b>1/r³</b>. Sur l'axe (θ = 0), E est colinéaire à p et deux fois plus intense que dans le plan médiateur (θ = π/2), où il est opposé à p." },
+  { titre: "Lignes de champ", texte:
+    "Les <span style='color:" + COUL.E + "'><b>lignes de champ</b></span> partent de +q et aboutissent sur −q; loin du doublet elles ont pour équation <b>r = K sin²θ</b>.<br>" +
+    "Elles sont <b>orthogonales aux équipotentielles</b> (r² = C cos θ en approximation dipolaire), et orientées dans le sens des potentiels décroissants." },
+  { titre: "Dipôle dans un champ extérieur", texte:
+    "Dans un champ uniforme <b>E<sub>0</sub></b>, les forces sur +q et −q sont opposées: résultante nulle, mais un <b>couple Γ = p ∧ E<sub>0</sub></b>.<br>" +
+    "Énergie potentielle <b>E<sub>p</sub> = −p · E<sub>0</sub></b>: minimale quand p est aligné avec E<sub>0</sub> (position d'équilibre stable). " +
+    "Le dipôle oscille puis s'aligne sur le champ." },
+];
+
+// ---------------------------------------------------------------- interface
+const { panneau, sEt, bt, explication, maj } = interfaceEtapes("Dipôle électrostatique");
+const sReg = section(panneau, "Réglages");
+const gW = glissiere(sReg, "Distance d'observation (zoom arrière →)", 2.2, 30, p.W, (v) => { p.W = v; p.auto = false; });
+curseur(sReg, { label: "Vitesse de l'animation", min: 0.2, max: 2, val: 1, pas: 0.1, onchange: (v) => { p.vitesse = v; } });
+function aller(k) {
+  if (k < 0 || k >= ETAPES.length) return;
+  p.etape = k; p.tau = 0; p.auto = k === 2; p.W = [3, 3, 2.6, 9, 4.5, 3][k]; gW.r.value = p.W;
+  if (k === 5) { p.th = 2.2; p.om = 0; }
+  maj();
+}
+
+// ---------------------------------------------------------------- physique (unités: a = 1, q/4πε0 = 1)
+const ZB = 0.5, ZA = -0.5;
+const Vex = (x, z) => 1 / Math.hypot(x, z - ZB) - 1 / Math.hypot(x, z - ZA);
+const Vdp = (x, z) => z / Math.pow(x * x + z * z, 1.5);
+function Eex(x, z) {
+  const r1 = Math.hypot(x, z - ZB), r2 = Math.hypot(x, z - ZA);
+  return [x / r1 ** 3 - x / r2 ** 3, (z - ZB) / r1 ** 3 - (z - ZA) / r2 ** 3];
+}
+
+// ---------------------------------------------------------------- outils: lignes de niveau (marching squares)
+function isolignes(f, X0, X1, Z0, Z1, niveaux, N) {
+  const M = Math.round(N * (Z1 - Z0) / (X1 - X0)), g = new Float64Array((N + 1) * (M + 1));
+  for (let j = 0; j <= M; j++) for (let i = 0; i <= N; i++) g[j * (N + 1) + i] = f(X0 + (X1 - X0) * i / N, Z0 + (Z1 - Z0) * j / M);
+  const segs = [];
+  const P = (i, j) => [X0 + (X1 - X0) * i / N, Z0 + (Z1 - Z0) * j / M];
+  for (const L of niveaux) {
+    const out = [];
+    for (let j = 0; j < M; j++) for (let i = 0; i < N; i++) {
+      const a = g[j * (N + 1) + i], b = g[j * (N + 1) + i + 1], c = g[(j + 1) * (N + 1) + i + 1], d = g[(j + 1) * (N + 1) + i];
+      const pts = [];
+      const cr = (v1, v2, A, B) => { if ((v1 - L) * (v2 - L) < 0 && isFinite(v1) && isFinite(v2)) { const u = (L - v1) / (v2 - v1); pts.push([A[0] + (B[0] - A[0]) * u, A[1] + (B[1] - A[1]) * u]); } };
+      cr(a, b, P(i, j), P(i + 1, j)); cr(b, c, P(i + 1, j), P(i + 1, j + 1)); cr(c, d, P(i + 1, j + 1), P(i, j + 1)); cr(d, a, P(i, j + 1), P(i, j));
+      if (pts.length >= 2) out.push([pts[0], pts[1]]); if (pts.length === 4) out.push([pts[2], pts[3]]);
+    }
+    segs.push(out);
+  }
+  return segs;
+}
+/** Ligne de champ exacte partant de +q avec l'angle initial a0. */
+function ligneChamp(a0, R) {
+  let x = 0.06 * Math.sin(a0), z = ZB + 0.06 * Math.cos(a0); const pts = [[x, z]];
+  for (let k = 0; k < 4000; k++) {
+    const [ex, ez] = Eex(x, z), n = Math.hypot(ex, ez); if (!isFinite(n) || n === 0) break;
+    const h = 0.01 * Math.max(1, Math.hypot(x, z)); x += h * ex / n; z += h * ez / n; pts.push([x, z]);
+    if (Math.hypot(x, z - ZA) < 0.05 || Math.hypot(x, z) > R) break;
+  }
+  return pts;
+}
+
+// ---------------------------------------------------------------- dessin
+const cv = canevas(document.getElementById("z_vue"), () => {});
+function dessiner() {
+  const ctx = cv.ctx; cv.effacer("#fff");
+  const e = p.etape, W = p.W, cx = cv.w / 2, cy = cv.h / 2, s = Math.min(cv.w, cv.h) / (2 * W);
+  const S = ([x, z]) => [cx + s * x, cy - s * z];
+  const X0 = -cv.w / (2 * s), X1 = -X0, Z0 = -cv.h / (2 * s), Z1 = -Z0;
+  if (e === 5) { externe(ctx, S, s); return; }
+  // axes
+  seg(ctx, [0, cy], [cv.w, cy], "#eee", 1); seg(ctx, [cx, 0], [cx, cv.h], "#eee", 1);
+  // équipotentielles: niveaux adaptés à l'échelle (V ∝ 1/r²)
+  if (e >= 1) {
+    const base = [0.02, 0.05, 0.1, 0.2, 0.4].map((c) => c * 9 / (W * W));
+    const niv = [...base, ...base.map((v) => -v)];
+    const tr = (segs, coul, larg, tir) => { ctx.save(); ctx.strokeStyle = coul; ctx.lineWidth = larg; ctx.setLineDash(tir || []); ctx.beginPath();
+      segs.forEach((L) => L.forEach(([A, B]) => { const a = S(A), b = S(B); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); })); ctx.stroke(); ctx.restore(); };
+    tr(isolignes(Vex, X0, X1, Z0, Z1, e === 4 ? niv.filter((v, i) => i % 2 === 0) : niv, 170), e === 4 ? "rgba(123,45,142,0.45)" : COUL.V, e === 4 ? 1.4 : 1.8);
+    if (e === 2) tr(isolignes(Vdp, X0, X1, Z0, Z1, niv, 170), COUL.Va, 2, [6, 4]);
+    if (e === 1) { seg(ctx, [0, cy], [cv.w, cy], COUL.V, 1.2, [2, 3]); txt(ctx, cv.w - 10, cy - 8, "V = 0", COUL.V, "bold 13px system-ui", "d"); }
+  }
+  // lignes de champ
+  if (e === 4) {
+    const u = fr(p.tau, 0, 1);
+    for (let k = 1; k < 12; k++) {
+      const a0 = Math.PI * k / 12;
+      for (const sg of [1, -1]) {
+        const L = ligneChamp(sg * a0, 3 * W); const n = Math.max(2, Math.floor(L.length * u));
+        trace(ctx, L.slice(0, n).map(S), COUL.E, 1.8);
+        if (n > 30) { const i = Math.floor(n * 0.45), A = S(L[i]), B = S(L[Math.min(L.length - 1, i + 4)]); fleche(ctx, A[0], A[1], B[0], B[1], COUL.E, 2.2); }
+      }
+    }
+  }
+  // champ en un point M
+  if (e === 3) {
+    const R = 0.62 * W, th = 0.4 * p.t, M = [R * Math.sin(th), R * Math.cos(th)], Ms = S(M);
+    ctx.save(); ctx.strokeStyle = "#ccc"; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.arc(cx, cy, s * R, 0, 2 * Math.PI); ctx.stroke(); ctx.restore();
+    seg(ctx, [cx, cy], Ms, "#999", 1.2);
+    const Er = 2 * Math.cos(th) / R ** 3, Et = Math.sin(th) / R ** 3, k = 0.42 * W * s * R ** 3 / 2;
+    const ur = [Math.sin(th), Math.cos(th)], ut = [Math.cos(th), -Math.sin(th)];
+    const vr = [k * Er * ur[0], -k * Er * ur[1]], vt = [k * Et * ut[0], -k * Et * ut[1]];
+    fleche(ctx, Ms[0], Ms[1], Ms[0] + vr[0], Ms[1] + vr[1], "#e67e22", 2.5); txt(ctx, Ms[0] + vr[0] + 8, Ms[1] + vr[1], "E_r", "#e67e22", "bold 14px system-ui", "g");
+    fleche(ctx, Ms[0], Ms[1], Ms[0] + vt[0], Ms[1] + vt[1], "#1565c0", 2.5); txt(ctx, Ms[0] + vt[0] + 8, Ms[1] + vt[1] + 12, "E_θ", "#1565c0", "bold 14px system-ui", "g");
+    seg(ctx, [Ms[0] + vr[0], Ms[1] + vr[1]], [Ms[0] + vr[0] + vt[0], Ms[1] + vr[1] + vt[1]], "#bbb", 1, [3, 3]);
+    seg(ctx, [Ms[0] + vt[0], Ms[1] + vt[1]], [Ms[0] + vr[0] + vt[0], Ms[1] + vr[1] + vt[1]], "#bbb", 1, [3, 3]);
+    fleche(ctx, Ms[0], Ms[1], Ms[0] + vr[0] + vt[0], Ms[1] + vr[1] + vt[1], COUL.E, 3.5);
+    txt(ctx, Ms[0] + vr[0] + vt[0] + 8, Ms[1] + vr[1] + vt[1] - 8, "E", COUL.E, "bold 16px system-ui", "g");
+    point(ctx, Ms, "M", "#111", -14, -8, 5);
+    ctx.save(); ctx.strokeStyle = "#555"; ctx.beginPath(); ctx.arc(cx, cy, 34, -Math.PI / 2, -Math.PI / 2 + th, th < 0); ctx.stroke(); ctx.restore();
+    txt(ctx, cx + 40 * Math.sin(th / 2) + 4, cy - 40 * Math.cos(th / 2), "θ", "#333", "italic bold 15px 'Times New Roman', serif");
+  }
+  // charges et moment dipolaire
+  const B = S([0, ZB]), A = S([0, ZA]), rq = Math.max(3, Math.min(13, 0.22 * s));
+  if (s * 1 > 18) {
+    fleche(ctx, A[0] + 22, A[1], B[0] + 22, B[1], COUL.p, 2.5); txt(ctx, (A[0] + B[0]) / 2 + 30, (A[1] + B[1]) / 2 + 5, "p", COUL.p, "bold 16px system-ui", "g");
+  } else { fleche(ctx, cx, cy + 14, cx, cy - 22, COUL.p, 2.5); txt(ctx, cx + 8, cy - 14, "p", COUL.p, "bold 16px system-ui", "g"); }
+  for (const [P, c, n] of [[B, COUL.plus, "+q"], [A, COUL.moins, "−q"]]) {
+    ctx.save(); ctx.fillStyle = c; ctx.beginPath(); ctx.arc(P[0], P[1], rq, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
+    if (s > 18) txt(ctx, P[0] - rq - 6, P[1] + 5, n, c, "bold 15px system-ui", "d");
+  }
+  if (e === 0) {
+    txt(ctx, B[0] + 30, B[1] - 10, "B", "#333", "bold 14px system-ui", "g"); txt(ctx, A[0] + 30, A[1] + 16, "A", "#333", "bold 14px system-ui", "g");
+    seg(ctx, [A[0] - 60, A[1]], [A[0] - 60, B[1]], "#777", 1.2); txt(ctx, A[0] - 68, (A[1] + B[1]) / 2 + 5, "a", "#555", "italic bold 16px 'Times New Roman', serif", "d");
+    point(ctx, [cx, cy], "O", "#333", 14, 18, 3);
+    const M = S([1.6, 1.1]); point(ctx, M, "M", "#111", 12, -6, 5);
+    seg(ctx, [cx, cy], M, "#999", 1.2, [4, 3]); seg(ctx, B, M, COUL.plus, 1, [3, 3]); seg(ctx, A, M, COUL.moins, 1, [3, 3]);
+  }
+  // échelle
+  txt(ctx, 14, cv.h - 16, e >= 2 ? "champ de vision ≈ " + (W < 5 ? "quelques a" : W < 12 ? "une dizaine de a" : "plusieurs dizaines de a") : "", "#888", "13px system-ui", "g");
+}
+
+// ---------------------------------------------------------------- dipôle dans un champ uniforme
+function externe(ctx, S, s) {
+  const cx = cv.w / 2, cy = cv.h / 2, E0 = [1, 0];
+  for (let y = 40; y < cv.h; y += 60) fleche(ctx, 30, y, cv.w - 30, y, "#cfd8dc", 1.5);
+  txt(ctx, cv.w - 40, 30, "E_0 (uniforme)", "#78909c", "bold 15px system-ui", "d");
+  const L = Math.min(cv.w, cv.h) * 0.22, th = p.th;               // th: angle entre p et E0
+  const u = [Math.cos(th), -Math.sin(th)];
+  const Bp = [cx + L * u[0], cy + L * u[1]], Am = [cx - L * u[0], cy - L * u[1]];
+  seg(ctx, Am, Bp, "#555", 3);
+  fleche(ctx, Bp[0], Bp[1], Bp[0] + 70, Bp[1], COUL.plus, 3); txt(ctx, Bp[0] + 74, Bp[1] - 6, "q E_0", COUL.plus, "bold 14px system-ui", "g");
+  fleche(ctx, Am[0], Am[1], Am[0] - 70, Am[1], COUL.moins, 3); txt(ctx, Am[0] - 74, Am[1] - 6, "−q E_0", COUL.moins, "bold 14px system-ui", "d");
+  for (const [P, c] of [[Bp, COUL.plus], [Am, COUL.moins]]) { ctx.save(); ctx.fillStyle = c; ctx.beginPath(); ctx.arc(P[0], P[1], 12, 0, 2 * Math.PI); ctx.fill(); ctx.restore(); }
+  fleche(ctx, cx, cy, cx + 0.6 * L * u[0], cy + 0.6 * L * u[1], COUL.p, 3); txt(ctx, cx + 0.6 * L * u[0] + 10, cy + 0.6 * L * u[1] - 6, "p", COUL.p, "bold 16px system-ui", "g");
+  // angle et couple
+  ctx.save(); ctx.strokeStyle = "#777"; ctx.beginPath(); ctx.arc(cx, cy, 46, 0, -th, th > 0); ctx.stroke(); ctx.restore();
+  txt(ctx, cx + 58 * Math.cos(th / 2), cy - 58 * Math.sin(th / 2) + 5, "θ", "#333", "italic bold 15px 'Times New Roman', serif");
+  const sg = Math.sign(Math.sin(th));
+  if (Math.abs(Math.sin(th)) > 0.05) {
+    const R = L * 0.45, a1 = -th + 0.15 * sg, a2 = -th + 0.85 * sg;          // angles canvas: rotation vers θ = 0
+    ctx.save(); ctx.strokeStyle = "#7b2d8e"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(cx, cy, R, a1, a2, sg < 0); ctx.stroke(); ctx.restore();
+    const q = [cx + R * Math.cos(a2), cy + R * Math.sin(a2)], tg = [-Math.sin(a2) * sg, Math.cos(a2) * sg];
+    fleche(ctx, q[0] - 10 * tg[0], q[1] - 10 * tg[1], q[0] + 3 * tg[0], q[1] + 3 * tg[1], "#7b2d8e", 2.5);
+    txt(ctx, cx + (R + 22) * Math.cos((a1 + a2) / 2), cy + (R + 22) * Math.sin((a1 + a2) / 2) + 5, "Γ", "#7b2d8e", "bold 17px system-ui");
+  }
+  txt(ctx, cx, cv.h - 90, "Γ = p ∧ E_0", "#7b2d8e", "bold 16px system-ui");
+  // énergie potentielle
+  const gx = 30, gy = cv.h - 30, gw = Math.min(260, cv.w * 0.3), gh = 70;
+  seg(ctx, [gx, gy - gh / 2], [gx + gw, gy - gh / 2], "#ccc", 1);
+  const pts = []; for (let i = 0; i <= 100; i++) { const a = -Math.PI + 2 * Math.PI * i / 100; pts.push([gx + gw * i / 100, gy - gh / 2 + gh / 2 * Math.cos(a)]); }
+  trace(ctx, pts, "#7b2d8e", 2);
+  let a = ((th + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+  point(ctx, [gx + gw * (a + Math.PI) / (2 * Math.PI), gy - gh / 2 + gh / 2 * Math.cos(a)], "", "#111", 0, 0, 5);
+  txt(ctx, gx, gy - gh - 6, "E_p = −p E_0 cos θ", "#7b2d8e", "bold 13px system-ui", "g");
+  txt(ctx, gx + gw / 2, gy + 16, "θ = 0", "#555", "12px system-ui");
+}
+
+// ---------------------------------------------------------------- boucle
+maj();
+// ---- enchaînement automatique de toutes les étapes (durée de chaque étape: temps de lecture de l'explication)
+const ench = { on: false, t: 0, der: null };
+const bEnch = bouton(bt, "▶ Tout enchaîner", () => {
+  ench.on = !ench.on;
+  if (ench.on) aller(p.etape === ETAPES.length - 1 ? 0 : p.etape);
+  ench.t = 0; majEnch();
+});
+const barreEnch = el("div", { style: "height:4px;background:#e3e8ef;border-radius:2px;margin-top:6px;display:none" }, sEt);
+const jaugeEnch = el("div", { style: "height:4px;width:0;background:#3d6fb3;border-radius:2px" }, barreEnch);
+function majEnch() { bEnch.innerHTML = ench.on ? "■ Arrêter" : "▶ Tout enchaîner"; barreEnch.style.display = ench.on ? "" : "none"; }
+function dureeEnch() { const n = (explication.innerText || "").split(/\s+/).length; return 5 + n / 4; }
+{ const allerInitial = aller; aller = (k) => { ench.t = 0; allerInitial(k); }; }
+function tickEnch(ts) {
+  const dt = ench.der === null ? 0 : Math.min(0.1, (ts - ench.der) / 1000); ench.der = ts;
+  if (ench.on) {
+    ench.t += dt; const D = dureeEnch(); jaugeEnch.style.width = Math.min(100, 100 * ench.t / D) + "%";
+    if (ench.t >= D) { if (p.etape < ETAPES.length - 1) aller(p.etape + 1); else { ench.on = false; majEnch(); } }
+  }
+  requestAnimationFrame(tickEnch);
+}
+requestAnimationFrame(tickEnch);
+
+boucle((dt) => {
+  p.t += dt * p.vitesse; p.tau += dt * 0.3 * p.vitesse;
+  if (p.auto && p.etape === 2) { p.W = 2.6 + 22 * (0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, p.tau / 1.6))); gW.r.value = p.W; }
+  if (p.etape === 5) { const h = Math.min(0.05, dt * p.vitesse); p.om += h * (-6 * Math.sin(p.th) - 0.35 * p.om); p.th += h * p.om; }
+  dessiner();
+});
+
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>
