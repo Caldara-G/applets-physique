@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animations du cours — MP* Malherbe</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif; color: #222; background: #eef0f3; }
+main { max-width: 1150px; margin: 0 auto; padding: 28px 20px 40px; }
+h1 { font-size: 24px; margin: 0 0 4px; }
+.sous { color: #555; margin: 0 0 24px; }
+h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em; color: #4a6fa5; margin: 26px 0 10px; }
+.grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 14px; }
+a.carte { display: block; background: #fff; border: 1px solid #d5d9df; border-radius: 8px; padding: 14px 16px;
+  text-decoration: none; color: inherit; transition: box-shadow 0.15s, border-color 0.15s; }
+a.carte:hover { border-color: #7f9fcf; box-shadow: 0 3px 14px rgba(40, 70, 120, 0.15); }
+.carte b { display: block; font-size: 15.5px; margin-bottom: 5px; color: #1f3f73; }
+.carte span { font-size: 13px; color: #555; line-height: 1.45; }
+footer { margin-top: 32px; font-size: 12px; color: #777; line-height: 1.5; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Animations du cours <span style="color:#3b5f96">— MP* Malherbe</span></h1>
+  <p class="sous">Des animations pas à pas qui construisent les raisonnements délicats du cours. Elles s'ouvrent dans le navigateur, sans installation.</p>
+
+  <h2>Optique ondulatoire</h2>
+  <div class="grille">
+    <a class="carte" href="michelson_construction.html"><b>Michelson: construction du schéma équivalent</b>
+      <span>Les deux chemins, la source fictive S′ et le miroir fictif M′₂ par symétrie, puis le schéma équivalent en lame ou coin d'air; S, A et les miroirs sont déplaçables.</span></a>
+  </div>
+
+  <footer>Testé avec Chrome. Utiliser le bouton « retour » du navigateur pour revenir à cette page.</footer>
+</main>
+</body>
+</html>
