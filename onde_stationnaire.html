@@ -283,7 +283,7 @@ function boucle(pas) {
 /* Onde stationnaire: somme d'une onde progressive et de l'onde réfléchie sur une extrémité fixe. */
 
 const COUL = { inc: "#c62828", ref: "#1f5fbf", som: "#111", noeud: "#2e7d32", ventre: "#e67e22", env: "#9e9e9e" };
-const p = { etape: 0, t: 0, lecture: true, vitesse: 1, mode: 3, composantes: true, strobo: false };
+const p = { etape: 0, t: 0, lecture: true, vitesse: 1, mode: 6, composantes: true, strobo: false };
 
 const ETAPES = [
   { titre: "Onde incidente", texte:
@@ -317,7 +317,7 @@ const bPause = bouton(bt, "❚❚ Pause", () => { p.lecture = !p.lecture; majBou
 const bSuiv = bouton(bt, "Suivante ▶", () => aller(p.etape + 1));
 const explication = el("div", { class: "info explication" }, section(panneau, "Explication"));
 const sReg = section(panneau, "Réglages");
-const cMode = curseur(sReg, { label: "Mode n (étape 5)", min: 1, max: 6, val: p.mode, pas: 1, dec: 0, onchange: (v) => { p.mode = v; } });
+const cMode = curseur(sReg, { label: "Mode n (λ = 2L/n)", min: 1, max: 6, val: p.mode, pas: 1, dec: 0, onchange: (v) => { p.mode = v; } });
 cases(sReg, null, [["Afficher les ondes incidente et réfléchie", true], ["Superposer les profils successifs (stroboscopie)", false]],
   (i, b) => { if (i === 0) p.composantes = b; else p.strobo = b; });
 curseur(sReg, { label: "Vitesse de l'animation", min: 0.1, max: 2, val: 1, pas: 0.1, onchange: (v) => { p.vitesse = v; } });
@@ -333,9 +333,11 @@ function aller(k) { if (k < 0 || k >= ETAPES.length) return; p.etape = k; p.lect
 // ---------------------------------------------------------------- dessin
 const cv = canevas(document.getElementById("z_vue"), () => {});
 const L = 3;                                    // longueur de corde (en longueurs d'onde pour les étapes 1 à 4)
-function lam() { return p.etape === 4 ? 2 * L / p.mode : 1; }
-function y1(x, t) { const k = 2 * Math.PI / lam(); return Math.cos(2 * Math.PI * t - k * x); }
-function y2(x, t) { const k = 2 * Math.PI / lam(); return -Math.cos(2 * Math.PI * t + k * x - 2 * k * L); }
+function lam() { return 2 * L / p.mode; }
+/** Fréquence (en unités arbitraires) proportionnelle à n à célérité fixée: f = c / λ. */
+function freq() { return p.mode / 5; }
+function y1(x, t) { const k = 2 * Math.PI / lam(); return Math.cos(2 * Math.PI * freq() * t - k * x); }
+function y2(x, t) { const k = 2 * Math.PI / lam(); return -Math.cos(2 * Math.PI * freq() * t + k * x - 2 * k * L); }
 
 function dessiner() {
   const ctx = cv.ctx; cv.effacer("#fff");
@@ -360,7 +362,7 @@ function dessiner() {
     courbe((x) => 2 * Math.abs(Math.sin(k * (x - L))), COUL.env, 1.2, 1, [5, 4]);
     courbe((x) => -2 * Math.abs(Math.sin(k * (x - L))), COUL.env, 1.2, 1, [5, 4]);
   }
-  if (p.strobo && e >= 2) for (let j = 0; j < 12; j++) courbe((x) => som(x, j / 12), COUL.som, 1, 0.15);
+  if (p.strobo && e >= 2) for (let j = 0; j < 12; j++) courbe((x) => som(x, j / (12 * freq())), COUL.som, 1, 0.15);
   if (e <= 2 || p.composantes) {
     if (e <= 1 || p.composantes) courbe((x) => y1(x, t), COUL.inc, 2, e >= 2 ? 0.5 : 1);
     if (e >= 1 && (e === 1 || p.composantes)) courbe((x) => y2(x, t), COUL.ref, 2, e >= 2 ? 0.5 : 1);
@@ -386,7 +388,7 @@ function dessiner() {
       ctx.beginPath(); ctx.moveTo(a, yy); ctx.lineTo(b, yy); ctx.stroke(); ctx.fillStyle = COUL.noeud; ctx.fillText("λ/2", (a + b) / 2, yy - 6); }
   }
   ctx.save(); ctx.fillStyle = "#333"; ctx.font = "bold 14px system-ui"; ctx.textAlign = "left";
-  ctx.fillText(e === 4 ? "Mode n = " + p.mode + ": L = " + p.mode + " λ/2" : ETAPES[e].titre, 12, 22); ctx.restore();
+  ctx.fillText(e === 4 ? "Mode n = " + p.mode + ": L = " + p.mode + " λ/2" : ETAPES[e].titre + "   (λ = 2L/" + p.mode + ")", 12, 22); ctx.restore();
 }
 
 // ---------------------------------------------------------------- boucle
