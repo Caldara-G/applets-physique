@@ -528,6 +528,28 @@ function dessiner() {
 
 // ---------------------------------------------------------------- boucle
 majReglages(); majBoutons();
+// ---- enchaînement automatique de toutes les étapes (durée de chaque étape: temps de lecture de l'explication)
+const ench = { on: false, t: 0, der: null };
+const bEnch = bouton(bt, "▶ Tout enchaîner", () => {
+  ench.on = !ench.on;
+  if (ench.on) aller(p.etape === ETAPES.length - 1 ? 0 : p.etape);
+  ench.t = 0; majEnch();
+});
+const barreEnch = el("div", { style: "height:4px;background:#e3e8ef;border-radius:2px;margin-top:6px;display:none" }, sEt);
+const jaugeEnch = el("div", { style: "height:4px;width:0;background:#3d6fb3;border-radius:2px" }, barreEnch);
+function majEnch() { bEnch.innerHTML = ench.on ? "■ Arrêter" : "▶ Tout enchaîner"; barreEnch.style.display = ench.on ? "" : "none"; }
+function dureeEnch() { const n = (explication.innerText || "").split(/\s+/).length; return 5 + n / 4; }
+{ const allerInitial = aller; aller = (k) => { ench.t = 0; allerInitial(k); }; }
+function tickEnch(ts) {
+  const dt = ench.der === null ? 0 : Math.min(0.1, (ts - ench.der) / 1000); ench.der = ts;
+  if (ench.on) {
+    ench.t += dt; const D = dureeEnch(); jaugeEnch.style.width = Math.min(100, 100 * ench.t / D) + "%";
+    if (ench.t >= D) { if (p.etape < ETAPES.length - 1) aller(p.etape + 1); else { ench.on = false; majEnch(); } }
+  }
+  requestAnimationFrame(tickEnch);
+}
+requestAnimationFrame(tickEnch);
+
 boucle((dt) => { if (p.t < 1) p.t = Math.min(1, p.t + dt * 0.35 * p.vitesse); dessiner(); });
 
 </script>

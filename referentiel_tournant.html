@@ -75,10 +75,8 @@ button.b:disabled { opacity: 0.45; cursor: default; }
 <body>
 <div id="app">
   <div id="principal">
-    <div class="ligne-zones" style="flex: 1">
       <div class="zone" id="z_sol" data-mt-nom="Vu du sol"></div>
       <div class="zone" id="z_manege" data-mt-nom="Vu du manège"></div>
-    </div>
   </div>
   <div id="panneau"></div>
 </div>
@@ -308,7 +306,7 @@ const ETAPES = [
     "m <b>a</b>′ = <span style='color:" + COUL.fie + "'><b>f</b><sub>ie</sub> = m Ω² <b>HM</b></span> (entraînement, vers l'extérieur) " +
     "+ <span style='color:" + COUL.fic + "'><b>f</b><sub>ic</sub> = −2m <b>Ω</b> ∧ <b>v</b>′</span> (Coriolis, perpendiculaire à <b>v</b>′)." },
   { titre: "Bille immobile dans R", texte:
-    "La bille est maintenant immobile dans R: un support fixé au sol la maintient au-dessus du manège. Dans R′, elle décrit un cercle à la vitesse angulaire −Ω. " +
+    "La bille est maintenant immobile dans R (posée hors du manège, sur un support fixe). Dans R′, elle décrit un cercle à la vitesse angulaire −Ω. " +
     "La force de Coriolis, dirigée vers le centre, vaut <b>deux fois</b> la force d'inertie d'entraînement: la résultante " +
     "−m Ω² <b>HM</b> est bien la force centripète du mouvement circulaire." },
 ];
@@ -355,7 +353,7 @@ curseur(sReg, { label: "Vitesse de rotation ΩR/v<sub>0</sub>", min: 0, max: 3, 
   onchange: (v) => { p.rapport = v; p.t = 0; } });
 curseur(sReg, { label: "Direction du lancer (°)", min: -180, max: 180, val: p.angle, pas: 5,
   onchange: (v) => { p.angle = v; p.t = 0; } });
-const cDep = curseur(sReg, { label: "Départ: distance au centre / R", min: 0, max: 0.9, val: p.depart, pas: 0.05,
+curseur(sReg, { label: "Départ: distance au centre / R", min: 0, max: 0.9, val: p.depart, pas: 0.05,
   onchange: (v) => { p.depart = v; p.t = 0; } });
 curseur(sReg, { label: "Vitesse de l'animation", min: 0.2, max: 2, val: p.vitesse, pas: 0.1,
   onchange: (v) => { p.vitesse = v; } });
@@ -370,7 +368,7 @@ function majBoutons() {
 function aller(k) {
   if (k < 0 || k >= ETAPES.length) return;
   p.etape = k; p.t = 0; p.lecture = true;
-  if (k === 4 && p.depart < 0.2) { p.depart = 0.6; cDep.set(0.6, true); }
+  if (k === 4 && p.depart < 0.2) p.depart = 0.6;
   majBoutons();
 }
 
@@ -448,13 +446,9 @@ function dessiner() {
     // flèche indiquant la rotation
     ctx.save(); ctx.strokeStyle = "#999"; ctx.lineWidth = 1.2;
     const [cx, cy] = V.X([0, 0]), sgn = dansR ? Math.sign(W) : -Math.sign(W);
-    if (W !== 0) { const Rr = 1.32 * V.k; ctx.beginPath(); ctx.arc(cx, cy, Rr, -0.3, 0.3); ctx.stroke();
-      // sens trigonométrique à l'écran = angle canvas décroissant: pointe en −0,3
-      const a = sgn > 0 ? -0.3 : 0.3, xa = cx + Rr * Math.cos(a), ya = cy + Rr * Math.sin(a);
-      const ta = sgn > 0 ? a - Math.PI / 2 : a + Math.PI / 2;          // direction tangente du mouvement
-      ctx.fillStyle = "#999"; ctx.beginPath(); ctx.moveTo(xa + 9 * Math.cos(ta), ya + 9 * Math.sin(ta));
-      ctx.lineTo(xa + 5 * Math.cos(ta + 2.2), ya + 5 * Math.sin(ta + 2.2)); ctx.lineTo(xa + 5 * Math.cos(ta - 2.2), ya + 5 * Math.sin(ta - 2.2));
-      ctx.closePath(); ctx.fill();
+    if (W !== 0) { ctx.beginPath(); ctx.arc(cx, cy, 1.32 * V.k, -0.3, 0.3); ctx.stroke();
+      const a = sgn > 0 ? -0.3 : 0.3, xa = cx + 1.32 * V.k * Math.cos(a), ya = cy + 1.32 * V.k * Math.sin(a);
+      ctx.fillStyle = "#999"; ctx.beginPath(); ctx.arc(xa, ya, 3.5, 0, 2 * Math.PI); ctx.fill();
       ctx.font = "13px system-ui"; ctx.fillText(dansR ? "manège: Ω" : "sol: −Ω", cx + 1.36 * V.k, cy + 4); }
     ctx.restore();
     if (e === 0) continue;
@@ -468,12 +462,10 @@ function dessiner() {
     cercle(ctx, V, b.r, 0.035, null, COUL.bille);
     if (dansR) { if (e >= 1) vecteur(ctx, V, b.r, [0.3 * b.v[0], 0.3 * b.v[1]], COUL.vit, "v"); }
     if (!dansR && e >= 3) {
-      let fie = [W * W * b.r[0], W * W * b.r[1]];
-      let fic = [2 * W * b.v[1], -2 * W * b.v[0]];              // −2 Ω ez ∧ v′
-      const nf = Math.max(Math.hypot(...fie), Math.hypot(...fic), Math.hypot(fie[0] + fic[0], fie[1] + fic[1]), 1e-9);
-      fie = fie.map((c) => 0.55 * c / nf); fic = fic.map((c) => 0.55 * c / nf);   // échelle commune des forces
-      const nv = Math.max(Math.hypot(...b.v), 1e-9);
-      vecteur(ctx, V, b.r, [0.3 * b.v[0] / nv, 0.3 * b.v[1] / nv], COUL.vit, "v′");
+      const s = 0.18;
+      const fie = [W * W * b.r[0] * s, W * W * b.r[1] * s];
+      const fic = [2 * W * b.v[1] * s, -2 * W * b.v[0] * s];      // −2 Ω ez ∧ v′
+      vecteur(ctx, V, b.r, [0.3 * b.v[0], 0.3 * b.v[1]], COUL.vit, "v′");
       vecteur(ctx, V, b.r, fie, COUL.fie, "f ie");
       vecteur(ctx, V, b.r, fic, COUL.fic, "f ic");
       if (e === 4) vecteur(ctx, V, b.r, [fie[0] + fic[0], fie[1] + fic[1]], COUL.res, "Σ");
@@ -483,6 +475,28 @@ function dessiner() {
 
 // ---------------------------------------------------------------- boucle
 majBoutons();
+// ---- enchaînement automatique de toutes les étapes (durée de chaque étape: temps de lecture de l'explication)
+const ench = { on: false, t: 0, der: null };
+const bEnch = bouton(bt, "▶ Tout enchaîner", () => {
+  ench.on = !ench.on;
+  if (ench.on) aller(p.etape === ETAPES.length - 1 ? 0 : p.etape);
+  ench.t = 0; majEnch();
+});
+const barreEnch = el("div", { style: "height:4px;background:#e3e8ef;border-radius:2px;margin-top:6px;display:none" }, sEt);
+const jaugeEnch = el("div", { style: "height:4px;width:0;background:#3d6fb3;border-radius:2px" }, barreEnch);
+function majEnch() { bEnch.innerHTML = ench.on ? "■ Arrêter" : "▶ Tout enchaîner"; barreEnch.style.display = ench.on ? "" : "none"; }
+function dureeEnch() { const n = (explication.innerText || "").split(/\s+/).length; return 5 + n / 4; }
+{ const allerInitial = aller; aller = (k) => { ench.t = 0; allerInitial(k); }; }
+function tickEnch(ts) {
+  const dt = ench.der === null ? 0 : Math.min(0.1, (ts - ench.der) / 1000); ench.der = ts;
+  if (ench.on) {
+    ench.t += dt; const D = dureeEnch(); jaugeEnch.style.width = Math.min(100, 100 * ench.t / D) + "%";
+    if (ench.t >= D) { if (p.etape < ETAPES.length - 1) aller(p.etape + 1); else { ench.on = false; majEnch(); } }
+  }
+  requestAnimationFrame(tickEnch);
+}
+requestAnimationFrame(tickEnch);
+
 boucle((dt) => {
   if (p.lecture) {
     p.t += dt * p.vitesse * 0.6;
