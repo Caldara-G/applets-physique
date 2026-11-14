@@ -358,9 +358,9 @@ const ETAPES = [
     "donné par la loi de Nernst, et devient notable dès qu'on s'en écarte.<br>Aux potentiels éloignés, le courant est limité par l'apport des réactifs par diffusion: " +
     "<b>paliers de diffusion</b>, d'intensité proportionnelle à la concentration de l'espèce qui réagit." },
   { titre: "Système lent", texte:
-    "Pour un couple lent, il faut s'écarter de E<sub>eq</sub> d'une <b>surtension</b> (η<sub>a</sub> &gt; 0 en oxydation, η<sub>c</sub> &lt; 0 en réduction) pour obtenir un courant notable.<br>" +
+    "Pour un couple lent, il faut s'écarter de E<sub>eq</sub> d'un <b>surpotentiel</b> (η<sub>a</sub> &gt; 0 en oxydation, η<sub>c</sub> &lt; 0 en réduction) pour obtenir un courant notable.<br>" +
     "Entre E<sub>eq</sub> + η<sub>c</sub> et E<sub>eq</sub> + η<sub>a</sub>, aucune réaction ne se produit à vitesse appréciable. " +
-    "Les surtensions dépendent de la nature de l'électrode." },
+    "Les surpotentiels dépendent de la nature de l'électrode." },
   { titre: "Mur du solvant", texte:
     "Le solvant (l'eau) est en très grand excès: son oxydation en O<sub>2</sub> et sa réduction en H<sub>2</sub> donnent des courants qui croissent sans palier: les " +
     "<span style='color:" + COUL.eau + "'><b>murs du solvant</b></span>.<br>Ils délimitent le <b>domaine d'électroactivité</b>: seuls les couples dont la vague tombe entre les deux murs " +
@@ -370,7 +370,7 @@ const ETAPES = [
     "Sans circuit extérieur, le courant total est nul: le métal prend le <span style='color:" + COUL.mix + "'><b>potentiel mixte E<sub>m</sub></b></span> tel que " +
     "<b>i<sub>a</sub>(E<sub>m</sub>) = −i<sub>c</sub>(E<sub>m</sub>) = i<sub>corr</sub></b>.<br>Graphiquement: intersection de la courbe anodique avec le symétrique de la courbe cathodique." },
   { titre: "Blocage cinétique", texte:
-    "Quand la surtension cathodique de H<sup>+</sup>/H<sub>2</sub> sur le métal augmente (en valeur absolue), le potentiel mixte diminue et le " +
+    "Quand le surpotentiel cathodique de H<sup>+</sup>/H<sub>2</sub> sur le métal augmente (en valeur absolue), le potentiel mixte diminue et le " +
     "<b>courant de corrosion i<sub>corr</sub> diminue</b>.<br>Une réaction thermodynamiquement favorisée peut ainsi être <b>bloquée cinétiquement</b>: " +
     "c'est la cinétique, et non la thermodynamique seule, qui décide." },
 ];
@@ -378,7 +378,7 @@ const ETAPES = [
 // ---------------------------------------------------------------- interface
 const { panneau, sEt, bt, explication, maj } = interfaceEtapes("Courbes intensité-potentiel");
 const sReg = section(panneau, "Réglages");
-const gEta = glissiere(sReg, "Surtension (en valeur absolue) du couple lent", 0.04, 0.45, p.eta, (v) => { p.eta = v; p.auto = false; });
+const gEta = glissiere(sReg, "Surpotentiel (en valeur absolue) du couple lent", 0.04, 0.45, p.eta, (v) => { p.eta = v; p.auto = false; });
 curseur(sReg, { label: "Vitesse de l'animation", min: 0.2, max: 2, val: 1, pas: 0.1, onchange: (v) => { p.vitesse = v; } });
 function aller(k) {
   if (k < 0 || k >= ETAPES.length) return;
@@ -392,7 +392,7 @@ const EEQ = 0.5, ILA = 0.55, ILC = -0.45;
 // recentrage pour que i(EEQ) = 0: on décale la vague
 const E0R = EEQ + S * Math.log(-ILC / ILA);
 function vagueRapide(E) { const x = Math.exp((E - E0R) / S); return (ILA * x + ILC) / (1 + x); }
-/** Couple lent: deux branches séparées par les surtensions. */
+/** Couple lent: deux branches séparées par les surpotentiels. */
 function vagueLente(E, eta) {
   const ia = E > EEQ + eta ? ILA * (1 - Math.exp(-(E - EEQ - eta) / S)) : 0;
   const ic = E < EEQ - eta ? ILC * (1 - Math.exp((E - EEQ + eta) / S)) : 0;
@@ -401,7 +401,7 @@ function vagueLente(E, eta) {
 const EOX = 0.9, ERED = 0.1;
 const murOx = (E) => E > EOX ? 0.5 * (Math.exp((E - EOX) / 0.05) - 1) : 0;
 const murRed = (E) => E < ERED ? -0.5 * (Math.exp((ERED - E) / 0.05) - 1) : 0;
-// corrosion: oxydation du métal (rapide, pas de palier), réduction de H+ (lente, surtension eta)
+// corrosion: oxydation du métal (rapide, pas de palier), réduction de H+ (lente, surpotentiel eta)
 const EM = 0.25, EH = 0.75;
 const iMetal = (E) => E > EM ? 0.02 * (Math.exp((E - EM) / 0.08) - 1) : 0;
 const iH = (E, eta) => { const d = E - (EH - eta); return d < 0 ? -0.03 * (Math.exp(-d / 0.08) - 1) : 0; };
