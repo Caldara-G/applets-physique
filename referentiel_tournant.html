@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Référentiel tournant: le manège — MP* Malherbe</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px; color: #222; background: #eef0f3;
+}
+#app { display: flex; height: 100vh; }
+#principal { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0;
+  padding: 8px; gap: 8px; }
+.ligne-zones { display: flex; gap: 8px; min-height: 0; }
+.zone { position: relative; flex: 1; min-height: 0; min-width: 0; background: #fff;
+  border: 1px solid #d5d9df; border-radius: 6px; overflow: hidden; }
+.zone canvas { position: absolute; left: 0; top: 0; touch-action: none; }
+#panneau { width: 340px; flex: none; overflow-y: auto; background: #fff;
+  border-left: 1px solid #d5d9df; padding: 10px 14px 20px; }
+#panneau h1 { font-size: 16px; margin: 4px 0 2px; }
+.retour { font-size: 12px; color: #4a6fa5; text-decoration: none; }
+.retour:hover { text-decoration: underline; }
+.section { margin: 8px 0; padding-bottom: 8px; border-bottom: 1px solid #eceef1; }
+.section:last-child { border-bottom: none; }
+.titre { font-weight: 600; margin-bottom: 4px; color: #333; }
+.choix { display: flex; align-items: center; gap: 6px; padding: 1px 0; cursor: pointer;
+  user-select: none; }
+.choix input { margin: 0 2px 0 0; }
+.choix.off { color: #aaa; cursor: default; }
+.curseur { margin: 7px 0; }
+.curseur .tete { display: flex; justify-content: space-between; align-items: center;
+  gap: 6px; }
+.curseur .valeur { display: flex; align-items: center; gap: 2px; flex: none; }
+.saisie { width: 66px; text-align: right; font: inherit; padding: 1px 4px;
+  border: 1px solid #c9cdd3; border-radius: 3px; }
+.pm { width: 20px; height: 20px; padding: 0; border: 1px solid #c9cdd3;
+  background: #f5f6f8; border-radius: 3px; cursor: pointer; line-height: 1; }
+.pm:hover { background: #e6e9ee; }
+input[type=range] { width: 100%; margin: 3px 0 0; accent-color: #3b6fb6; }
+.boutons { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+button.b { padding: 5px 10px; border: 1px solid #b8bec8; background: #f3f4f6;
+  border-radius: 4px; cursor: pointer; font: inherit; }
+button.b:hover { background: #e4e7ec; }
+button.b.actif { background: #dce7f7; border-color: #7f9fcf; }
+.info { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 4px;
+  padding: 6px 8px; line-height: 1.5; }
+.note { font-size: 11.5px; color: #666; font-style: italic; line-height: 1.4; }
+.dialogue { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: none;
+  align-items: center; justify-content: center; z-index: 10; }
+.dialogue .boite { background: #fff; border-radius: 8px; padding: 16px 20px;
+  min-width: 340px; box-shadow: 0 6px 30px rgba(0,0,0,0.25); }
+.dialogue table td { padding: 3px 6px; }
+.dialogue input[type=text] { width: 80px; font: inherit; padding: 2px 4px; }
+.erreur { color: #c62828; }
+@media (max-width: 900px) {
+  #app { flex-direction: column; height: auto; }
+  #principal { height: 75vh; }
+  #panneau { width: 100%; border-left: none; border-top: 1px solid #d5d9df; }
+}
+.haut { display: flex; justify-content: space-between; align-items: center; }
+.etiquette { font-size: 11.5px; font-weight: 600; color: #fff; background: #3b5f96;
+  border-radius: 10px; padding: 2px 9px; letter-spacing: 0.02em; }
+.filigrane { position: absolute; right: 16px; bottom: 14px; z-index: 5; pointer-events: none;
+  font-size: 13px; font-weight: 700; color: #3b5f96; background: rgba(255,255,255,0.82);
+  border: 1px solid rgba(59,95,150,0.35); border-radius: 12px; padding: 3px 11px; }
+.etapes { display: flex; flex-direction: column; gap: 3px; margin-bottom: 4px; }
+button.b.etape { text-align: left; padding: 4px 8px; }
+button.b:disabled { opacity: 0.45; cursor: default; }
+.explication { line-height: 1.55; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="principal">
+    <div class="ligne-zones" style="flex: 1">
+      <div class="zone" id="z_sol" data-mt-nom="Vu du sol"></div>
+      <div class="zone" id="z_manege" data-mt-nom="Vu du manège"></div>
+    </div>
+  </div>
+  <div id="panneau"></div>
+</div>
+<script>
+"use strict";
+/* ======================================================================
+   Bibliothèque commune aux applets (aucune dépendance externe)
+   - interface: sections, curseurs (−/+, saisie, molette), boutons radio,
+     cases à cocher, boutons
+   - canvas: adaptation à la taille et à la résolution de l'écran,
+     repères gradués, courbes, flèches, légendes
+   - 3D: projection en perspective, rotation à la souris, tri en profondeur
+   ====================================================================== */
+
+// ---------------------------------------------------------------- DOM
+function el(tag, attrs, parent) {
+  const e = document.createElement(tag);
+  if (attrs) {
+    for (const k in attrs) {
+      const v = attrs[k];
+      if (k === "text") e.textContent = v;
+      else if (k === "html") e.innerHTML = v;
+      else if (k === "class") e.className = v;
+      else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v);
+    }
+  }
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+/** Nombre écrit avec une virgule décimale. */
+function fmt(v, d) {
+  if (v === Infinity) return "∞";
+  if (v === -Infinity) return "−∞";
+  if (!isFinite(v)) return "—";
+  let s = v.toFixed(d);
+  if (/^-0(\.0*)?$/.test(s)) s = s.slice(1);
+  return s.replace(".", ",").replace("-", "−");
+}
+
+function section(parent, titre) {
+  const s = el("div", { class: "section" }, parent);
+  if (titre) el("div", { class: "titre", html: titre }, s);
+  return s;
+}
+
+/** Curseur avec boutons −/+, saisie au clavier et molette.
+    o = {label, min, max, val, pas, dec, onchange} */
+function curseur(parent, o) {
+  const ligne = el("div", { class: "curseur" }, parent);
+  const tete = el("div", { class: "tete" }, ligne);
+  el("span", { html: o.label }, tete);
+  const zone = el("span", { class: "valeur" }, tete);
+  const moins = el("button", { class: "pm", text: "−", title: "diminuer" }, zone);
+  const saisie = el("input", { type: "text", class: "saisie" }, zone);
+  const plus = el("button", { class: "pm", text: "+", title: "augmenter" }, zone);
+  const r = el("input", { type: "range", min: o.min, max: o.max, step: "any" }, ligne);
+  const dec = o.dec !== undefined ? o.dec
+    : Math.max(0, -Math.floor(Math.log10(o.pas) + 1e-9));
+  let v = o.val;
+  function borne(x) {
+    x = Math.min(Math.max(x, o.min), o.max);
+    return +(o.min + Math.round((x - o.min) / o.pas) * o.pas).toFixed(10);
+  }
+  function afficher() { r.value = v; saisie.value = fmt(v, dec); }
+  function regler(x, silencieux) {
+    x = borne(x);
+    const change = Math.abs(x - v) > 1e-12;
+    v = x;
+    afficher();
+    if (change && !silencieux && o.onchange) o.onchange(v);
+  }
+  r.addEventListener("input", () => regler(parseFloat(r.value)));
+  saisie.addEventListener("change", () => {
+    const x = parseFloat(saisie.value.replace(",", ".").replace("−", "-"));
+    if (isFinite(x)) regler(x); else afficher();
+  });
+  saisie.addEventListener("keydown", (e) => { if (e.key === "Enter") saisie.blur(); });
+  moins.addEventListener("click", () => regler(v - o.pas));
+  plus.addEventListener("click", () => regler(v + o.pas));
+  r.addEventListener("keydown", (e) => {
+    const sauts = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1,
+                    PageUp: 10, PageDown: -10 };
+    if (e.key in sauts) { e.preventDefault(); regler(v + sauts[e.key] * o.pas); }
+  });
+  ligne.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    regler(v + (e.deltaY < 0 ? 1 : -1) * o.pas * (e.shiftKey ? 10 : 1));
+  }, { passive: false });
+  afficher();
+  return {
+    get: () => v,
+    set: (x, silencieux) => regler(x, silencieux),
+    ligne,
+    montrer: (b) => { ligne.style.display = b ? "" : "none"; },
+  };
+}
+
+/** Groupe de boutons radio. onchange(valeur, indice). */
+function radios(parent, titre, options, actif, onchange) {
+  const s = section(parent, titre);
+  const nom = "r" + Math.random().toString(36).slice(2);
+  const items = options.map((opt, i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "radio", name: nom }, lab);
+    el("span", { html: opt }, lab);
+    if (i === actif) inp.checked = true;
+    inp.addEventListener("change", () => {
+      if (inp.checked && onchange) onchange(opt, i);
+    });
+    return { inp, lab };
+  });
+  return {
+    indice: () => items.findIndex((o) => o.inp.checked),
+    valeur: () => options[items.findIndex((o) => o.inp.checked)],
+    set: (i, silencieux) => {
+      items[i].inp.checked = true;
+      if (!silencieux && onchange) onchange(options[i], i);
+    },
+    desactiver: (i, b) => {
+      items[i].inp.disabled = b;
+      items[i].lab.classList.toggle("off", b);
+    },
+    section: s,
+  };
+}
+
+/** Cases à cocher. options = [[libellé, coché], ...]. onchange(indice, état). */
+function cases(parent, titre, options, onchange) {
+  const s = section(parent, titre);
+  const items = options.map(([texte, coche], i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "checkbox" }, lab);
+    inp.checked = coche;
+    el("span", { html: texte }, lab);
+    inp.addEventListener("change", () => onchange && onchange(i, inp.checked));
+    return inp;
+  });
+  return {
+    get: (i) => items[i].checked,
+    set: (i, b, silencieux) => {
+      items[i].checked = b;
+      if (!silencieux && onchange) onchange(i, b);
+    },
+    section: s,
+  };
+}
+
+function boutons(parent) { return el("div", { class: "boutons" }, parent); }
+function bouton(parent, texte, onclick) {
+  return el("button", { class: "b", html: texte, onclick }, parent);
+}
+
+/** En-tête du panneau de commandes. */
+function entete(panneau, titre) {
+  const haut = el("div", { class: "haut" }, panneau);
+  el("a", { class: "retour", href: "animations.html", text: "← Animations" }, haut);
+  el("span", { class: "etiquette", text: "MP* Malherbe" }, haut);
+  // filigrane visible en permanence sur la zone de simulation
+  const principal = document.getElementById("principal");
+  if (principal) el("div", { class: "filigrane", text: "MP* Malherbe" }, principal);
+  el("h1", { html: titre }, panneau);
+}
+
+// ---------------------------------------------------------------- canvas
+/** Canvas qui remplit son conteneur et se redessine quand il change de taille. */
+function canevas(conteneur, dessiner) {
+  const cv = el("canvas", null, conteneur);
+  const ctx = cv.getContext("2d");
+  const obj = { cv, ctx, w: 1, h: 1, dessiner };
+  function taille() {
+    const r = conteneur.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    obj.w = Math.max(10, Math.floor(r.width));
+    obj.h = Math.max(10, Math.floor(r.height));
+    cv.width = Math.round(obj.w * dpr);
+    cv.height = Math.round(obj.h * dpr);
+    cv.style.width = obj.w + "px";
+    cv.style.height = obj.h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (obj.dessiner) obj.dessiner(obj);
+  }
+  obj.effacer = (fond) => {
+    ctx.fillStyle = fond || "#fff";
+    ctx.fillRect(0, 0, obj.w, obj.h);
+  };
+  new ResizeObserver(taille).observe(conteneur);
+  taille();
+  return obj;
+}
+
+function boucle(pas) {
+  let t0 = null;
+  function image(t) {
+    const dt = t0 === null ? 0 : Math.min(0.1, (t - t0) / 1000);
+    t0 = t;
+    pas(dt);
+    requestAnimationFrame(image);
+  }
+  requestAnimationFrame(image);
+}
+
+// ====================================================================== applet
+/* Référentiel tournant: une bille glisse sans frottement sur un manège (disque de rayon 1)
+   qui tourne à la vitesse angulaire Ω autour de son axe. R: référentiel du sol (galiléen),
+   R': référentiel du manège. Unités réduites: rayon du manège = 1. */
+
+const COUL = { bille: "#c62828", traceR: "#c62828", traceRp: "#1f5fbf", obs: "#2e7d32",
+  fie: "#e67e22", fic: "#7b2d8e", vit: "#111", res: "#555" };
+
+const p = { etape: 0, t: 0, lecture: true, vitesse: 1, sens: 1, rapport: 1.2, angle: 0, depart: 0 };
+// rapport = Ω R / v0 (sans dimension) ; angle de lancer (degrés) ; depart: distance au centre
+
+const ETAPES = [
+  { titre: "Le manège", texte:
+    "Le manège tourne à la vitesse angulaire <b>Ω</b> par rapport au sol. Un observateur " +
+    "<b style='color:" + COUL.obs + "'>lié au manège</b> (point vert) tourne avec lui dans R, mais il est immobile dans R′." },
+  { titre: "Lancer vu du sol", texte:
+    "Une bille glisse <b>sans frottement</b>: dans le référentiel du sol R, galiléen, le poids et la réaction se compensent. " +
+    "D'après le principe d'inertie, la bille a un <b>mouvement rectiligne uniforme</b>." },
+  { titre: "Le même lancer vu du manège", texte:
+    "Dans R′, la trajectoire s'obtient en faisant tourner chaque position de la bille de −Ωt. " +
+    "Elle est <b>courbée</b>: déviée vers la droite si le manège tourne dans le sens trigonométrique, vers la gauche sinon." },
+  { titre: "Forces d'inertie", texte:
+    "Dans R′, non galiléen, on écrit le PFD en ajoutant les forces d'inertie:<br>" +
+    "m <b>a</b>′ = <span style='color:" + COUL.fie + "'><b>f</b><sub>ie</sub> = m Ω² <b>HM</b></span> (entraînement, vers l'extérieur) " +
+    "+ <span style='color:" + COUL.fic + "'><b>f</b><sub>ic</sub> = −2m <b>Ω</b> ∧ <b>v</b>′</span> (Coriolis, perpendiculaire à <b>v</b>′)." },
+  { titre: "Bille immobile dans R", texte:
+    "La bille est maintenant immobile dans R: un support fixé au sol la maintient au-dessus du manège. Dans R′, elle décrit un cercle à la vitesse angulaire −Ω. " +
+    "La force de Coriolis, dirigée vers le centre, vaut <b>deux fois</b> la force d'inertie d'entraînement: la résultante " +
+    "−m Ω² <b>HM</b> est bien la force centripète du mouvement circulaire." },
+];
+
+// ---------------------------------------------------------------- cinématique
+const rot = (P, a) => [P[0] * Math.cos(a) - P[1] * Math.sin(a), P[0] * Math.sin(a) + P[1] * Math.cos(a)];
+function omega() { return p.sens * p.rapport; }        // v0 = 1 en unités réduites
+/** Position et vitesse de la bille dans R à l'instant t. */
+function billeR(t) {
+  if (p.etape === 4) return { r: [p.depart || 0.6, 0], v: [0, 0] };
+  const a = p.angle * Math.PI / 180, v = [Math.cos(a), Math.sin(a)];
+  const r0 = [p.depart * Math.cos(a + Math.PI), p.depart * Math.sin(a + Math.PI)];
+  return { r: [r0[0] + v[0] * t, r0[1] + v[1] * t], v };
+}
+/** Position et vitesse dans R′ (rotation de −Ωt). */
+function billeRp(t) {
+  const { r, v } = billeR(t), W = omega();
+  const vr = [v[0] + W * r[1], v[1] - W * r[0]];           // v − Ω ∧ r (Ω selon ez)
+  return { r: rot(r, -W * t), v: rot(vr, -W * t) };
+}
+function tFin() {
+  if (p.etape === 4) return 2 * Math.PI / Math.max(0.3, Math.abs(omega()));
+  return p.depart + 1;      // départ en −d u, vitesse u: sortie du manège quand |t − d| = 1
+}
+
+// ---------------------------------------------------------------- interface
+const panneau = document.getElementById("panneau");
+entete(panneau, "Référentiel tournant: le manège");
+const sEt = section(panneau, "Étapes");
+const listeEt = el("div", { class: "etapes" }, sEt);
+const boutonsEt = ETAPES.map((e, k) =>
+  el("button", { class: "b etape", html: (k + 1) + ". " + e.titre, onclick: () => aller(k) }, listeEt));
+const bt = boutons(sEt);
+const bPrec = bouton(bt, "◀ Précédente", () => aller(p.etape - 1));
+const bRej = bouton(bt, "⟲ Relancer", () => { p.t = 0; p.lecture = true; });
+const bPause = bouton(bt, "❚❚ Pause", () => { p.lecture = !p.lecture; majBoutons(); });
+const bSuiv = bouton(bt, "Suivante ▶", () => aller(p.etape + 1));
+const explication = el("div", { class: "info explication" }, section(panneau, "Explication"));
+
+const sReg = section(panneau, "Réglages");
+radios(sReg, "Sens de rotation du manège", ["trigonométrique", "horaire"], 0,
+  (v, i) => { p.sens = i === 0 ? 1 : -1; p.t = 0; });
+curseur(sReg, { label: "Vitesse de rotation ΩR/v<sub>0</sub>", min: 0, max: 3, val: p.rapport, pas: 0.05,
+  onchange: (v) => { p.rapport = v; p.t = 0; } });
+curseur(sReg, { label: "Direction du lancer (°)", min: -180, max: 180, val: p.angle, pas: 5,
+  onchange: (v) => { p.angle = v; p.t = 0; } });
+const cDep = curseur(sReg, { label: "Départ: distance au centre / R", min: 0, max: 0.9, val: p.depart, pas: 0.05,
+  onchange: (v) => { p.depart = v; p.t = 0; } });
+curseur(sReg, { label: "Vitesse de l'animation", min: 0.2, max: 2, val: p.vitesse, pas: 0.1,
+  onchange: (v) => { p.vitesse = v; } });
+el("div", { class: "note", html: "À l'étape 5, le curseur « départ » règle la distance de la bille immobile au centre." }, sReg);
+
+function majBoutons() {
+  boutonsEt.forEach((b, k) => b.classList.toggle("actif", k === p.etape));
+  bPrec.disabled = p.etape === 0; bSuiv.disabled = p.etape === ETAPES.length - 1;
+  bPause.innerHTML = p.lecture ? "❚❚ Pause" : "▶ Lecture";
+  explication.innerHTML = "<b>" + (p.etape + 1) + ". " + ETAPES[p.etape].titre + "</b><br>" + ETAPES[p.etape].texte;
+}
+function aller(k) {
+  if (k < 0 || k >= ETAPES.length) return;
+  p.etape = k; p.t = 0; p.lecture = true;
+  if (k === 4 && p.depart < 0.2) { p.depart = 0.6; cDep.set(0.6, true); }
+  majBoutons();
+}
+
+// ---------------------------------------------------------------- dessin
+const cvR = canevas(document.getElementById("z_sol"), () => {});
+const cvRp = canevas(document.getElementById("z_manege"), () => {});
+
+function vue(cv) {
+  const k = Math.min(cv.w, cv.h - 40) / 2.7, ox = cv.w / 2, oy = cv.h / 2 + 12;
+  return { k, X: (P) => [ox + k * P[0], oy - k * P[1]] };
+}
+function cercle(ctx, V, C, r, trait, fond, larg) {
+  const [x, y] = V.X(C);
+  ctx.beginPath(); ctx.arc(x, y, r * V.k, 0, 2 * Math.PI);
+  if (fond) { ctx.fillStyle = fond; ctx.fill(); }
+  if (trait) { ctx.strokeStyle = trait; ctx.lineWidth = larg || 1.5; ctx.stroke(); }
+}
+function ligne(ctx, V, pts, coul, larg, tirets) {
+  ctx.save(); ctx.strokeStyle = coul; ctx.lineWidth = larg || 1.5; ctx.setLineDash(tirets || []);
+  ctx.beginPath(); pts.forEach((P, i) => { const [x, y] = V.X(P); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+  ctx.stroke(); ctx.restore();
+}
+function vecteur(ctx, V, A, u, coul, texte) {
+  const B = [A[0] + u[0], A[1] + u[1]];
+  const [x1, y1] = V.X(A), [x2, y2] = V.X(B), L = Math.hypot(x2 - x1, y2 - y1);
+  if (L < 3) return;
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  ctx.save(); ctx.strokeStyle = coul; ctx.fillStyle = coul; ctx.lineWidth = 2.4;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2 - 8 * Math.cos(a), y2 - 8 * Math.sin(a)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - 12 * Math.cos(a - 0.4), y2 - 12 * Math.sin(a - 0.4));
+  ctx.lineTo(x2 - 12 * Math.cos(a + 0.4), y2 - 12 * Math.sin(a + 0.4)); ctx.closePath(); ctx.fill();
+  if (texte) { ctx.font = "bold 13px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(texte, x2 + 14 * Math.cos(a), y2 + 14 * Math.sin(a)); }
+  ctx.restore();
+}
+function titre(cv, txt) {
+  const ctx = cv.ctx; ctx.save(); ctx.fillStyle = "#333"; ctx.font = "bold 14px system-ui, sans-serif";
+  ctx.textAlign = "left"; ctx.fillText(txt, 12, 20); ctx.restore();
+}
+/** Manège: disque avec rayons, tourné de l'angle phi. */
+function manege(ctx, V, phi) {
+  cercle(ctx, V, [0, 0], 1, "#6b7a8f", "#f1f4f8", 2);
+  for (let k = 0; k < 8; k++) {
+    const a = phi + k * Math.PI / 4;
+    ligne(ctx, V, [[0, 0], [Math.cos(a), Math.sin(a)]], k === 0 ? "#6b7a8f" : "#c9d1db", k === 0 ? 2 : 1);
+  }
+  cercle(ctx, V, [0, 0], 0.03, null, "#6b7a8f");
+  // observateur lié au manège
+  const O = [0.95 * Math.cos(phi + Math.PI / 2), 0.95 * Math.sin(phi + Math.PI / 2)];
+  cercle(ctx, V, O, 0.045, null, COUL.obs);
+}
+/** Repère fixe du sol (quelques arbres sur un cercle extérieur), tourné de l'angle phi. */
+function sol(ctx, V, phi) {
+  for (let k = 0; k < 6; k++) {
+    const a = phi + k * Math.PI / 3, P = [1.18 * Math.cos(a), 1.18 * Math.sin(a)];
+    const [x, y] = V.X(P);
+    ctx.save(); ctx.fillStyle = "#8d6e63"; ctx.fillRect(x - 2, y - 2, 4, 8);
+    ctx.fillStyle = "#43a047"; ctx.beginPath(); ctx.arc(x, y - 5, 6, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
+  }
+}
+function trace(f, t, n) {
+  const pts = [];
+  for (let i = 0; i <= n; i++) pts.push(f(t * i / n).r);
+  return pts;
+}
+
+function dessiner() {
+  const e = p.etape, W = omega(), t = p.t;
+  // ---- vue du sol
+  for (const [cv, dansR] of [[cvR, true], [cvRp, false]]) {
+    const ctx = cv.ctx, V = vue(cv); cv.effacer("#fff");
+    titre(cv, dansR ? "Vu du sol (R, galiléen)" : "Vu du manège (R′, en rotation)");
+    if (dansR) { sol(ctx, V, 0); manege(ctx, V, W * t); }
+    else { sol(ctx, V, -W * t); manege(ctx, V, 0); }
+    // flèche indiquant la rotation
+    ctx.save(); ctx.strokeStyle = "#999"; ctx.lineWidth = 1.2;
+    const [cx, cy] = V.X([0, 0]), sgn = dansR ? Math.sign(W) : -Math.sign(W);
+    if (W !== 0) { const Rr = 1.32 * V.k; ctx.beginPath(); ctx.arc(cx, cy, Rr, -0.3, 0.3); ctx.stroke();
+      // sens trigonométrique à l'écran = angle canvas décroissant: pointe en −0,3
+      const a = sgn > 0 ? -0.3 : 0.3, xa = cx + Rr * Math.cos(a), ya = cy + Rr * Math.sin(a);
+      const ta = sgn > 0 ? a - Math.PI / 2 : a + Math.PI / 2;          // direction tangente du mouvement
+      ctx.fillStyle = "#999"; ctx.beginPath(); ctx.moveTo(xa + 9 * Math.cos(ta), ya + 9 * Math.sin(ta));
+      ctx.lineTo(xa + 5 * Math.cos(ta + 2.2), ya + 5 * Math.sin(ta + 2.2)); ctx.lineTo(xa + 5 * Math.cos(ta - 2.2), ya + 5 * Math.sin(ta - 2.2));
+      ctx.closePath(); ctx.fill();
+      ctx.font = "13px system-ui"; ctx.fillText(dansR ? "manège: Ω" : "sol: −Ω", cx + 1.36 * V.k, cy + 4); }
+    ctx.restore();
+    if (e === 0) continue;
+    const f = dansR ? billeR : billeRp;
+    if (!dansR && e === 1) { // le lancer n'est pas encore analysé dans R′
+      const b = f(t); cercle(ctx, V, b.r, 0.035, null, COUL.bille); continue;
+    }
+    const pts = trace(f, t, 200);
+    ligne(ctx, V, pts, dansR ? COUL.traceR : COUL.traceRp, 2.2);
+    const b = f(t);
+    cercle(ctx, V, b.r, 0.035, null, COUL.bille);
+    if (dansR) { if (e >= 1) vecteur(ctx, V, b.r, [0.3 * b.v[0], 0.3 * b.v[1]], COUL.vit, "v"); }
+    if (!dansR && e >= 3) {
+      let fie = [W * W * b.r[0], W * W * b.r[1]];
+      let fic = [2 * W * b.v[1], -2 * W * b.v[0]];              // −2 Ω ez ∧ v′
+      const nf = Math.max(Math.hypot(...fie), Math.hypot(...fic), Math.hypot(fie[0] + fic[0], fie[1] + fic[1]), 1e-9);
+      fie = fie.map((c) => 0.55 * c / nf); fic = fic.map((c) => 0.55 * c / nf);   // échelle commune des forces
+      const nv = Math.max(Math.hypot(...b.v), 1e-9);
+      vecteur(ctx, V, b.r, [0.3 * b.v[0] / nv, 0.3 * b.v[1] / nv], COUL.vit, "v′");
+      vecteur(ctx, V, b.r, fie, COUL.fie, "f ie");
+      vecteur(ctx, V, b.r, fic, COUL.fic, "f ic");
+      if (e === 4) vecteur(ctx, V, b.r, [fie[0] + fic[0], fie[1] + fic[1]], COUL.res, "Σ");
+    }
+  }
+}
+
+// ---------------------------------------------------------------- boucle
+majBoutons();
+boucle((dt) => {
+  if (p.lecture) {
+    p.t += dt * p.vitesse * 0.6;
+    if (p.t >= tFin()) { p.t = tFin(); if (p.etape !== 4) p.lecture = false; else p.t = 0; majBoutons(); }
+  }
+  dessiner();
+});
+
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>
