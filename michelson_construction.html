@@ -289,7 +289,7 @@ const COUL = { ch1: "#b3261e", ch2: "#2f62c8", fictif: "#7b2d8e", sep: "#0f6b67"
   miroir: "#111", gris: "#9aa3ad", vert: "#2e7d32" };
 
 const p = { S: [-6.5, -0.6], A: [2.2, -6.8], d1: 4.0, d2: 5.0, alpha: 5,
-  longueurs: true, etape: 0, tau: 1, lecture: false, auto: false, pause: 0 };
+  etape: 0, tau: 1, lecture: false, auto: false, pause: 0 };
 
 // ---------------------------------------------------------------- vecteurs
 const add = (a, b) => [a[0] + b[0], a[1] + b[1]];
@@ -406,7 +406,7 @@ const bAuto = bouton(bt, "▶ Tout enchaîner", () => {
   p.auto = true; aller(p.etape === ETAPES.length - 1 ? 0 : p.etape);
 });
 const explication = el("div", { class: "info explication" }, section(panneau, "Explication"));
-const longueurs = el("div", { class: "info mono" }, section(panneau, "Chemins optiques (n = 1)"));
+const longueurs = el("div", { class: "info mono" }, section(panneau, "Chemins optiques"));
 const avert = el("div", { class: "erreur", style: "margin-top:4px" }, longueurs.parentNode);
 
 const sReg = section(panneau, "Réglages");
@@ -421,9 +421,8 @@ bouton(bReg, "Lame d'air (α = 0)", () => { cAl.set(0); });
 bouton(bReg, "Position initiale", () => {
   p.S = [-6.5, -0.6]; p.A = [2.2, -6.8]; cD1.set(4.0); cD2.set(5.0); cAl.set(5);
 });
-cases(sReg, null, [["Afficher les longueurs sur le schéma", p.longueurs]], (i, b) => { p.longueurs = b; });
 el("div", { class: "note", html: "Glisser à la souris: la source S, le point A, les miroirs M<sub>1</sub> et M<sub>2</sub> " +
-  "(translation). Les longueurs sont en unités du schéma." }, sReg);
+  "(translation)." }, sReg);
 
 function majBoutons() {
   boutonsEt.forEach((b, k) => b.classList.toggle("actif", k === p.etape));
@@ -597,31 +596,22 @@ function dessiner() {
   if (e >= 2 && e < 6) { point(ctx, g.K, COUL.ch2, "K", 13, 8, reel); point(ctx, g.N, COUL.ch2, "N", -12, -9, reel); }
   if (e >= 2) point(ctx, g.P, COUL.ch2, "P", -13, 8, e === 6 ? 1 - 0.8 * t : reel);
 
-  // longueurs sur le schéma
-  if (p.longueurs) {
-    const lab = (A1, B1, c, al) => { const M = lerp(A1, B1, 0.5); texteMonde(ctx, M, f1(dist(A1, B1)), c, 0, -10, 11, al); };
-    if (e === 1 || e === 2) { lab(S, g.I, COUL.ch1); lab(g.I, g.J, COUL.ch1); lab(g.J, A, COUL.ch1); }
-    if (e === 2) { lab(S, g.K, COUL.ch2); lab(g.K, g.P, COUL.ch2); lab(g.P, g.N, COUL.ch2); lab(g.N, A, COUL.ch2); }
-    if (e >= 5 && p.tau >= 1) { lab(S2, g.J, COUL.ch1); lab(g.J, A, COUL.ch1); lab(S2, g.P2, COUL.ch2); lab(g.P2, A, COUL.ch2); }
-  }
   majLongueurs(g);
 }
 
 function majLongueurs(g) {
-  const L = g.L, e = p.etape;
-  const l1 = [], l2 = [];
-  l1.push("<b style='color:" + COUL.ch1 + "'>(SA)₁</b> = SI + IJ + JA = " + f1(L.SI) + " + " + f1(L.IJ) + " + " + f1(L.JA) + " = <b>" + f1(L.ch1) + "</b>");
-  if (e >= 3) l1.push("&nbsp;&nbsp;= S′J + JA = " + f1(L.S2J) + " + " + f1(L.JA) + " = <b>" + f1(L.S2J + L.JA) + "</b>");
-  l2.push("<b style='color:" + COUL.ch2 + "'>(SA)₂</b> = SK + KP + PN + NA = " + f1(L.ch2));
-  if (e >= 4) l2.push("&nbsp;&nbsp;= S′K + KP′ + P′N + NA = " + f1(L.S2K + L.KP2 + L.P2N + L.NA));
-  if (e >= 5) l2.push("&nbsp;&nbsp;= S′P′ + P′A = " + f1(L.S2P2) + " + " + f1(L.P2A) + " = <b>" + f1(L.S2P2 + L.P2A) + "</b>");
-  let h = (e >= 1 ? l1.join("<br>") : "") + (e >= 2 ? "<br>" + l2.join("<br>") : "");
-  if (e >= 2) h += "<br><b>δ = (SA)₁ − (SA)₂ = " + f1(L.ch1 - L.ch2) + "</b>";
-  if (e === 6) {
-    h += "<br>e = " + f1(p.d2 - p.d1) + " (sur l'axe), α = " + fmt(p.alpha, 1) + "°" +
-      (Math.abs(p.alpha) < 1e-9 ? " : <b>lame d'air</b>" : " : <b>coin d'air</b>");
+  const e = p.etape, r1 = "<b style='color:" + COUL.ch1 + "'>(SA)<sub>1</sub></b>", r2 = "<b style='color:" + COUL.ch2 + "'>(SA)<sub>2</sub></b>";
+  const L = [];
+  if (e >= 1) L.push(r1 + " = n (SI + IJ + JA)" + (e >= 3 ? " = n (S′J + JA)" : ""));
+  if (e >= 2) {
+    let l = r2 + " = n (SK + KP + PN + NA)";
+    if (e >= 4) l += "<br>&nbsp;&nbsp;&nbsp;= n (S′K + KP′ + P′N + NA)";
+    if (e >= 5) l += "<br>&nbsp;&nbsp;&nbsp;= n (S′P′ + P′A)";
+    L.push(l);
+    L.push("<b>δ = (SA)<sub>1</sub> − (SA)<sub>2</sub></b>" + (e >= 5 ? " = n [(S′J + JA) − (S′P′ + P′A)]" : ""));
   }
-  longueurs.innerHTML = h || "<span class='note'>Les chemins apparaissent à l'étape 2.</span>";
+  if (e === 6) L.push(Math.abs(p.alpha) < 1e-9 ? "M′<sub>2</sub> ∥ M<sub>1</sub>: <b>lame d'air</b>" : "M′<sub>2</sub> incliné de α sur M<sub>1</sub>: <b>coin d'air</b>");
+  longueurs.innerHTML = L.length ? L.join("<br>") : "<span class='note'>Les chemins apparaissent à l'étape 2.</span>";
 }
 
 // ---------------------------------------------------------------- souris
