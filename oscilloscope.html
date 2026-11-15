@@ -328,7 +328,8 @@ details.aide li { margin-bottom: 3px; }
     <summary>Mode d'emploi</summary>
     <ul>
       <li><b>Façade</b>: disposition inspirée du Keysight DSOX1102A (touches en anglais comme sur l'appareil, menus à l'écran en français). Les touches Zoom, Ref, Analyze et Bus ne sont pas simulées.</li>
-      <li><b>Molettes</b>: molette de la souris, glisser vers le haut ou la droite, ou clic sur la moitié gauche/droite. Un <b>appui long</b> correspond à un appui sur la molette (niveau à 50 %, retard ou position à zéro, réglage fin, choix du curseur).</li>
+      <li><b>Molettes</b>: molette de la souris, glisser vers le haut ou la droite, ou clic sur la moitié gauche/droite. Pour le niveau de déclenchement, les positions, le retard et les curseurs, un mouvement rapide accélère le réglage. <b>Appuyer sur une molette</b>: maintenir le clic une demi-seconde sans bouger (elle s'éclaire) puis relâcher (niveau à 50 %, retard ou position à zéro, réglage fin, choix du curseur).</li>
+      <li><b>Sur l'écran</b>: le repère orange <b>T</b> (à droite de la grille) se fait glisser pour régler directement le niveau de déclenchement; les repères <b>1</b> et <b>2</b> (à gauche) pour régler la position des voies.</li>
       <li><b>Menus</b>: une touche de la façade affiche son menu en bas de l'écran, piloté par les six touches placées dessous. Les cases marquées ⟲ se règlent avec la molette <b>Entry</b>, celles marquées ▸ ouvrent un sous-menu; la touche <b>⮌ (Back)</b> remonte d'un niveau. <b>Help</b> puis une touche: aide rapide sur cette touche.</li>
       <li><b>Déclenchement</b>: en mode <b>Auto</b>, un niveau placé hors du signal (molette Level) ne déclenche plus: l'affichage n'est plus synchronisé (état « Auto? »); en mode <b>Normal</b>, l'écran reste figé sur la dernière acquisition. Source 1, 2, <b>Ext</b> (cocher le câble Sync → Ext Trig sous le montage) ou <b>secteur</b> (50 Hz); pente montante, descendante, alternée ou les deux; largeur d'impulsion; couplage CC, CA, réjection BF; réjection HF et du bruit; <b>holdoff</b> (utile quand le signal franchit plusieurs fois le niveau par période).</li>
       <li><b>Mesures</b> (touche Meas): toute la liste de l'appareil, jusqu'à 4 mesures affichées à droite, tableau « Tout mesurer » et statistiques (moyenne, min, max, écart type, nombre).</li>
@@ -874,27 +875,43 @@ function preparer() {
 }
 
 /* ---------- molettes ---------- */
-function molette(id, tourner, pousser, nom) {
+/* Molettes: molette de la souris, glisser (vers le haut ou la droite), clic sur une moitié, flèches du clavier.
+   Pour les molettes « continues » (niveau, positions, retard, curseurs), un mouvement rapide accélère le pas.
+   Appui sur la molette: maintenir le clic une demi-seconde sans bouger puis relâcher (la molette s'éclaire), ou Entrée. */
+function molette(id, tourner, pousser, nom, accel) {
   const k = document.getElementById(id), cap = document.createElement('i');
   cap.className = 'cap'; k.appendChild(cap); k.tabIndex = 0; k.setAttribute('role', 'slider');
   k.setAttribute('aria-label', nom);
-  k.title = nom + ': molette, glisser, ou clic à gauche/droite' + (pousser ? '; appui long = appuyer' : '');
-  let ang = 0, drag = null, tim = null;
-  const tour = d => { ang += d * 18; cap.style.transform = `rotate(${ang}deg)`; if (S.aide) { aideTouche(id); return; } tourner(d); };
+  k.title = nom + ': molette de la souris, glisser, ou clic à gauche/droite' + (pousser ? '; clic maintenu puis relâché = appuyer' : '');
+  let ang = 0, drag = null, tim = null, tDernier = 0, serie = 0;
+  const tour = d => {
+    const t = performance.now(), dt = t - tDernier; tDernier = t;
+    serie = dt < 90 ? serie + 1 : 0;
+    const m = accel ? (serie > 12 ? 8 : serie > 6 ? 4 : serie > 2 ? 2 : 1) : 1;
+    ang += d * 18; cap.style.transform = `rotate(${ang}deg)`;
+    if (S.aide) { aideTouche(id); return; }
+    tourner(d * m);
+  };
   const appui = () => { if (!pousser) return; k.classList.add('pousse'); setTimeout(() => k.classList.remove('pousse'), 180); if (S.aide) { aideTouche(id); return; } pousser(); };
   k.addEventListener('wheel', e => { e.preventDefault(); tour(e.deltaY < 0 ? 1 : -1); }, { passive: false });
   k.addEventListener('pointerdown', e => {
-    k.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, n: 0, bouge: false, pousse: false };
-    tim = setTimeout(() => { if (drag && !drag.bouge) { drag.pousse = true; appui(); } }, 550);
+    e.preventDefault(); k.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, n: 0, bouge: false, long: false };
+    if (pousser) tim = setTimeout(() => { if (drag && !drag.bouge) { drag.long = true; k.classList.add('pousse'); } }, 500);
   });
   k.addEventListener('pointermove', e => {
     if (!drag) return;
-    const tot = (e.clientX - drag.x) - (e.clientY - drag.y), pas = Math.trunc(tot / 9) - drag.n;
-    if (pas) { drag.bouge = true; clearTimeout(tim); const s = Math.sign(pas); for (let i = 0; i < Math.abs(pas); i++) tour(s); drag.n += pas; }
+    const tot = (e.clientX - drag.x) - (e.clientY - drag.y);
+    if (!drag.bouge && Math.abs(tot) < 4) return;
+    if (!drag.bouge) { drag.bouge = true; drag.long = false; clearTimeout(tim); k.classList.remove('pousse'); }
+    const pas = Math.trunc(tot / 6) - drag.n;
+    if (pas) { const s = Math.sign(pas); for (let i = 0; i < Math.abs(pas); i++) tour(s); drag.n += pas; }
   });
   const fin = e => {
-    clearTimeout(tim);
-    if (drag && !drag.bouge && !drag.pousse && e.type === 'pointerup') { const r = k.getBoundingClientRect(); tour(e.clientX < r.left + r.width / 2 ? -1 : 1); }
+    clearTimeout(tim); k.classList.remove('pousse');
+    if (drag && e.type === 'pointerup' && !drag.bouge) {
+      if (drag.long) appui();
+      else { const r = k.getBoundingClientRect(); tour(e.clientX < r.left + r.width / 2 ? -1 : 1); }
+    }
     drag = null;
   };
   k.addEventListener('pointerup', fin); k.addEventListener('pointercancel', fin);
@@ -1063,7 +1080,7 @@ function bornesNiveau() {
 }
 function tournerNiveau(d) {
   const s = S.trig.src; if (s === 3) { flash('Source secteur: pas de niveau à régler'); return; }
-  const pas = s === 2 ? 0.05 : S.ch[s].vdiv / 25, [a, b] = bornesNiveau();
+  const pas = s === 2 ? 0.05 : S.ch[s].vdiv / 20, [a, b] = bornesNiveau();
   S.trig.niv[s] = clamp(+(S.trig.niv[s] + d * pas).toPrecision(8), a, b);
   S.nivT = performance.now() / 1000; touche();
 }
@@ -2227,13 +2244,13 @@ document.getElementById('bHelp').addEventListener('click', () => { S.aide = !S.a
 })();
 molette('kEntry', d => tournerEntry(d), () => pousserEntry(), 'Molette Entry');
 molette('kTdiv', d => tournerT(d), () => { S.finT = !S.finT; if (!S.finT) S.tdiv = reglerSel(TDIV, S.tdiv, 0); flash('Base de temps: réglage ' + (S.finT ? 'fin' : 'calibré')); touche(); }, 'Base de temps (s/div)');
-molette('kDelay', d => { S.delay = +(S.delay + d * S.tdiv / 10).toPrecision(10); flash('Retard: ' + fmtSI(S.delay, 's', 4)); touche(); }, () => { S.delay = 0; flash('Retard: 0 s'); touche(); }, 'Position horizontale (retard)');
-molette('kNiv', d => tournerNiveau(d), () => niveau50(), 'Niveau de déclenchement');
-molette('kCurs', d => bougerCurseur(d), () => { if (S.cur.mode === 'Non') S.cur.mode = 'Manuel'; else S.cur.sel = (S.cur.sel + 1) % CURSEL.length; flash('Curseur: ' + CURSEL[S.cur.sel]); }, 'Molette des curseurs');
+molette('kDelay', d => { S.delay = +(S.delay + d * S.tdiv / 10).toPrecision(10); flash('Retard: ' + fmtSI(S.delay, 's', 4)); touche(); }, () => { S.delay = 0; flash('Retard: 0 s'); touche(); }, 'Position horizontale (retard)', true);
+molette('kNiv', d => tournerNiveau(d), () => niveau50(), 'Niveau de déclenchement', true);
+molette('kCurs', d => bougerCurseur(d), () => { if (S.cur.mode === 'Non') S.cur.mode = 'Manuel'; else S.cur.sel = (S.cur.sel + 1) % CURSEL.length; flash('Curseur: ' + CURSEL[S.cur.sel]); }, 'Molette des curseurs', true);
 molette('kV1', d => tournerV(0, d), () => { S.ch[0].fin = !S.ch[0].fin; if (!S.ch[0].fin) S.ch[0].vdiv = snapV(0, S.ch[0].vdiv); flash('Réglage fin voie 1: ' + (S.ch[0].fin ? 'oui' : 'non')); }, 'Sensibilité voie 1 (V/div)');
 molette('kV2', d => tournerV(1, d), () => { S.ch[1].fin = !S.ch[1].fin; if (!S.ch[1].fin) S.ch[1].vdiv = snapV(1, S.ch[1].vdiv); flash('Réglage fin voie 2: ' + (S.ch[1].fin ? 'oui' : 'non')); }, 'Sensibilité voie 2 (V/div)');
-molette('kP1', d => tournerP(0, d), () => { S.ch[0].pos = 0; flash('Position voie 1: 0 V'); touche(); }, 'Position verticale voie 1');
-molette('kP2', d => tournerP(1, d), () => { S.ch[1].pos = 0; flash('Position voie 2: 0 V'); touche(); }, 'Position verticale voie 2');
+molette('kP1', d => tournerP(0, d), () => { S.ch[0].pos = 0; flash('Position voie 1: 0 V'); touche(); }, 'Position verticale voie 1', true);
+molette('kP2', d => tournerP(1, d), () => { S.ch[1].pos = 0; flash('Position voie 2: 0 V'); touche(); }, 'Position verticale voie 2', true);
 
 /* curseurs à la souris et touches dessinées */
 let glisse = null;
@@ -2241,6 +2258,15 @@ function posEcran(e) { const r = cv.getBoundingClientRect(); return { x: (e.clie
 cv.addEventListener('pointerdown', e => {
   const p = posEcran(e);
   if (p.y >= YK) { softkey(Math.floor(p.x / (SW / 6))); return; }
+  if (S.horiz !== 'XY' && p.y >= GY - 8 && p.y <= GY + GH + 8) {
+    const s = S.trig.src;
+    if (S.horiz !== 'Roll' && s < 2 && p.x >= GX + GW - 4 && p.x <= GX + GW + 24 && Math.abs(p.y - clamp(yOf(S.trig.niv[s], s), GY + 7, GY + GH - 7)) < 11) {
+      glisse = { a: 'T' }; cv.setPointerCapture(e.pointerId); return;
+    }
+    if (p.x <= GX) for (const k of [1, 0]) if (S.ch[k].on && Math.abs(p.y - clamp(yOf(0, k), GY + 7, GY + GH - 7)) < 10) {
+      glisse = { a: 'pos', k }; cv.setPointerCapture(e.pointerId); return;
+    }
+  }
   if (S.cur.mode === 'Non' || p.y < GY || p.y > GY + GH || p.x > GX + GW) return;
   const c = S.cur; let best = null, bd = 9;
   for (let i = 0; i < 2; i++) {
@@ -2251,7 +2277,19 @@ cv.addEventListener('pointerdown', e => {
 });
 cv.addEventListener('pointermove', e => {
   const p = posEcran(e);
-  if (!glisse) { cv.style.cursor = (S.cur.mode !== 'Non' && p.y < YK && p.x < GX + GW) ? 'crosshair' : (p.y >= YK ? 'pointer' : 'default'); return; }
+  if (!glisse) {
+    const s = S.trig.src, surT = S.horiz === 'Normal' && s < 2 && p.x >= GX + GW - 4 && p.x <= GX + GW + 24 && Math.abs(p.y - clamp(yOf(S.trig.niv[s], s), GY + 7, GY + GH - 7)) < 11;
+    const surV = S.horiz !== 'XY' && p.x <= GX && [0, 1].some(k => S.ch[k].on && Math.abs(p.y - clamp(yOf(0, k), GY + 7, GY + GH - 7)) < 10);
+    cv.style.cursor = (surT || surV) ? 'ns-resize' : (S.cur.mode !== 'Non' && p.y < YK && p.x < GX + GW) ? 'crosshair' : (p.y >= YK ? 'pointer' : 'default'); return;
+  }
+  if (glisse.a === 'T') {
+    const s = S.trig.src, c = S.ch[s], [a, b] = bornesNiveau();
+    S.trig.niv[s] = clamp(+(((GY + GH / 2 - p.y) / DY) * c.vdiv - c.pos).toPrecision(3), a, b);
+    S.nivT = performance.now() / 1000; touche(); return;
+  }
+  if (glisse.a === 'pos') {
+    const c = S.ch[glisse.k]; c.pos = +(((GY + GH / 2 - clamp(p.y, GY, GY + GH)) / DY) * c.vdiv).toPrecision(3); touche(); return;
+  }
   if (glisse.a === 'x') S.cur.x[glisse.i] = clamp((p.x - GX - GW / 2) / DX, -5, 5);
   else S.cur.y[glisse.i] = clamp((GY + GH / 2 - p.y) / DY, -4, 4);
 });
