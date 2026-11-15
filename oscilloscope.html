@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Roboto+Mono:wght@400;500&display=swap">
 <style>
-/* Banc de TP: oscilloscope en haut, GBF et montage en dessous; instruments à l'échelle, page dans le style du sommaire. */
+/* Banc de TP: oscilloscope (façade inspirée du DSOX1102A) en haut, GBF et montage en dessous. */
 :root {
   --page: #eef0f3; --carte: #fff; --texte: #222; --doux: #555; --bord: #d5d9df;
   --bleu: #3b5f96; --lien: #4a6fa5; --accent: #3b6fb6;
@@ -35,11 +35,11 @@ main { max-width: 1240px; margin: 0 auto; padding-block: 12px 40px;
 .banc { display: flex; flex-direction: column; gap: 14px; }
 .rangee { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
 .casier { width: 100%; position: relative; overflow: hidden; }
-.casier.o { max-width: 1200px; margin: 0 auto; }
+.casier.o { max-width: 1240px; margin: 0 auto; }
 .casier.g { flex: 1 1 560px; max-width: 660px; }
 .inst { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 
-/* ---------- boîtiers ---------- */
+/* ---------- éléments communs ---------- */
 .boitier { background: linear-gradient(180deg, var(--plastique-h), var(--plastique-b)); border: 1px solid #9a9ea3;
   border-radius: 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.6); }
 .cadre { position: absolute; background: var(--cadre); border-radius: 10px; box-shadow: inset 0 2px 6px rgba(0,0,0,0.6); }
@@ -50,27 +50,19 @@ canvas.ecran { position: absolute; display: block; background: #000; border-radi
 .softs button { margin: 0 14px; height: 18px; border-radius: 4px; border: 1px solid #111;
   background: linear-gradient(#80858c, #5d6268); cursor: pointer; padding: 0; }
 .softs button:active { background: #4d5157; }
-.panneau { position: absolute; display: flex; flex-direction: column; gap: 8px; }
-.zone { background: rgba(255,255,255,0.18); border: 1px solid rgba(0,0,0,0.13); border-radius: 8px; padding: 5px 8px 7px; }
-.zt { font: 700 10.5px var(--f-ecran); text-transform: uppercase; letter-spacing: 0.08em; color: #4b5057; margin-bottom: 4px; }
 .lig { display: flex; gap: 8px; align-items: center; }
 .col { display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .kl { font: 11px var(--f-ecran); color: #3c4046; white-space: nowrap; }
-
 button.tk { font: 11.5px var(--f-ecran); color: var(--encre); background: linear-gradient(var(--touche-h), var(--touche-b));
   border: 1px solid var(--touche-bord); border-radius: 5px; padding: 4px 6px; cursor: pointer; line-height: 1.15;
   box-shadow: 0 1px 0 rgba(0,0,0,0.28); white-space: nowrap; }
 button.tk:active { transform: translateY(1px); box-shadow: none; }
 button.tk.on { background: linear-gradient(#fffbe4, #f1e3a8); border-color: #b49a3c; }
-button.tk.ch1.on { background: linear-gradient(#fff6a0, var(--c1)); border-color: #a99a10; }
-button.tk.ch2.on { background: linear-gradient(#b9f7ba, var(--c2)); border-color: #2c962e; }
-button.tk.chm.on { background: linear-gradient(#f2d2fb, var(--cm)); border-color: #8d4fa6; }
 button:focus-visible, .knob:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .led { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #6d7176; margin-right: 5px; vertical-align: 1px; }
 .led.vert { background: #35e04a; box-shadow: 0 0 5px #35e04a; }
 .led.rouge { background: #ff4242; box-shadow: 0 0 5px #ff4242; }
 .led.jaune { background: #ffd23a; box-shadow: 0 0 5px #ffd23a; }
-
 .knob { position: relative; width: var(--d); height: var(--d); border-radius: 50%; flex: none; cursor: grab; touch-action: none;
   background: repeating-conic-gradient(#383b40 0 6deg, #4a4e54 6deg 12deg);
   box-shadow: 0 2px 4px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(0,0,0,0.5); }
@@ -83,20 +75,54 @@ button:focus-visible, .knob:focus-visible { outline: 2px solid var(--accent); ou
   background: radial-gradient(circle, #1b1b1b 0 16%, #d3d4d6 18% 38%, #8b8f94 40% 58%, #e3e4e6 60% 68%, #a6aaaf 70%);
   box-shadow: 0 1px 2px rgba(0,0,0,0.4); }
 
-/* ---------- oscilloscope ---------- */
-.o-cadre { left: 14px; top: 12px; width: 792px; height: 536px; }
-.o-cadre canvas { left: 16px; top: 24px; width: 760px; height: 480px; }
-.o-cadre .softs { left: 16px; top: 510px; width: 760px; }
-.o-panneau { left: 822px; top: 12px; width: 366px; height: 536px; }
-.kgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; flex: 1; }
-.kgrid .tk { width: 100%; }
-.rs { width: 78px; }
-.vert { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: start; }
-.vert .tk.chk { width: 64px; font-weight: 700; font-size: 13px; }
-.vmid { display: flex; flex-direction: column; gap: 6px; padding-top: 2px; }
-.bnc-legende { font: 10px var(--f-ecran); color: #4b5057; text-align: center; line-height: 1.2; }
+/* ---------- oscilloscope (façade type InfiniiVision 1000 X) ---------- */
+.ks { background: linear-gradient(180deg, #e9eaec, #d4d6d9); border: 1px solid #8f949a; border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.8); }
+.ks-tete { position: absolute; left: 22px; top: 9px; width: 830px; display: flex; justify-content: space-between; align-items: baseline;
+  font: 13px var(--f-ecran); color: #3a3e44; }
+.ks-tete b { font-size: 17px; letter-spacing: 0.05em; color: #1d2024; }
+.ks-tete .em { font-size: 11.5px; color: #6a7078; }
+.ks-cadre { position: absolute; left: 20px; top: 38px; width: 832px; height: 504px; background: #111316; border-radius: 9px;
+  box-shadow: inset 0 2px 7px rgba(0,0,0,0.8), 0 0 0 3px #a9adb3; }
+.ks-cadre canvas { left: 16px; top: 12px; width: 800px; height: 480px; }
+.ks-softs { position: absolute; left: 36px; top: 553px; width: 800px; display: grid; grid-template-columns: repeat(6, 1fr); }
+.ks-softs button { margin: 0 22px; height: 22px; border-radius: 5px; border: 1px solid #5d6268; cursor: pointer; padding: 0;
+  background: linear-gradient(#f3f4f5, #c9ccd0); box-shadow: 0 1px 0 rgba(0,0,0,0.35); }
+.ks-softs button:active { transform: translateY(1px); box-shadow: none; }
+.ks-bas { position: absolute; left: 22px; top: 598px; width: 830px; height: 82px; display: flex; align-items: center; gap: 22px; }
+.ks-cache { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.marche { width: 40px; height: 40px; border-radius: 50%; border: 1px solid #6f747a; background: radial-gradient(circle at 40% 35%, #fafafa, #c3c6ca);
+  display: grid; place-items: center; font-size: 19px; color: #2a8a35; box-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+.usb { width: 46px; height: 20px; border-radius: 3px; background: #2b2e33; box-shadow: inset 0 0 0 4px #b9bdc2; }
+.borne { width: 14px; height: 22px; border-radius: 3px; background: linear-gradient(90deg, #8d9197, #e3e5e8, #8d9197); box-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+.sigle { font: 700 13px var(--f-ecran); color: #3b5f96; border: 1.5px solid #3b5f96; border-radius: 10px; padding: 1px 9px; margin-left: auto; }
+
+.ks-pan { position: absolute; left: 888px; top: 10px; width: 420px; height: 676px; }
+.sec { position: absolute; border: 1px solid rgba(0,0,0,0.16); border-radius: 8px; background: rgba(255,255,255,0.32); padding: 4px 7px 6px; }
+.sec .st { font: 700 10.5px var(--f-ecran); letter-spacing: 0.07em; color: #42474e; margin-bottom: 4px; text-transform: uppercase; }
+.nu { position: absolute; }
+button.k { font: 12px var(--f-ecran); color: #1e2125; background: linear-gradient(#fbfbfc, #d3d6da); border: 1px solid #8e939a;
+  border-radius: 6px; padding: 4px 5px; cursor: pointer; line-height: 1.1; box-shadow: 0 1.5px 0 rgba(0,0,0,0.3); white-space: nowrap; min-width: 0; }
+button.k:active { transform: translateY(1px); box-shadow: none; }
+button.k.on { background: linear-gradient(#fff8d6, #f4e08a); border-color: #b49a3c; }
+button.k.ch1.on { background: linear-gradient(#fff6a0, var(--c1)); border-color: #a99a10; }
+button.k.ch2.on { background: linear-gradient(#b9f7ba, var(--c2)); border-color: #2c962e; }
+button.k.mth.on { background: linear-gradient(#f4dcfc, var(--cm)); border-color: #8d4fa6; }
+button.k.run { background: linear-gradient(#b8f5c0, #39c44f); border-color: #237a31; font-weight: 700; }
+button.k.run.stop { background: linear-gradient(#ffc4c4, #e84040); border-color: #8e2020; color: #fff; }
+button.k.sgl.on { background: linear-gradient(#fff1b8, #ffc531); border-color: #a77d00; }
+button.k.int { width: 22px; height: 22px; border-radius: 50%; padding: 0; font-size: 12px; }
+button.k.int.on { background: radial-gradient(circle, #fff7c2, #f2cf3c); }
+button.k.back { position: absolute; left: 864px; top: 549px; width: 40px; height: 28px; font-size: 16px; padding: 0; }
+.grk { display: grid; gap: 5px; }
+.grk .k { width: 100%; }
+.ksl { font: 10.5px var(--f-ecran); color: #3c4046; white-space: nowrap; text-align: center; }
+.bnc.gros { width: 40px; height: 40px; }
+.ch-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ch-col .k.chk { width: 62px; font-weight: 700; font-size: 14px; padding: 5px 0; justify-content: center; }
 
 /* ---------- GBF ---------- */
+.panneau { position: absolute; display: flex; flex-direction: column; gap: 8px; }
 .g-cadre { left: 14px; top: 12px; width: 350px; height: 306px; }
 .g-cadre canvas { left: 15px; top: 24px; width: 320px; height: 220px; }
 .g-cadre .softs { left: 15px; top: 252px; width: 320px; }
@@ -135,9 +161,9 @@ button:focus-visible, .knob:focus-visible { outline: 2px solid var(--accent); ou
 
 details.aide { margin-top: 16px; background: var(--carte); border: 1px solid var(--bord); border-radius: 8px; padding: 10px 14px; }
 details.aide summary { cursor: pointer; font-weight: 600; color: #1f3f73; }
-details.aide ul { margin: 8px 0 2px; padding-left: 20px; line-height: 1.55; max-width: 72ch; }
+details.aide ul { margin: 8px 0 2px; padding-left: 20px; line-height: 1.55; max-width: 80ch; }
 details.aide li { margin-bottom: 3px; }
-@media (prefers-reduced-motion: reduce) { button.tk:active { transform: none; } }
+@media (prefers-reduced-motion: reduce) { button.tk:active, button.k:active { transform: none; } }
 </style>
 </head>
 <body>
@@ -152,74 +178,101 @@ details.aide li { margin-bottom: 3px; }
 
   <div class="banc">
     <!-- ============ OSCILLOSCOPE ============ -->
-    <div class="casier o" data-mt-vue="Oscilloscope" data-mt-paysage><div class="inst boitier" id="instO" data-w="1200" data-h="560" style="width:1200px;height:560px">
-      <div class="cadre o-cadre">
-        <div class="marque"><b>DSO-X 2002A</b> · oscilloscope numérique · 70 MHz · 2 GSa/s · émulation</div>
-        <canvas class="ecran" id="ecran" aria-label="Écran de l'oscilloscope"></canvas>
-        <div class="softs" id="oSofts"></div>
+    <div class="casier o" data-mt-vue="Oscilloscope" data-mt-paysage><div class="inst ks" id="instO" data-w="1320" data-h="690" style="width:1320px;height:690px">
+      <div class="ks-tete"><span><b>DSOX1102A</b>&nbsp;&nbsp;InfiniiVision&nbsp;&nbsp;·&nbsp;&nbsp;Oscilloscope 70 MHz&nbsp;&nbsp;2 GSa/s</span><span class="em">émulation pédagogique</span></div>
+      <div class="ks-cadre"><canvas class="ecran" id="ecran" aria-label="Écran de l'oscilloscope"></canvas></div>
+      <div class="ks-softs" id="oSofts"></div>
+      <button class="k back" id="bBack" title="Back: remonter d'un niveau de menu" aria-label="Back">⮌</button>
+      <div class="ks-bas">
+        <div class="col"><div class="marche" title="Interrupteur">⏻</div><span class="ksl">Power</span></div>
+        <div class="col"><div class="usb" title="Port USB (les fichiers enregistrés sont téléchargés)"></div><span class="ksl">USB</span></div>
+        <div class="col"><div class="lig" style="gap:10px"><div class="borne"></div><div class="borne"></div><div class="borne"></div></div><span class="ksl">Demo 1 · Probe Comp · ⏚</span></div>
+        <span class="sigle">MP* Malherbe</span>
       </div>
-      <div class="panneau o-panneau">
-        <div class="zone">
-          <div class="zt">Commandes</div>
-          <div class="lig">
-            <div class="col"><div class="knob" id="kEntry" style="--d:54px"></div><span class="kl">Réglage ↻</span></div>
-            <div class="kgrid">
-              <button class="tk" data-k="curs">Curseurs</button>
-              <button class="tk" data-k="meas">Mesures</button>
-              <button class="tk" data-k="acq">Acquisition</button>
-              <button class="tk" data-k="disp">Affichage</button>
-              <button class="tk" id="bAuto">Auto Scale</button>
-              <button class="tk" id="bDef">Default Setup</button>
-            </div>
-            <div class="col" style="gap:5px">
-              <button class="tk rs" id="bRun"><i class="led vert"></i>Run/Stop</button>
-              <button class="tk rs" id="bSingle"><i class="led"></i>Single</button>
-            </div>
+
+      <div class="ks-pan">
+        <!-- rangée 1 -->
+        <div class="sec" style="left:0;top:0;width:96px;height:170px">
+          <div class="st">Entry</div>
+          <div class="col" style="gap:6px"><div class="knob" id="kEntry" style="--d:62px"></div><span class="ksl">⟲ Push to select</span>
+            <button class="k int" id="bIntens" title="Intensity: la molette Entry règle l'intensité des traces">☼</button><span class="ksl">Intensity</span></div>
+        </div>
+        <div class="nu grk" style="left:104px;top:22px;width:88px">
+          <button class="k" id="bAuto">Auto Scale</button>
+          <button class="k" id="bDef">Default Setup</button>
+          <button class="k" id="bHelp" style="margin-top:14px">Help</button>
+          <button class="k" data-ns="Bus">Bus</button>
+        </div>
+        <div class="sec" style="left:200px;top:0;width:126px;height:170px">
+          <div class="st">Horizontal</div>
+          <div class="lig" style="align-items:flex-start;gap:6px">
+            <div class="col"><div class="knob" id="kTdiv" style="--d:58px"></div><span class="ksl">s/div</span></div>
+            <div class="col" style="gap:6px"><button class="k" data-k="acq">Acquire</button><button class="k" data-ns="Zoom">Zoom</button></div>
+          </div>
+          <div class="lig" style="margin-top:4px;gap:6px"><div class="knob" id="kDelay" style="--d:30px"></div><span class="ksl">◁ Position ▷</span></div>
+        </div>
+        <div class="sec" style="left:334px;top:0;width:86px;height:170px">
+          <div class="st">Run Control</div>
+          <div class="grk"><button class="k run" id="bRun" style="height:58px">Run<br>Stop</button><button class="k sgl" id="bSingle" style="height:36px">Single</button></div>
+        </div>
+        <!-- rangée 2 -->
+        <div class="sec" style="left:0;top:178px;width:164px;height:156px">
+          <div class="st">Trigger</div>
+          <div class="lig" style="align-items:flex-start">
+            <div class="col"><div class="knob" id="kNiv" style="--d:46px"></div><span class="ksl">Level</span><span class="ksl" style="color:#777">(push 50 %)</span></div>
+            <div class="grk" style="flex:1"><button class="k" data-k="trig">Trigger</button><button class="k" id="bForce">Force</button><button class="k" data-k="trigmode">Mode/Coupling</button></div>
           </div>
         </div>
-        <div class="lig" style="align-items:stretch">
-          <div class="zone" style="flex:1">
-            <div class="zt">Horizontal</div>
-            <div class="lig" style="align-items:flex-end">
-              <div class="col"><div class="knob" id="kTdiv" style="--d:64px"></div><span class="kl">s/div</span></div>
-              <div class="col"><div class="knob" id="kDelay" style="--d:32px"></div><span class="kl">Position</span></div>
-            </div>
-            <div style="margin-top:6px"><button class="tk" data-k="horiz">Horiz.</button></div>
-          </div>
-          <div class="zone" style="flex:1">
-            <div class="zt">Déclenchement</div>
-            <div class="lig" style="align-items:flex-start">
-              <div class="col"><div class="knob" id="kNiv" style="--d:44px"></div><span class="kl">Niveau</span></div>
-              <div class="col" style="gap:5px;align-items:stretch">
-                <button class="tk" data-k="trig">Trigger</button>
-                <button class="tk" data-k="mode">Mode/Couplage</button>
-                <button class="tk" id="bForce">Forcer</button>
-              </div>
-            </div>
+        <div class="sec" style="left:172px;top:178px;width:116px;height:156px">
+          <div class="st">Measure</div>
+          <div class="lig" style="align-items:flex-start;gap:6px">
+            <div class="col"><div class="knob" id="kCurs" style="--d:36px"></div><span class="ksl">Cursors</span></div>
+            <div class="grk" style="flex:1"><button class="k" data-k="curs">Cursors</button><button class="k" data-k="meas">Meas</button><button class="k" data-ns="Analyze">Analyze</button></div>
           </div>
         </div>
-        <div class="zone" style="flex:1">
-          <div class="zt">Vertical</div>
-          <div class="vert">
-            <div class="col">
-              <button class="tk chk ch1" id="bC1">1</button>
-              <div class="knob" id="kV1" style="--d:58px"></div><span class="kl">V/div</span>
-              <div class="knob" id="kP1" style="--d:30px"></div><span class="kl">Position</span>
-              <div class="bnc" title="Entrée 1"></div>
+        <div class="sec" style="left:296px;top:178px;width:124px;height:156px">
+          <div class="st">Tools</div>
+          <div class="grk" style="grid-template-columns:1fr 1fr">
+            <button class="k" data-k="util">Utility</button><button class="k" id="bQA">Quick<br>Action</button>
+            <button class="k" data-k="save">Save/<br>Recall</button><button class="k" id="bUSB">Save to<br>USB</button>
+            <button class="k" data-k="disp" style="grid-column:span 2">Display</button>
+          </div>
+        </div>
+        <!-- rangée 3 -->
+        <div class="sec" style="left:0;top:342px;width:420px;height:46px">
+          <div class="lig" style="gap:8px">
+            <div class="st" style="margin:0;width:66px">Waveform</div>
+            <button class="k mth" id="bMath" style="width:70px">Math</button>
+            <button class="k mth" id="bFFT" style="width:70px">FFT</button>
+            <button class="k" data-ns="Ref" style="width:70px">Ref</button>
+            <span class="ksl" style="margin-left:auto;color:#777">Wave Gen: modèles G</span>
+          </div>
+        </div>
+        <!-- rangée 4 -->
+        <div class="sec" style="left:0;top:396px;width:420px;height:280px">
+          <div class="st">Vertical</div>
+          <div class="lig" style="justify-content:space-around;align-items:flex-start">
+            <div class="ch-col">
+              <button class="k chk ch1" id="bC1">1</button>
+              <div class="knob" id="kV1" style="--d:60px"></div><span class="ksl">Scale (V/div)</span>
+              <div class="knob" id="kP1" style="--d:30px"></div><span class="ksl">Position</span>
+              <div class="bnc gros" title="Entrée 1"></div><span class="ksl"><b>1</b></span>
             </div>
-            <div class="vmid">
-              <button class="tk chm" data-k="math" id="bMath">Math</button>
-              <div class="bnc-legende" style="margin-top:118px">1 MΩ ≈ 11 pF<br>300 V eff. max</div>
+            <div class="ch-col" style="padding-top:34px;gap:6px">
+              <span class="ksl">1 MΩ ≈ 11 pF</span><span class="ksl">≤ 300 V eff</span>
+              <div style="height:62px"></div>
+              <div class="bnc" title="Entrée de déclenchement externe"></div><span class="ksl">Ext Trig</span>
             </div>
-            <div class="col">
-              <button class="tk chk ch2" id="bC2">2</button>
-              <div class="knob" id="kV2" style="--d:58px"></div><span class="kl">V/div</span>
-              <div class="knob" id="kP2" style="--d:30px"></div><span class="kl">Position</span>
-              <div class="bnc" title="Entrée 2"></div>
+            <div class="ch-col">
+              <button class="k chk ch2" id="bC2">2</button>
+              <div class="knob" id="kV2" style="--d:60px"></div><span class="ksl">Scale (V/div)</span>
+              <div class="knob" id="kP2" style="--d:30px"></div><span class="ksl">Position</span>
+              <div class="bnc gros" title="Entrée 2"></div><span class="ksl"><b>2</b></span>
             </div>
           </div>
         </div>
       </div>
+      <input type="file" id="fRappel" accept=".scp,application/json" hidden>
     </div></div>
 
     <div class="rangee">
@@ -264,6 +317,7 @@ details.aide li { margin-bottom: 3px; }
           <span>Sonde voie 1 <span class="seg" id="sonde0"><button data-v="1">×1</button><button data-v="10">×10</button></span></span>
           <span>Sonde voie 2 <span class="seg" id="sonde1"><button data-v="1">×1</button><button data-v="10">×10</button></span></span>
         </div>
+        <label class="chk"><input type="checkbox" id="syncChk"> Câble entre la sortie Sync du GBF et l'entrée Ext Trig de l'oscilloscope</label>
         <label class="chk"><input type="checkbox" id="theoChk" checked> Afficher les grandeurs caractéristiques</label>
         <div class="theo" id="theo"></div>
       </section>
@@ -273,9 +327,12 @@ details.aide li { margin-bottom: 3px; }
   <details class="aide" data-mt-vue="Mode d'emploi">
     <summary>Mode d'emploi</summary>
     <ul>
-      <li><b>Molettes</b>: molette de la souris, glisser vers le haut ou la droite, ou clic sur la moitié gauche/droite. Un <b>appui long</b> correspond à un appui sur la molette (niveau de déclenchement à 50 %, position ou retard remis à zéro, réglage fin des V/div).</li>
-      <li><b>Touches de menu</b> (Curseurs, Mesures, Voie 1…): elles affichent un menu en bas de l'écran, piloté par les six touches sous l'écran. Les cases marquées ↻ se règlent avec la molette <b>Réglage</b>.</li>
-      <li><b>Curseurs</b>: ils se déplacent aussi en les faisant glisser directement sur l'écran.</li>
+      <li><b>Façade</b>: disposition inspirée du Keysight DSOX1102A (touches en anglais comme sur l'appareil, menus à l'écran en français). Les touches Zoom, Ref, Analyze et Bus ne sont pas simulées.</li>
+      <li><b>Molettes</b>: molette de la souris, glisser vers le haut ou la droite, ou clic sur la moitié gauche/droite. Un <b>appui long</b> correspond à un appui sur la molette (niveau à 50 %, retard ou position à zéro, réglage fin, choix du curseur).</li>
+      <li><b>Menus</b>: une touche de la façade affiche son menu en bas de l'écran, piloté par les six touches placées dessous. Les cases marquées ⟲ se règlent avec la molette <b>Entry</b>, celles marquées ▸ ouvrent un sous-menu; la touche <b>⮌ (Back)</b> remonte d'un niveau. <b>Help</b> puis une touche: aide rapide sur cette touche.</li>
+      <li><b>Déclenchement</b>: en mode <b>Auto</b>, un niveau placé hors du signal (molette Level) ne déclenche plus: l'affichage n'est plus synchronisé (état « Auto? »); en mode <b>Normal</b>, l'écran reste figé sur la dernière acquisition. Source 1, 2, <b>Ext</b> (cocher le câble Sync → Ext Trig sous le montage) ou <b>secteur</b> (50 Hz); pente montante, descendante, alternée ou les deux; largeur d'impulsion; couplage CC, CA, réjection BF; réjection HF et du bruit; <b>holdoff</b> (utile quand le signal franchit plusieurs fois le niveau par période).</li>
+      <li><b>Mesures</b> (touche Meas): toute la liste de l'appareil, jusqu'à 4 mesures affichées à droite, tableau « Tout mesurer » et statistiques (moyenne, min, max, écart type, nombre).</li>
+      <li><b>Enregistrement</b> (Save/Recall puis Enregistrer, ou Save to USB): image PNG ou BMP (8 ou 24 bits, grille inversée, niveaux de gris, infos de réglage), données CSV, ASCII XY (un fichier par voie) ou binaires .bin au format Keysight, réglages .scp (relisibles par Rappeler). Les fichiers sont téléchargés par le navigateur. Le fichier CSV commence par deux lignes d'en-tête (<code>x-axis,1,2</code> puis <code>second,Volt,Volt</code>); temps comptés à partir du déclenchement.</li>
       <li><b>GBF</b>: choisir un paramètre avec les touches sous l'écran, puis le modifier avec la molette (le chiffre souligné change; ◀ ▶ déplacent ce chiffre) ou au pavé numérique, en terminant par l'unité.</li>
       <li><b>Forme arbitraire (Arb)</b>: « Formes d'onde » → « Arb », puis « Charger fichier » (ou glisser un fichier sur le générateur). Fichiers texte ou CSV: une colonne de temps puis une ou plusieurs colonnes de tension (fichiers de l'oscilloscope DSOX, de LaboAnalyse, de Python; séparateur et virgule décimale détectés). Le générateur rejoue les points en boucle, comme un convertisseur numérique-analogique: filtre « Normal » (points reliés) ou « Pas » (tension bloquée entre deux échantillons). Amplitude, décalage et fréquence de répétition sont réglés d'après le fichier et restent modifiables.</li>
       <li><b>Charge 50 Ω ou Haute Z</b>: réglé sur 50 Ω, le générateur affiche la tension qu'il délivrerait sur une charge de 50 Ω; branché sur l'oscilloscope (1 MΩ), on mesure le double. La résistance de sortie de 50 Ω est prise en compte dans le montage.</li>
@@ -317,22 +374,7 @@ function defautsGBF() {
     ce: { freq: 2, amp: -1, off: -1, duty: 0, sym: 0, pw: -6, pe: -9, nbw: 5 },
     menu: 'params', entry: null, msg: '', msgT: 0 };
 }
-function defautsScope() {
-  return {
-    ch: [{ on: true, vdiv: 5, pos: 0, coup: 'CC', bwl: false, fin: false, inv: false, sonde: 1 },
-         { on: false, vdiv: 5, pos: 0, coup: 'CC', bwl: false, fin: false, inv: false, sonde: 1 }],
-    tdiv: 100e-6, delay: 0, horiz: 'Normal',
-    trig: { src: 0, pente: 1, niv: 0, mode: 'Auto', rejet: false },
-    run: true, single: false, attente: false,
-    acq: { mode: 'Normal', n: 16 },
-    aff: { persist: 'Non', grille: 0.5 },
-    meas: [], msel: { type: 'vpp', src: 0, src2: 1 }, mres: [],
-    cur: { on: false, src: 0, sel: 0, x: [-2, 2], y: [1.5, -1.5] },
-    math: { op: 'Non', src: 0, vdiv: 1, pos: 0, span: null, centre: null, ref: 10, dbdiv: 10, fen: 'Hanning' },
-    menu: null, entry: -1, ver: 0, flash: null
-  };
-}
-const CIR = { type: 'RC_C', R: 1000, C: 100e-9, L: 10e-3, r: 10, probe: [1, 1] };
+const CIR = { type: 'RC_C', R: 1000, C: 100e-9, L: 10e-3, r: 10, probe: [1, 1], sync: false };
 let G = defautsGBF();
 /* ---------- forme arbitraire: points chargés depuis un fichier ---------- */
 const ARB_MAX = 20000;                   // nombre maximal de points rejoués
@@ -395,7 +437,6 @@ function arbLire(texte, nom) {           // renvoie un objet ARB ou lève une er
   return a;
 }
 let ARB = arbExemple();
-let S = defautsScope();
 let MOD = null, INP = null, TAB = null;
 const ECACHE = new Map();
 
@@ -756,32 +797,69 @@ function quant(v, k) {                   // CAN 8 bits sur ±5 div autour du cen
 }
 function vdivList(k) { const m = S.ch[k].sonde; return seq125(1e-3, 5).map(v => +(v * m).toPrecision(6)); }
 </script>
-
 <!-- ======================= INTERFACE ======================= -->
 <script id="interface">
 "use strict";
-const SW = 760, SH = 480, GX = 40, GY = 26, DX = 68, DY = 45, GW = 680, GH = 360, YM = 390, YK = 434;
-const COL = ['#f2e23c', '#4ddc50', '#d983f5'];
-const ORANGE = '#ff9e3d';
+/* ---------- géométrie de l'écran (pixels logiques) ---------- */
+const SW = 800, SH = 480, BH = 24;                 // écran, bandeau d'état
+const GX = 24, GY = 30, DX = 60, DY = 44, GW = 600, GH = 352;   // graticule 10 × 8 div
+const SBX = 632;                                   // barre latérale (mesures, curseurs)
+const YT = 412, YK = 434;                          // titre du menu, touches de l'écran
 const FC = '"Roboto Condensed","Arial Narrow",Arial,sans-serif';
 const FM = '"Roboto Mono",Consolas,monospace';
-let dirty = true, ACQ = null, AVG = null, acqId = 0, dernierEssai = 0, dernieresMes = 0, mesVer = -1;
+const PAL_ECRAN = { fond: '#000', grille: '150,150,150', bandeau: '#15181d', texte: '#e8e8e8', doux: '#9aa3b0', cadre: '#2a2f38',
+  ch: ['#f2e23c', '#4ddc50', '#d983f5'], orange: '#ff9e3d', panneau: 'rgba(12,14,18,0.86)', touche: '#262b33', toucheVide: '#121418',
+  toucheSel: '#34507a', toucheBord: '#4a5160', toucheTxt: '#c9d0db', toucheVal: '#fff', filigrane: 'rgba(255,255,255,0.17)' };
+const PAL_INV = { fond: '#fff', grille: '90,90,90', bandeau: '#e4e6ea', texte: '#111', doux: '#555', cadre: '#c8ccd2',
+  ch: ['#a58d00', '#16902a', '#8d2fb0'], orange: '#c25e00', panneau: 'rgba(246,247,249,0.92)', touche: '#e6e8ec', toucheVide: '#f4f5f7',
+  toucheSel: '#c9d8f0', toucheBord: '#9aa1ab', toucheTxt: '#333', toucheVal: '#000', filigrane: 'rgba(0,0,0,0.18)' };
+let P = PAL_ECRAN;
+let dirty = true, ACQ = null, AVG = null, acqId = 0, dernierEssai = 0, dernieresMes = 0, mesVer = -1, prochainNormal = 0;
+
+/* ---------- état de l'oscilloscope ---------- */
+function voieDefaut(on) { return { on, vdiv: 1, pos: 0, coup: 'CC', bwl: false, fin: false, inv: false, sonde: 1 }; }
+function defautsScope() {
+  return {
+    ch: [voieDefaut(true), voieDefaut(false)],
+    tdiv: 100e-6, finT: false, delay: 0, horiz: 'Normal', tref: 'Centre',
+    trig: { type: 'Front', src: 0, pente: 'mont', niv: [0, 0, 1.5], mode: 'Auto', coup: 'CC', rejHF: false, rejBruit: false,
+      holdoff: 40e-9, imp: { pol: 1, cond: '<', t1: 500e-6, t2: 1e-3, quel: 0 } },
+    run: true, single: false, attente: false, fige: false,
+    acq: { mode: 'Normal', n: 16 },
+    aff: { persist: 'Non', ptemps: 1, grille: 0.5, intens: 0.75 },
+    meas: [], msel: { type: 'vpp', src: 0, src2: 1 }, mres: [], stats: false, mstat: [],
+    cur: { mode: 'Non', src: 0, sel: 0, x: [-2, 2], y: [1.5, -1.5] },
+    math: { op: 'Non', src: 0, vdiv: 1, pos: 0 },
+    fft: { src: 0, span: null, centre: null, ref: 10, dbdiv: 10, vdiv: 0.5, fen: 'Hanning', unite: 'dBV' },
+    save: { fmt: 'png', len: 1000, info: false, inv: false, pal: 'Couleur', n: 0 },
+    qa: 'Non',
+    menu: null, entry: -1, ver: 0, flash: null, snap: null, aide: false, intensMode: false, nivT: -9, nivAvant: -9
+  };
+}
+let S = defautsScope();
+const MATHOPS = ['Non', '1+2', '1−2', '1×2', 'd/dt', '∫dt'];
+const mathOn = () => S.math.op !== 'Non';
+const fftOn = () => S.math.op === 'FFT';
+const mathTemp = () => mathOn() && !fftOn();
+const unMath = () => S.math.op === '1×2' ? 'V²' : S.math.op === 'd/dt' ? 'V/s' : S.math.op === '∫dt' ? 'V·s' : 'V';
+const XREF = () => S.tref === 'Gauche' ? 1 : S.tref === 'Droite' ? 9 : 5;
 
 function fmtSI(v, unit, sig) {
   if (v === null || v === undefined || !isFinite(v)) return '---';
   if (Math.abs(v) < 1e-13) return '0' + unit;
-  const P =[[1e9, 'G'], [1e6, 'M'], [1e3, 'k'], [1, ''], [1e-3, 'm'], [1e-6, 'µ'], [1e-9, 'n'], [1e-12, 'p'], [1e-15, 'f']];
+  const Q = [[1e9, 'G'], [1e6, 'M'], [1e3, 'k'], [1, ''], [1e-3, 'm'], [1e-6, 'µ'], [1e-9, 'n'], [1e-12, 'p'], [1e-15, 'f']];
   const a = Math.abs(v);
-  let i = P.findIndex(p => a >= p[0] * 0.99995); if (i < 0) i = P.length - 1;
-  let m = v / P[i][0], ip = Math.floor(Math.log10(Math.abs(m))) + 1; if (ip < 1) ip = 1;
+  let i = Q.findIndex(p => a >= p[0] * 0.99995); if (i < 0) i = Q.length - 1;
+  let m = v / Q[i][0], ip = Math.floor(Math.log10(Math.abs(m))) + 1; if (ip < 1) ip = 1;
   let s = m.toFixed(Math.max(0, sig - ip));
-  if (Math.abs(parseFloat(s)) >= 1000 && i > 0) { i--; m = v / P[i][0]; s = m.toFixed(Math.max(0, sig - 1)); }
-  return s + P[i][1] + unit;
+  if (Math.abs(parseFloat(s)) >= 1000 && i > 0) { i--; m = v / Q[i][0]; s = m.toFixed(Math.max(0, sig - 1)); }
+  return s + Q[i][1] + unit;
 }
 function touche() { S.ver++; AVG = null; }
 function modele() { dirty = true; touche(); }
 function flash(txt) { S.flash = { txt, t: performance.now() / 1000 }; }
 function srcNom(s) { return s === 2 ? 'M' : String(s + 1); }
+function nsim(nom) { flash(nom + ': fonction non simulée dans cette émulation'); }
 
 /* ---------- canvas ---------- */
 const cv = document.getElementById('ecran'), ctx = cv.getContext('2d');
@@ -802,8 +880,8 @@ function molette(id, tourner, pousser, nom) {
   k.setAttribute('aria-label', nom);
   k.title = nom + ': molette, glisser, ou clic à gauche/droite' + (pousser ? '; appui long = appuyer' : '');
   let ang = 0, drag = null, tim = null;
-  const tour = d => { ang += d * 18; cap.style.transform = `rotate(${ang}deg)`; tourner(d); };
-  const appui = () => { if (!pousser) return; k.classList.add('pousse'); setTimeout(() => k.classList.remove('pousse'), 180); pousser(); };
+  const tour = d => { ang += d * 18; cap.style.transform = `rotate(${ang}deg)`; if (S.aide) { aideTouche(id); return; } tourner(d); };
+  const appui = () => { if (!pousser) return; k.classList.add('pousse'); setTimeout(() => k.classList.remove('pousse'), 180); if (S.aide) { aideTouche(id); return; } pousser(); };
   k.addEventListener('wheel', e => { e.preventDefault(); tour(e.deltaY < 0 ? 1 : -1); }, { passive: false });
   k.addEventListener('pointerdown', e => {
     k.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, n: 0, bouge: false, pousse: false };
@@ -827,204 +905,198 @@ function molette(id, tourner, pousser, nom) {
   });
 }
 
-/* ========================= OSCILLOSCOPE ========================= */
-const MTL = [
-  { id: 'vpp', court: 'Crête-crête', amp: true }, { id: 'max', court: 'Max', amp: true }, { id: 'min', court: 'Min', amp: true },
-  { id: 'ampl', court: 'Amplitude', amp: true }, { id: 'moy', court: 'Moyenne', amp: true },
-  { id: 'rmsca', court: 'RMS CA', amp: true }, { id: 'rmscc', court: 'RMS CC', amp: true },
-  { id: 'freq', court: 'Fréquence' }, { id: 'per', court: 'Période' }, { id: 'larg', court: '+Largeur' },
-  { id: 'rc', court: 'Rapp. cycl.' }, { id: 'mont', court: 'Tps montée' }, { id: 'desc', court: 'Tps descente' },
-  { id: 'phase', court: 'Phase', deux: true }, { id: 'ret', court: 'Retard', deux: true }
-];
-const MT = Object.fromEntries(MTL.map(m => [m.id, m]));
-const CURSEL = ['X1', 'X2', 'X1 X2', 'Y1', 'Y2', 'Y1 Y2'];
-const MATHOPS = ['Non', '1+2', '1−2', '1×2', 'FFT'];
-const mathOn = () => S.math.op !== 'Non';
-const mathTemp = () => S.math.op !== 'Non' && S.math.op !== 'FFT';
-
-function chMenu(k) {
-  const c = S.ch[k];
-  return { titre: 'Voie ' + (k + 1), items: [
-    { l: 'Couplage', v: () => c.coup, act: () => { c.coup = c.coup === 'CC' ? 'CA' : 'CC'; modele(); } },
-    { l: 'Limite BP', v: () => c.bwl ? '20 MHz' : 'Non', act: () => { c.bwl = !c.bwl; modele(); } },
-    { l: 'Réglage fin', v: () => c.fin ? 'Oui' : 'Non', act: () => { c.fin = !c.fin; if (!c.fin) c.vdiv = snapV(k, c.vdiv); } },
-    { l: 'Inverser', v: () => c.inv ? 'Oui' : 'Non', act: () => { c.inv = !c.inv; } },
-    { l: 'Sonde', v: () => c.sonde + ':1', act: () => {
-      const f = c.sonde === 1 ? 10 : 0.1; c.sonde = c.sonde === 1 ? 10 : 1;
-      c.vdiv = +(c.vdiv * f).toPrecision(6); c.pos *= f; if (S.trig.src === k) S.trig.niv *= f; } },
-    null ] };
+/* ========================= DÉCLENCHEMENT ========================= */
+/* Le comparateur de déclenchement voit le signal de la source (après le couplage d'entrée de la voie),
+   filtré par le couplage du déclenchement (CA: passe-haut 10 Hz; réjection BF: passe-haut 50 kHz;
+   réjection HF: passe-bas 50 kHz). Les événements (franchissements du niveau, ou fins d'impulsions
+   qualifiées) sont calculés sur une période; le holdoff détermine lesquels sont effectivement utilisés. */
+const F_CA = 10, F_BF = 50e3, F_HF = 50e3, F_SECTEUR = 49.99, V_SYNC = 3.3;
+let RID = 0, TRC = null;
+function filtresDecl() {
+  const L = [], t = S.trig;
+  if (t.coup === 'CA') L.push({ hp: true, fc: F_CA });
+  if (t.coup === 'BF') L.push({ hp: true, fc: F_BF });
+  if (t.rejHF) L.push({ hp: false, fc: F_HF });
+  return L;
 }
-function menuObj() {
-  const id = S.menu; if (!id) return null;
-  if (id === 'ch0') return chMenu(0);
-  if (id === 'ch1') return chMenu(1);
-  if (id === 'horiz') return { titre: 'Horizontal', items: [
-    { l: 'Mode', v: () => S.horiz, act: () => { S.horiz = S.horiz === 'Normal' ? 'XY' : S.horiz === 'XY' ? 'Roll' : 'Normal'; if (S.horiz === 'Roll' && S.tdiv < 50e-3) S.tdiv = 50e-3; } },
-    { l: 'Retard', v: () => fmtSI(S.delay, 's', 4), knob: d => { S.delay = +(S.delay + d * S.tdiv / 10).toPrecision(10); } },
-    { l: 'Retard', v: () => 'à zéro', act: () => { S.delay = 0; } }, null, null, null ] };
-  if (id === 'trig') return { titre: 'Déclenchement', items: [
-    { l: 'Type', v: () => 'Front', act: () => {} },
-    { l: 'Source', v: () => 'Voie ' + (S.trig.src + 1), act: () => { S.trig.src = 1 - S.trig.src; } },
-    { l: 'Pente', v: () => S.trig.pente > 0 ? 'Montante ↑' : 'Descendante ↓', act: () => { S.trig.pente = -S.trig.pente; } },
-    { l: 'Niveau', v: () => fmtSI(S.trig.niv, 'V', 3), knob: d => tournerNiveau(d) },
-    null, null ] };
-  if (id === 'mode') return { titre: 'Mode/Couplage', items: [
-    { l: 'Mode', v: () => S.trig.mode, act: () => { S.trig.mode = S.trig.mode === 'Auto' ? 'Normal' : 'Auto'; } },
-    { l: 'Couplage', v: () => 'CC', act: () => {} },
-    { l: 'Rejet bruit', v: () => S.trig.rejet ? 'Oui' : 'Non', act: () => { S.trig.rejet = !S.trig.rejet; } },
-    null, null, null ] };
-  if (id === 'meas') {
-    const m = S.msel, t = MT[m.type], nsrc = mathTemp() ? 3 : 2;
-    return { titre: 'Mesures', items: [
-      { l: 'Source', v: () => srcNom(m.src), act: () => { m.src = (m.src + 1) % nsrc; } },
-      { l: 'Type', v: () => MT[m.type].court, knob: d => { const i = MTL.findIndex(x => x.id === m.type); m.type = MTL[(i + d + MTL.length) % MTL.length].id; } },
-      t.deux ? { l: 'Source 2', v: () => srcNom(m.src2), act: () => { m.src2 = 1 - m.src2; } } : null,
-      { l: 'Ajouter', v: () => 'la mesure', act: () => { S.meas.push({ type: m.type, src: m.src, src2: m.src2 }); if (S.meas.length > 4) S.meas.shift(); mesVer = -1; } },
-      { l: 'Effacer', v: () => 'tout', act: () => { S.meas = []; S.mres = []; } },
-      null ] };
+function filtrePeriodique(tn, y, T, fc, hp) {        // régime permanent d'un 1er ordre, entrée affine par morceaux
+  const K = tn.length, tau = 1 / (TAU * fc), out = new Float64Array(K);
+  const pas = (y0, i) => {
+    const t1 = tn[i], t2 = i + 1 < K ? tn[i + 1] : T, h = t2 - t1, u0 = y[i], u1 = y[(i + 1) % K], s = (u1 - u0) / h;
+    return u0 + s * h - s * tau + (y0 - u0 + s * tau) * Math.exp(-h / tau);
+  };
+  let a = 1, b = 0;                                     // y(T) = a y(0) + b
+  for (let i = 0; i < K; i++) { const e = Math.exp(-((i + 1 < K ? tn[i + 1] : T) - tn[i]) / tau); b = pas(b, i); a *= e; }
+  let yl = Math.abs(1 - a) > 1e-15 ? b / (1 - a) : y[0];
+  for (let i = 0; i < K; i++) { out[i] = hp ? y[i] - yl : yl; yl = pas(yl, i); }
+  return out;
+}
+function noeudsUniformes(T, cassures) {
+  const M = 4096, arr = [];
+  const c = cassures.slice().sort((a, b) => a - b); let ci = 0;
+  for (let j = 0; j < M; j++) {
+    const t = j * T / M;
+    while (ci < c.length && c[ci] <= t) { if (!arr.length || c[ci] > arr[arr.length - 1]) arr.push(c[ci]); ci++; }
+    if (!arr.length || t > arr[arr.length - 1]) arr.push(t);
   }
-  if (id === 'curs') return { titre: 'Curseurs', items: [
-    { l: 'Curseurs', v: () => S.cur.on ? 'Manuels' : 'Non', act: () => { S.cur.on = !S.cur.on; } },
-    { l: 'Source', v: () => srcNom(S.cur.src), act: () => { S.cur.src = (S.cur.src + 1) % (mathOn() ? 3 : 2); } },
-    { l: 'Curseur', v: () => CURSEL[S.cur.sel], knob: d => bougerCurseur(d), act: () => { S.cur.sel = (S.cur.sel + 1) % CURSEL.length; } },
-    null, null, null ] };
-  if (id === 'acq') return { titre: 'Acquisition', items: [
-    { l: 'Mode acq.', v: () => S.acq.mode, act: () => { S.acq.mode = S.acq.mode === 'Normal' ? 'Moyennage' : 'Normal'; } },
-    S.acq.mode === 'Moyennage' ? { l: 'Nb moyennes', v: () => String(S.acq.n), knob: d => { S.acq.n = clamp(d > 0 ? S.acq.n * 2 : S.acq.n / 2, 2, 1024); } } : null,
-    null, null, null, null ] };
-  if (id === 'disp') return { titre: 'Affichage', items: [
-    { l: 'Persistance', v: () => S.aff.persist, act: () => { S.aff.persist = S.aff.persist === 'Non' ? 'Courte' : S.aff.persist === 'Courte' ? 'Infinie' : 'Non'; } },
-    { l: 'Effacer', v: () => 'persistance', act: () => { calqueId = -1; calqueVer = -1; } },
-    { l: 'Grille', v: () => Math.round(S.aff.grille * 100) + '%', knob: d => { S.aff.grille = clamp(Math.round((S.aff.grille + d * 0.05) * 100) / 100, 0, 1); } },
-    null, null, null ] };
-  if (id === 'math') {
-    const M = S.math, it = [{ l: 'Opérateur', v: () => M.op, act: () => {
-      M.op = MATHOPS[(MATHOPS.indexOf(M.op) + 1) % MATHOPS.length];
-      if (mathTemp()) { M.vdiv = M.op === '1×2' ? +(S.ch[0].vdiv * S.ch[1].vdiv).toPrecision(3) : Math.max(S.ch[0].vdiv, S.ch[1].vdiv); M.pos = 0; }
-      if (M.op === 'FFT') {
-        M.span = null; M.centre = null;
-        if (!INP.noise && !INP.dc) { const s = seq125(1e-3, fsFFT() / 2).find(v => v >= 20 / INP.T); if (s) { M.span = s; M.centre = s / 2; } }
+  while (ci < c.length) { if (c[ci] > arr[arr.length - 1] && c[ci] < T) arr.push(c[ci]); ci++; }
+  return Float64Array.from(arr);
+}
+/* liste des franchissements {t, s (+1 montant, −1 descendant), sl (pente)} sur une période */
+function franchissements(src, L) {
+  const T = INP.T, filt = filtresDecl(), ev = [];
+  if (src < 2 && TAB.kind === 'sine') {
+    const r = TAB.ch[src], sc = chScale(src);
+    let ar = sc * INP.amp * r.mag, ph = r.ph, b = sc * INP.off * r.h0;
+    for (const f of filt) {
+      const x = INP.w / (TAU * f.fc), m = f.hp ? x / Math.hypot(1, x) : 1 / Math.hypot(1, x), dp = f.hp ? Math.atan2(1, x) : -Math.atan2(x, 1);
+      ar *= m; ph += dp; if (f.hp) b = 0;
+    }
+    if (Math.abs(ar) < 1e-15) return ev;
+    const q = (L - b) / ar; if (q <= -1 || q >= 1) return ev;
+    const as = Math.asin(q);
+    for (const th of [as, Math.PI - as]) {
+      let t = (th - ph) / INP.w; t = ((t % T) + T) % T;
+      const sl = ar * INP.w * Math.cos(th);
+      ev.push({ t, s: sl > 0 ? 1 : -1, sl });
+    }
+    ev.sort((a, b) => a.t - b.t); return ev;
+  }
+  let tn, y, exact = false;
+  if (src < 2) {
+    const sc = chScale(src), Y = src ? TAB.Y2 : TAB.Y1;
+    tn = TAB.nodeT; y = new Float64Array(Y.length); for (let i = 0; i < Y.length; i++) y[i] = sc * Y[i];
+    exact = !filt.length;
+  } else {
+    if (!CIR.sync || INP.noise || INP.dc || !G.out) return ev;
+    const te = Math.min(10e-9, T / 1000);
+    tn = noeudsUniformes(T, [0, te, T / 2, T / 2 + te]);
+    y = new Float64Array(tn.length);
+    for (let i = 0; i < tn.length; i++) { const t = tn[i]; y[i] = t < te ? V_SYNC * t / te : t <= T / 2 ? V_SYNC : t < T / 2 + te ? V_SYNC * (1 - (t - T / 2) / te) : 0; }
+  }
+  for (const f of filt) y = filtrePeriodique(tn, y, T, f.fc, f.hp);
+  const K = tn.length;
+  for (let i = 0; i < K; i++) {
+    const j = (i + 1) % K, a = y[i] - L, b = y[j] - L;
+    let s = 0;
+    if (a < 0 && b >= 0) s = 1; else if (a > 0 && b <= 0) s = -1; else continue;
+    const t1 = tn[i], t2 = j === 0 ? T : tn[j];
+    ev.push({ t: t1 + (t2 - t1) * a / (a - b), s, sl: (y[j] - y[i]) / (t2 - t1), i1: t1, i2: t2 });
+  }
+  if (exact && ev.length <= 64) {
+    const sc = chScale(src);
+    for (const e of ev) {
+      let lo = e.i1, hi = e.i2;
+      for (let it = 0; it < 34; it++) {
+        const mid = (lo + hi) / 2, v = sc * evalY(mid, _o)[src] - L;
+        if ((e.s > 0) === (v < 0)) lo = mid; else hi = mid;
       }
-      S.entry = menuObj().items.findIndex(x => x && x.knob);
-    } }];
-    if (M.op === 'FFT') it.push(
-      { l: 'Source', v: () => 'Voie ' + (M.src + 1), act: () => { M.src = 1 - M.src; } },
-      { l: 'Span', v: () => fmtSI(spanFFT(), 'Hz', 3), knob: d => changerSpan(d) },
-      { l: 'Centre', v: () => fmtSI(centreFFT(), 'Hz', 4), knob: d => { M.centre = Math.max(0, centreFFT() + d * spanFFT() / 50); } },
-      { l: 'Niveau réf.', v: () => M.ref.toFixed(0) + ' dBV', knob: d => { M.ref = clamp(M.ref + d * 5, -120, 60); } },
-      { l: 'Fenêtre', v: () => M.fen, act: () => { M.fen = M.fen === 'Hanning' ? 'Rectangle' : 'Hanning'; } });
-    else if (mathTemp()) it.push(
-      { l: 'Échelle', v: () => fmtSI(M.vdiv, M.op === '1×2' ? 'V²' : 'V', 3) + '/', knob: d => { const L = seq125(1e-3, 1000); let i = L.findIndex(v => v >= M.vdiv * 0.999); if (i < 0) i = L.length - 1; M.vdiv = L[clamp(i - d, 0, L.length - 1)]; } },
-      { l: 'Position', v: () => fmtSI(M.pos, M.op === '1×2' ? 'V²' : 'V', 3), knob: d => { M.pos = +(M.pos + d * M.vdiv / 25).toPrecision(8); } },
-      null, null, null);
-    else it.push(null, null, null, null, null);
-    return { titre: 'Math', items: it };
+      e.t = ((lo + hi) / 2) % T;
+    }
   }
-  return null;
+  ev.sort((a, b) => a.t - b.t);
+  return ev;
 }
-function ouvrirMenu(id) {
-  S.menu = id; const m = menuObj();
-  S.entry = m ? m.items.findIndex(x => x && x.knob) : -1;
-  majTouches();
+function evenementsDecl() {
+  const t = S.trig, src = t.src, L = t.niv[Math.min(src, 2)];
+  const X = franchissements(src, L), T = INP.T;
+  if (t.type === 'Front') {
+    if (t.pente === 'mont') return X.filter(e => e.s > 0);
+    if (t.pente === 'desc') return X.filter(e => e.s < 0);
+    return X;
+  }
+  // largeur d'impulsion: déclenchement sur le front de fin d'une impulsion qualifiée
+  const n = X.length, ev = [], I = t.imp;
+  if (n < 2) return ev;
+  for (let i = 0; i < n; i++) {
+    const d = X[i]; if (d.s !== I.pol) continue;           // début d'impulsion: front montant pour +, descendant pour −
+    let j = (i + 1) % n, c = 0; while (X[j].s === d.s && c++ < n) j = (j + 1) % n;
+    if (X[j].s === d.s) continue;
+    let w = X[j].t - d.t; if (w <= 0) w += T;
+    const ok = I.cond === '<' ? w < I.t1 : I.cond === '>' ? w > I.t1 : (w > Math.min(I.t1, I.t2) && w < Math.max(I.t1, I.t2));
+    if (ok) ev.push(X[j]);
+  }
+  ev.sort((a, b) => a.t - b.t);
+  return ev.filter((e, k) => k === 0 || e.t !== ev[k - 1].t);
 }
-function softkey(i) {
-  const m = menuObj(); if (!m) return;
-  const it = m.items[i]; if (!it) return;
-  if (it.knob) { if (S.entry !== i) { S.entry = i; return; } if (it.act) it.act(); }
-  else if (it.act) it.act();
-  touche(); majTouches();
+function cycleDecl() {
+  const cle = S.ver + ':' + RID;
+  if (TRC && TRC.cle === cle) return TRC;
+  TRC = { cle, ev: [], cyc: [], span: 0 };
+  if (S.trig.src === 3 || INP.dc) return TRC;
+  const ev = evenementsDecl(), n = ev.length, T = INP.T, H = Math.max(40e-9, S.trig.holdoff), alt = S.trig.type === 'Front' && S.trig.pente === 'alt';
+  TRC.ev = ev; if (!n) return TRC;
+  const suivant = i => {
+    const x = ev[i].t + H, q = Math.floor(x / T), r = x - q * T;
+    let lo = 0, hi = n; while (lo < hi) { const m = (lo + hi) >> 1; if (ev[m].t < r) lo = m + 1; else hi = m; }
+    let j = lo, per = q; if (j === n) { j = 0; per++; }
+    if (alt) { let c = 0; while (ev[j].s === ev[i].s && c++ < n) { j++; if (j === n) { j = 0; per++; } } }
+    return { j, dt: per * T + ev[j].t - ev[i].t };
+  };
+  let i = 0; for (let s = 0; s <= n; s++) i = suivant(i).j;
+  const debut = i; let span = 0, garde = 0;
+  do { TRC.cyc.push(i); const r = suivant(i); span += r.dt; i = r.j; } while (i !== debut && ++garde <= n);
+  TRC.span = span;
+  return TRC;
 }
-function snapV(k, v) {
-  const L = vdivList(k); let best = L[0];
-  for (const x of L) if (Math.abs(Math.log(x / v)) < Math.abs(Math.log(best / v))) best = x;
-  return best;
+/* instant du déclenchement retenu pour cette acquisition (null: pas de déclenchement) */
+function declencher(now) {
+  const t = S.trig;
+  if (t.src === 3) {                                    // secteur: indépendant du signal
+    const Tl = 1 / F_SECTEUR, ph = t.type === 'Front' && t.pente === 'desc' ? Tl / 2 : 0;
+    return { t: Math.ceil((now - ph) / Tl) * Tl + ph + 1e-5 * gauss(), espace: Tl };
+  }
+  const C = cycleDecl(); if (!C.cyc.length) return null;
+  const e = C.ev[C.cyc[Math.floor(Math.random() * C.cyc.length)]], T = INP.T;
+  let tc = e.t + T * Math.floor(Math.random() * 64);
+  const k = Math.min(t.src, 1);
+  let st = (t.src < 2 && e.sl) ? sigmaV(k) / Math.abs(e.sl) : 0;
+  if (t.rejBruit) st *= 0.3; st = Math.min(st, T / 8);
+  tc += st * gauss();
+  return { t: tc, espace: C.span / C.cyc.length };
 }
-function tournerV(k, d) {
-  const c = S.ch[k];
-  if (!c.on) return;
-  if (c.fin) c.vdiv = +(c.vdiv * (1 - d * 0.01)).toPrecision(4);
-  else { const L = vdivList(k); let i = L.findIndex(v => v >= c.vdiv * 0.999); if (i < 0) i = L.length - 1; c.vdiv = L[clamp(i - d, 0, L.length - 1)]; }
-  c.vdiv = clamp(c.vdiv, 1e-3 * c.sonde, 5 * c.sonde);
-  touche();
-}
-function tournerP(k, d) {
-  const c = S.ch[k]; if (!c.on) return;
-  c.pos = +(c.pos + d * c.vdiv / 25).toPrecision(8);
-  flash('Position voie ' + (k + 1) + ': ' + fmtSI(c.pos, 'V', 3)); touche();
-}
-function tournerT(d) {
-  const min = S.horiz === 'Roll' ? 50e-3 : 5e-9;
-  let i = TDIV.findIndex(v => v >= S.tdiv * 0.999); if (i < 0) i = TDIV.length - 1;
-  S.tdiv = Math.max(min, TDIV[clamp(i - d, 0, TDIV.length - 1)]);
-  touche();
+function bornesNiveau() {
+  const s = S.trig.src;
+  if (s === 2) return [-8, 8];
+  if (s === 3) return [0, 0];
+  const c = S.ch[s]; return [-c.pos - 6 * c.vdiv, -c.pos + 6 * c.vdiv];
 }
 function tournerNiveau(d) {
-  const k = S.trig.src; S.trig.niv = +(S.trig.niv + d * S.ch[k].vdiv / 50).toPrecision(8);
-  flash('Niveau de déclenchement: ' + fmtSI(S.trig.niv, 'V', 3));
+  const s = S.trig.src; if (s === 3) { flash('Source secteur: pas de niveau à régler'); return; }
+  const pas = s === 2 ? 0.05 : S.ch[s].vdiv / 25, [a, b] = bornesNiveau();
+  S.trig.niv[s] = clamp(+(S.trig.niv[s] + d * pas).toPrecision(8), a, b);
+  S.nivT = performance.now() / 1000; touche();
 }
 function niveau50() {
-  const k = S.trig.src, sc = chScale(k); let a = sc * TAB.min[k], b = sc * TAB.max[k];
-  S.trig.niv = +((a + b) / 2).toPrecision(4); flash('Niveau de déclenchement: ' + fmtSI(S.trig.niv, 'V', 3));
-}
-function bougerCurseur(d) {
-  const c = S.cur, s = c.sel, st = d * 0.05;
-  if (s === 0 || s === 2) c.x[0] = clamp(c.x[0] + st, -5, 5);
-  if (s === 1 || s === 2) c.x[1] = clamp(c.x[1] + st, -5, 5);
-  if (s === 3 || s === 5) c.y[0] = clamp(c.y[0] + st, -4, 4);
-  if (s === 4 || s === 5) c.y[1] = clamp(c.y[1] + st, -4, 4);
-}
-function fsFFT() { return ACQ ? 1 / ACQ.dt : NS / (10 * S.tdiv); }
-function spanFFT() { const ny = fsFFT() / 2; return S.math.span ? Math.min(S.math.span, ny) : ny; }
-function centreFFT() { return S.math.centre !== null ? S.math.centre : spanFFT() / 2; }
-function changerSpan(d) {
-  const ny = fsFFT() / 2, L = seq125(1e-3, ny).concat([ny]);
-  let i = L.findIndex(v => v >= spanFFT() * 0.999); if (i < 0) i = L.length - 1;
-  S.math.span = L[clamp(i + d, 0, L.length - 1)];
-  if (S.math.centre === null) S.math.centre = S.math.span / 2;
-}
-
-function autoScale() {
-  if (dirty) { rebuild(); dirty = false; }
-  let premier = -1;
-  for (let k = 0; k < 2; k++) {
-    const c = S.ch[k], sc = chScale(k);
-    let a = sc * TAB.min[k], b = sc * TAB.max[k]; if (a > b) { const t = a; a = b; b = t; }
-    const pp = b - a, mid = (a + b) / 2;
-    if (pp < 0.01 * c.sonde && Math.abs(mid) < 0.01 * c.sonde) { c.on = false; continue; }
-    c.on = true; c.fin = false; if (premier < 0) premier = k;
-    const L = vdivList(k);
-    if (pp < 1e-6) { c.vdiv = L.find(v => v >= Math.abs(mid) / 3) || L[L.length - 1]; c.pos = 0; }
-    else { c.vdiv = L.find(v => v >= pp / 6) || L[L.length - 1]; c.pos = +(-mid).toPrecision(4); }
-  }
-  if (premier < 0) { S.ch[0].on = true; premier = 0; flash('Aucun signal détecté'); }
-  let td;
-  if (INP.noise) td = 1 / G.nbw;
-  else if (INP.dc) td = 100e-6;
-  else td = INP.arb ? INP.T / 10 : INP.T / 5;
-  S.tdiv = TDIV.find(v => v >= td * 0.999) || TDIV[TDIV.length - 1];
-  S.horiz = 'Normal'; S.delay = 0;
-  S.trig.src = premier; S.trig.pente = 1; S.trig.mode = 'Auto';
-  const sc = chScale(premier); S.trig.niv = +((sc * TAB.min[premier] + sc * TAB.max[premier]) / 2).toPrecision(4);
-  S.run = true; S.single = false;
-  touche(); majTouches(); calqueId = -1;
-}
-
-/* ---------- acquisition ---------- */
-function acquerir(now, force) {
-  const W = 10 * S.tdiv, dt = W / NS, T = INP.T;
-  let t0, tTrig, statut, trig = false;
-  if (S.horiz === 'Roll') { t0 = Math.floor((now - W) / dt) * dt; tTrig = t0 + W / 2 - S.delay; statut = 'Roll'; }
+  const s = S.trig.src; if (s === 3) return;
+  if (s === 2) S.trig.niv[2] = S.trig.coup === 'CC' ? V_SYNC / 2 : 0;
   else {
-    const k = S.trig.src, sc = chScale(k);
-    let tc = findCrossing(k, sc, S.trig.niv, S.trig.pente);
-    if (tc !== null) {
-      trig = true;
-      const sl = slopeAt(k, sc, tc); let st = sl ? sigmaV(k) / Math.abs(sl) : 0;
-      if (S.trig.rejet) st *= 0.3; st = Math.min(st, T / 8); tc += st * gauss();
-      statut = S.trig.mode === 'Auto' ? 'Auto' : 'Trig\'d';
-    } else if (S.trig.mode === 'Auto' || force) { tc = Math.random() * Math.max(T, W) * 3; statut = 'Auto?'; }
+    const sc = chScale(s); let a = sc * TAB.min[s], b = sc * TAB.max[s];
+    S.trig.niv[s] = S.trig.coup === 'CC' ? +((a + b) / 2).toPrecision(4) : 0;
+  }
+  S.nivT = performance.now() / 1000; touche();
+}
+
+/* ========================= ACQUISITION ========================= */
+function frequenceEch() { return Math.min(S.ch[0].on && S.ch[1].on ? 1e9 : 2e9, 5e5 / (10 * S.tdiv)); }
+function bruitAcq(k, dt) {                             // écart type du bruit affiché, selon le mode d'acquisition
+  let s = sigmaV(k);
+  if (S.acq.mode === 'Haute rés.') s /= Math.sqrt(clamp(dt * 2e9 / 8, 1, 256));
+  return s;
+}
+function acquerir(now, force) {
+  const W = 10 * S.tdiv, dt = W / NS, T = INP.T, xr = XREF();
+  let t0, tTrig, statut, trig = false;
+  if (S.horiz === 'Roll') { t0 = Math.floor((now - W) / dt) * dt; tTrig = t0 + xr * S.tdiv - S.delay; statut = 'Roll'; }
+  else {
+    let r = force ? null : declencher(now);
+    if (r && S.trig.mode === 'Auto' && r.espace > 0.04 && Math.random() > 0.04 / r.espace) r = null;   // déclenchements trop rares: l'Auto force
+    if (r) {
+      if (S.trig.mode === 'Normal' && !force) { if (now < prochainNormal) return false; prochainNormal = now + Math.min(r.espace, 2); }
+      trig = true; tTrig = r.t; statut = S.trig.mode === 'Auto' ? 'Auto' : 'Trig\'d';
+    } else if (S.trig.mode === 'Auto' || force) { tTrig = now + Math.random() * Math.max(T, W) * 3; statut = 'Auto?'; }
     else { S.attente = true; return false; }
-    tTrig = tc; t0 = tc + S.delay - W / 2;
+    t0 = tTrig + S.delay - xr * S.tdiv;
   }
   S.attente = false;
   const y1 = new Float64Array(NS), y2 = new Float64Array(NS);
@@ -1033,10 +1105,11 @@ function acquerir(now, force) {
   let mnY = null, mxY = null;
   if (env) { mnY = [new Float64Array(NS), new Float64Array(NS)]; mxY = [new Float64Array(NS), new Float64Array(NS)]; envWindow(t0, dt, NS, mnY, mxY); }
   let v = [new Float32Array(NS), new Float32Array(NS)];
-  const mn = env ? [new Float32Array(NS), new Float32Array(NS)] : null, mx = env ? [new Float32Array(NS), new Float32Array(NS)] : null;
+  const crete = S.acq.mode === 'Crête';
+  const mn = (env || crete) ? [new Float32Array(NS), new Float32Array(NS)] : null, mx = (env || crete) ? [new Float32Array(NS), new Float32Array(NS)] : null;
   const clip = [false, false], roll = S.horiz === 'Roll';
   for (let k = 0; k < 2; k++) {
-    const sc = chScale(k), sv = sigmaV(k), ys = k ? y2 : y1;
+    const sc = chScale(k), sv = bruitAcq(k, dt), ys = k ? y2 : y1;
     QCLIP = false;
     for (let j = 0; j < NS; j++) {
       const nz = roll ? hashG(Math.round((t0 + j * dt) / dt) + k * 7919) : gauss();
@@ -1044,8 +1117,10 @@ function acquerir(now, force) {
     }
     if (env) for (let j = 0; j < NS; j++) {
       let a = sc * mnY[k][j], b = sc * mxY[k][j]; if (a > b) { const t = a; a = b; b = t; }
-      a -= sv * (2 + Math.abs(gauss())); b += sv * (2 + Math.abs(gauss()));
+      const e = crete ? 3.2 : 2; a -= sv * (e + Math.abs(gauss())); b += sv * (e + Math.abs(gauss()));
       mn[k][j] = quant(a, k); mx[k][j] = quant(b, k);
+    } else if (crete) for (let j = 0; j < NS; j++) {
+      const c = sc * ys[j]; mn[k][j] = quant(c - sv * (2.5 + Math.abs(gauss())), k); mx[k][j] = quant(c + sv * (2.5 + Math.abs(gauss())), k);
     }
     clip[k] = QCLIP;
   }
@@ -1055,18 +1130,59 @@ function acquerir(now, force) {
     for (let k = 0; k < 2; k++) for (let j = 0; j < NS; j++) AVG.v[k][j] += (v[k][j] - AVG.v[k][j]) / AVG.cnt;
     v = [Float32Array.from(AVG.v[0]), Float32Array.from(AVG.v[1])];
   }
-  ACQ = { id: ++acqId, t0, dt, tTrig, v, mn, mx, env, clip, statut, ver: S.ver, time: now, W,
+  ACQ = { id: ++acqId, t0, dt, tTrig, v, mn, mx, env: env || crete, clip, statut, ver: S.ver, time: now, W,
     lent: !roll && W >= 0.5, fft: null, math: null };
   if (S.single && (trig || force)) { S.run = false; S.single = false; majTouches(); }
   return true;
 }
+/* enregistrement de longueur quelconque pour l'export (même déclenchement que l'acquisition affichée) */
+function enregistrement(N) {
+  const W = 10 * S.tdiv, dt = W / N, tl = S.delay - XREF() * S.tdiv, t0 = ACQ.tTrig + tl;
+  const y = [new Float64Array(N), new Float64Array(N)];
+  sampleWindow(t0, dt, N, y[0], y[1]);
+  const red = S.acq.mode === 'Moyennage' ? Math.sqrt(S.acq.n) : 1;
+  for (let k = 0; k < 2; k++) {
+    const sc = chScale(k), sv = bruitAcq(k, ACQ.dt) / red;
+    for (let j = 0; j < N; j++) y[k][j] = quant(sc * y[k][j] + sv * gauss(), k);
+  }
+  return { tl, dt, y };
+}
 
-/* ---------- mesures ---------- */
+/* ========================= MESURES ========================= */
+const MTL = [
+  { id: 'snap', nom: 'Tout mesurer (Snapshot All)', court: 'Snapshot' },
+  { id: 'vpp', nom: 'Crête-crête', court: 'Crête-crête', cat: 'V' }, { id: 'max', nom: 'Maximum', court: 'Max', cat: 'V' },
+  { id: 'min', nom: 'Minimum', court: 'Min', cat: 'V' }, { id: 'ampl', nom: 'Amplitude', court: 'Amplitude', cat: 'V' },
+  { id: 'haut', nom: 'Haut (Top)', court: 'Haut', cat: 'V' }, { id: 'bas', nom: 'Bas (Base)', court: 'Bas', cat: 'V' },
+  { id: 'depas', nom: 'Dépassement', court: 'Dépass.', cat: 'V' }, { id: 'predep', nom: 'Pré-dépassement', court: 'Pré-dép.', cat: 'V' },
+  { id: 'moyN', nom: 'Moyenne – N cycles', court: 'Moy-N', cat: 'V' }, { id: 'moyE', nom: 'Moyenne – plein écran', court: 'Moy-É', cat: 'V' },
+  { id: 'rmsN', nom: 'RMS CC – N cycles', court: 'RMS CC-N', cat: 'V' }, { id: 'rmsE', nom: 'RMS CC – plein écran', court: 'RMS CC-É', cat: 'V' },
+  { id: 'rmscaN', nom: 'RMS CA – N cycles', court: 'RMS CA-N', cat: 'V' }, { id: 'rmscaE', nom: 'RMS CA – plein écran', court: 'RMS CA-É', cat: 'V' },
+  { id: 'per', nom: 'Période', court: 'Période', cat: 'T' }, { id: 'freq', nom: 'Fréquence', court: 'Fréquence', cat: 'T' },
+  { id: 'cpt', nom: 'Compteur', court: 'Compteur', cat: 'T' },
+  { id: 'largP', nom: '+Largeur', court: '+Largeur', cat: 'T' }, { id: 'largN', nom: '−Largeur', court: '−Largeur', cat: 'T' },
+  { id: 'rcP', nom: 'Rapport cyclique +', court: 'Rapp. cycl.+', cat: 'T' }, { id: 'rcN', nom: 'Rapport cyclique −', court: 'Rapp. cycl.−', cat: 'T' },
+  { id: 'mont', nom: 'Temps de montée', court: 'Tps montée', cat: 'T' }, { id: 'desc', nom: 'Temps de descente', court: 'Tps descente', cat: 'T' },
+  { id: 'salve', nom: 'Largeur de salve', court: 'Salve', cat: 'T' },
+  { id: 'nImpP', nom: 'Nb impulsions +', court: 'Nb imp.+', cat: 'T' }, { id: 'nImpN', nom: 'Nb impulsions −', court: 'Nb imp.−', cat: 'T' },
+  { id: 'nFm', nom: 'Nb fronts montants', court: 'Nb fronts ↗', cat: 'T' }, { id: 'nFd', nom: 'Nb fronts descendants', court: 'Nb fronts ↘', cat: 'T' },
+  { id: 'xmax', nom: 'X au maximum', court: 'X au max', cat: 'T' }, { id: 'xmin', nom: 'X au minimum', court: 'X au min', cat: 'T' },
+  { id: 'ret', nom: 'Retard', court: 'Retard', cat: 'T', deux: true }, { id: 'phase', nom: 'Phase', court: 'Phase', cat: 'T', deux: true }
+];
+const MT = Object.fromEntries(MTL.map(m => [m.id, m]));
 function mathArr() {
-  if (ACQ.math && ACQ.math.op === S.math.op) return ACQ.math.v;
-  const a = ACQ.v[0], b = ACQ.v[1], N = a.length, m = new Float32Array(N), op = S.math.op;
-  for (let j = 0; j < N; j++) m[j] = op === '1+2' ? a[j] + b[j] : op === '1−2' ? a[j] - b[j] : a[j] * b[j];
-  ACQ.math = { op, v: m }; return m;
+  if (ACQ.math && ACQ.math.op === S.math.op && ACQ.math.src === S.math.src) return ACQ.math.v;
+  const a = ACQ.v[0], b = ACQ.v[1], N = a.length, m = new Float32Array(N), op = S.math.op, dt = ACQ.dt;
+  if (op === 'd/dt') {
+    const x = ACQ.v[S.math.src], h = (INP.noise || INP.dc) ? 2 : clamp(Math.round(INP.T / dt / 64), 1, 24);
+    for (let j = 0; j < N; j++) { const j1 = Math.max(0, j - h), j2 = Math.min(N - 1, j + h); m[j] = (x[j2] - x[j1]) / ((j2 - j1) * dt); }
+  }
+  else if (op === '∫dt') {
+    const x = ACQ.v[S.math.src]; let s = 0, moy = 0; for (let j = 0; j < N; j++) moy += x[j]; moy /= N;
+    for (let j = 0; j < N; j++) { s += (x[j] - (S.ch[S.math.src].coup === 'CA' ? moy : 0)) * dt; m[j] = s; }
+  }
+  else for (let j = 0; j < N; j++) m[j] = op === '1+2' ? a[j] + b[j] : op === '1−2' ? a[j] - b[j] : a[j] * b[j];
+  ACQ.math = { op, src: S.math.src, v: m }; return m;
 }
 function hautBas(v, mn, mx) {
   const nb = 64, h = new Uint32Array(nb), sp = (mx - mn) || 1;
@@ -1078,66 +1194,123 @@ function hautBas(v, mn, mx) {
   const bas = (ib >= 0 && cb > v.length * 0.05) ? mn + (ib + 0.5) / nb * sp : mn;
   return [haut, bas];
 }
-function mesureTxt(m) {
-  const t = MT[m.type];
-  const lab = t.court + '(' + srcNom(m.src) + (t.deux ? '→' + srcNom(m.src2) : '') + '): ';
-  if (!ACQ) return lab + '---';
-  if (m.src === 2 && !mathTemp()) return lab + '---';
-  if (t.amp) {
-    const v = m.src < 2 ? ACQ.v[m.src] : mathArr(), unit = (m.src === 2 && S.math.op === '1×2') ? 'V²' : 'V', N = v.length;
-    let mx = -Infinity, mn = Infinity, s = 0, s2 = 0;
-    for (let j = 0; j < N; j++) { const x = v[j]; if (x > mx) mx = x; if (x < mn) mn = x; s += x; s2 += x * x; }
-    if (ACQ.env && m.src < 2) for (let j = 0; j < N; j++) { if (ACQ.mx[m.src][j] > mx) mx = ACQ.mx[m.src][j]; if (ACQ.mn[m.src][j] < mn) mn = ACQ.mn[m.src][j]; }
-    const pre = (m.src < 2 && ACQ.clip[m.src]) ? '≥ ' : '';
-    const moy = s / N, rmscc = Math.sqrt(s2 / N), rmsca = Math.sqrt(Math.max(0, s2 / N - moy * moy));
-    switch (m.type) {
-      case 'vpp': return lab + pre + fmtSI(mx - mn, unit, 4);
-      case 'max': return lab + pre + fmtSI(mx, unit, 4);
-      case 'min': return lab + pre + fmtSI(mn, unit, 4);
-      case 'ampl': { const hb = hautBas(v, mn, mx); return lab + pre + fmtSI(hb[0] - hb[1], unit, 4); }
-      case 'moy': return lab + fmtSI(moy, unit, 4);
-      case 'rmsca': return lab + fmtSI(rmsca, unit, 4);
-      case 'rmscc': return lab + fmtSI(rmscc, unit, 4);
+/* franchissements du milieu, avec hystérésis, sur l'enregistrement affiché */
+function frontsEcran(v, haut, bas) {
+  const mid = (haut + bas) / 2, hy = 0.1 * (haut - bas), L = [];
+  let etat = v[0] > mid ? 1 : -1;
+  for (let j = 1; j < v.length; j++) {
+    if (etat < 0 && v[j] > mid + hy) { etat = 1; L.push({ j, s: 1 }); }
+    else if (etat > 0 && v[j] < mid - hy) { etat = -1; L.push({ j, s: -1 }); }
+  }
+  return L;
+}
+function mesureVal(m) {
+  const t = MT[m.type], R = (v, u, pre) => ({ v, u, pre: pre || '' });
+  if (!ACQ || t.id === 'snap') return null;
+  if (m.src === 2 && !mathTemp()) return null;
+  const v = m.src < 2 ? ACQ.v[m.src] : mathArr(), N = v.length, uV = m.src === 2 ? unMath() : 'V';
+  let mx = -Infinity, mn = Infinity, jmx = 0, jmn = 0;
+  for (let j = 0; j < N; j++) { const x = v[j]; if (x > mx) { mx = x; jmx = j; } if (x < mn) { mn = x; jmn = j; } }
+  if (ACQ.env && m.src < 2) for (let j = 0; j < N; j++) { if (ACQ.mx[m.src][j] > mx) mx = ACQ.mx[m.src][j]; if (ACQ.mn[m.src][j] < mn) mn = ACQ.mn[m.src][j]; }
+  const pre = (m.src < 2 && ACQ.clip[m.src]) ? '≥ ' : '';
+  const T = INP.T, per = !INP.noise && !INP.dc;
+  const tTrigRel = j => ACQ.t0 + j * ACQ.dt - ACQ.tTrig;
+  if (t.cat === 'V') {
+    const [haut, bas] = hautBas(v, mn, mx);
+    let n0 = N;
+    if (/N$/.test(t.id)) { if (!per || T > ACQ.W) return null; n0 = Math.max(2, Math.round(Math.floor(ACQ.W / T) * T / ACQ.dt)); }
+    let s = 0, s2 = 0; for (let j = 0; j < n0; j++) { s += v[j]; s2 += v[j] * v[j]; }
+    const moy = s / n0, rms = Math.sqrt(s2 / n0), rmsca = Math.sqrt(Math.max(0, s2 / n0 - moy * moy));
+    switch (t.id) {
+      case 'vpp': return R(mx - mn, uV, pre);
+      case 'max': return R(mx, uV, pre);
+      case 'min': return R(mn, uV, pre);
+      case 'ampl': return R(haut - bas, uV, pre);
+      case 'haut': return R(haut, uV, pre);
+      case 'bas': return R(bas, uV, pre);
+      case 'depas': return haut - bas > 0 ? R(100 * (mx - haut) / (haut - bas), '%') : null;
+      case 'predep': return haut - bas > 0 ? R(100 * (bas - mn) / (haut - bas), '%') : null;
+      case 'moyN': case 'moyE': return R(moy, uV);
+      case 'rmsN': case 'rmsE': return R(rms, uV);
+      case 'rmscaN': case 'rmscaE': return R(rmsca, uV);
     }
   }
-  if (m.src === 2 || (t.deux && m.src2 === 2)) return lab + '---';
-  if (INP.noise || INP.dc || S.horiz === 'XY') return lab + 'pas de front';
-  const T = INP.T; if (10 * S.tdiv < T) return lab + 'pas de front';
+  // mesures temporelles
+  if (['salve', 'nImpP', 'nImpN', 'nFm', 'nFd', 'xmax', 'xmin'].includes(t.id)) {
+    if (t.id === 'xmax') return R(tTrigRel(jmx), 's');
+    if (t.id === 'xmin') return R(tTrigRel(jmn), 's');
+    if (ACQ.env) return null;
+    const [haut, bas] = hautBas(v, mn, mx); if (haut - bas < 5 * (m.src < 2 ? sigmaV(m.src) : 1e-12)) return null;
+    const F = frontsEcran(v, haut, bas);
+    const nm = F.filter(f => f.s > 0).length, nd = F.length - nm;
+    if (t.id === 'nFm') return R(nm, '');
+    if (t.id === 'nFd') return R(nd, '');
+    if (t.id === 'salve') return F.length >= 2 ? R((F[F.length - 1].j - F[0].j) * ACQ.dt, 's') : null;
+    let np = 0, nn = 0;
+    for (let i = 0; i + 1 < F.length; i++) { if (F[i].s > 0 && F[i + 1].s < 0) np++; if (F[i].s < 0 && F[i + 1].s > 0) nn++; }
+    return R(t.id === 'nImpP' ? np : nn, '');
+  }
+  if (m.src === 2 || (t.deux && m.src2 === 2)) return null;
+  if (!per || S.horiz === 'XY') return null;
   const k = m.src, sc = chScale(k);
   let lo = sc * TAB.min[k], hi = sc * TAB.max[k]; if (lo > hi) { const x = lo; lo = hi; hi = x; }
-  const amp = hi - lo; if (amp < 5 * sigmaV(k)) return lab + '---';
+  const amp = hi - lo; if (amp < 5 * sigmaV(k)) return null;
+  if (t.id === 'cpt') return R(1 / T * (1 + 2e-7 * gauss()), 'Hz');
+  if (ACQ.W < T) return null;
   const navg = S.acq.mode === 'Moyennage' ? S.acq.n : 1;
   const jit = (kk, scc, tc) => { const sl = slopeAt(kk, scc, tc); return sl ? sigmaV(kk) / Math.abs(sl) / Math.sqrt(navg) * gauss() : 0; };
   const mid = lo + amp / 2, md = x => ((x % T) + T) % T;
-  switch (m.type) {
+  switch (t.id) {
     case 'freq': case 'per': {
       const tc = findCrossing(k, sc, mid, 1); const Tm = T + (tc !== null ? jit(k, sc, tc) * 0.3 : 0);
-      return lab + (m.type === 'freq' ? fmtSI(1 / Tm, 'Hz', 5) : fmtSI(Tm, 's', 5));
+      return t.id === 'freq' ? R(1 / Tm, 'Hz') : R(Tm, 's');
     }
-    case 'larg': case 'rc': {
-      const a = findCrossing(k, sc, mid, 1), b = findCrossing(k, sc, mid, -1); if (a === null || b === null) return lab + '---';
-      const w = md(b - a) + jit(k, sc, a) * 0.5;
-      return lab + (m.type === 'larg' ? fmtSI(w, 's', 4) : (100 * w / T).toFixed(1) + '%');
+    case 'largP': case 'largN': case 'rcP': case 'rcN': {
+      const a = findCrossing(k, sc, mid, 1), b = findCrossing(k, sc, mid, -1); if (a === null || b === null) return null;
+      let w = md(b - a) + jit(k, sc, a) * 0.5; if (t.id === 'largN' || t.id === 'rcN') w = T - w;
+      return /^larg/.test(t.id) ? R(w, 's') : R(100 * w / T, '%');
     }
     case 'mont': case 'desc': {
-      const up = m.type === 'mont';
+      const up = t.id === 'mont';
       const a = findCrossing(k, sc, lo + (up ? 0.1 : 0.9) * amp, up ? 1 : -1);
       const b = findCrossing(k, sc, lo + (up ? 0.9 : 0.1) * amp, up ? 1 : -1);
-      if (a === null || b === null) return lab + '---';
-      return lab + fmtSI(Math.abs(md(b - a) + jit(k, sc, a) * 0.5), 's', 4);
+      if (a === null || b === null) return null;
+      return R(Math.abs(md(b - a) + jit(k, sc, a) * 0.5), 's');
     }
     case 'phase': case 'ret': {
       const k2 = m.src2, sc2 = chScale(k2);
       let lo2 = sc2 * TAB.min[k2], hi2 = sc2 * TAB.max[k2]; if (lo2 > hi2) { const x = lo2; lo2 = hi2; hi2 = x; }
-      if (hi2 - lo2 < 5 * sigmaV(k2)) return lab + '---';
+      if (hi2 - lo2 < 5 * sigmaV(k2)) return null;
       const t1 = findCrossing(k, sc, mid, 1), t2 = findCrossing(k2, sc2, (lo2 + hi2) / 2, 1);
-      if (t1 === null || t2 === null) return lab + '---';
+      if (t1 === null || t2 === null) return null;
       let d = md(t2 - t1); if (d > T / 2) d -= T;
       d += jit(k, sc, t1) * 0.7;
-      return lab + (m.type === 'ret' ? fmtSI(d, 's', 4) : (360 * d / T).toFixed(1) + '°');
+      return t.id === 'ret' ? R(d, 's') : R(360 * d / T, '°');
     }
   }
-  return lab + '---';
+  return null;
+}
+function fmtMes(r, id) {
+  if (!r) return '---';
+  if (r.u === '%') return r.v.toFixed(1) + ' %';
+  if (r.u === '°') return r.v.toFixed(1) + '°';
+  if (r.u === '') return String(Math.round(r.v));
+  return r.pre + fmtSI(r.v, r.u, id === 'cpt' ? 7 : 4);
+}
+function nomMes(m) { const t = MT[m.type]; return t.court + '(' + srcNom(m.src) + (t.deux ? '→' + srcNom(m.src2) : '') + ')'; }
+function majMesures() {
+  if (!ACQ) return;
+  const nouveau = ACQ.id !== majMesures.dernier; majMesures.dernier = ACQ.id;
+  if (S.mstatVer !== S.ver) { S.mstat = []; S.mstatVer = S.ver; }
+  S.mres = S.meas.map((m, i) => {
+    const r = mesureVal(m);
+    if (r && nouveau) {
+      const st = S.mstat[i] || (S.mstat[i] = { n: 0, moy: 0, m2: 0, min: Infinity, max: -Infinity });
+      st.n++; const d = r.v - st.moy; st.moy += d / st.n; st.m2 += d * (r.v - st.moy);
+      st.min = Math.min(st.min, r.v); st.max = Math.max(st.max, r.v);
+    }
+    return { r, src: m.src, nom: nomMes(m), id: m.type };
+  });
 }
 
 /* ---------- FFT ---------- */
@@ -1160,36 +1333,53 @@ function fft(re, im) {
     }
   }
 }
-function spectre() {
-  if (ACQ.fft && ACQ.fft.src === S.math.src && ACQ.fft.fen === S.math.fen) return ACQ.fft.db;
-  const v = ACQ.v[S.math.src], N = v.length, re = new Float64Array(N), im = new Float64Array(N);
-  const hann = S.math.fen === 'Hanning', cg = hann ? 0.5 : 1;
-  for (let j = 0; j < N; j++) re[j] = v[j] * (hann ? 0.5 * (1 - Math.cos(TAU * j / (N - 1))) : 1);
-  fft(re, im);
-  const db = new Float64Array(N / 2);
-  for (let k = 0; k < N / 2; k++) {
-    const a = Math.hypot(re[k], im[k]) / (N * cg) * (k ? 2 : 1);
-    const vr = k ? a / Math.SQRT2 : a;
-    db[k] = 20 * Math.log10(Math.max(vr, 1e-9));
+const FENETRES = {
+  'Hanning': [0.5, 0.5], 'Flat Top': [0.21557895, 0.41663158, 0.277263158, 0.083578947, 0.006947368],
+  'Rectangulaire': [1], 'Blackman-Harris': [0.35875, 0.48829, 0.14128, 0.01168]
+};
+function spectre() {                                    // valeurs efficaces par raie (V)
+  const F = S.fft;
+  if (ACQ.fft && ACQ.fft.src === F.src && ACQ.fft.fen === F.fen) return ACQ.fft.vr;
+  const v = ACQ.v[F.src], N = v.length, re = new Float64Array(N), im = new Float64Array(N), a = FENETRES[F.fen];
+  for (let j = 0; j < N; j++) {
+    let w = 0; for (let q = 0; q < a.length; q++) w += (q % 2 ? -1 : 1) * a[q] * Math.cos(TAU * q * j / N);
+    re[j] = v[j] * w;
   }
-  ACQ.fft = { src: S.math.src, fen: S.math.fen, db };
-  return db;
+  fft(re, im);
+  const vr = new Float64Array(N / 2);
+  for (let k = 0; k < N / 2; k++) { const A = Math.hypot(re[k], im[k]) / (N * a[0]) * (k ? 2 : 1); vr[k] = k ? A / Math.SQRT2 : A; }
+  ACQ.fft = { src: F.src, fen: F.fen, vr };
+  return vr;
+}
+function fsFFT() { return ACQ ? 1 / ACQ.dt : NS / (10 * S.tdiv); }
+function spanFFT() { const ny = fsFFT() / 2; return S.fft.span ? Math.min(S.fft.span, ny) : ny; }
+function centreFFT() { return S.fft.centre !== null ? S.fft.centre : spanFFT() / 2; }
+function changerSpan(d) {
+  const ny = fsFFT() / 2, L = seq125(1e-3, ny).concat([ny]);
+  let i = L.findIndex(v => v >= spanFFT() * 0.999); if (i < 0) i = L.length - 1;
+  S.fft.span = L[clamp(i + d, 0, L.length - 1)];
+  if (S.fft.centre === null) S.fft.centre = S.fft.span / 2;
+}
+function fftAuto() {
+  const F = S.fft; F.span = null; F.centre = null;
+  if (INP && !INP.noise && !INP.dc) { const s = seq125(1e-3, fsFFT() / 2).find(v => v >= 20 / INP.T); if (s) { F.span = s; F.centre = s / 2; } }
+  F.ref = 10; F.dbdiv = 10;
 }
 
-/* ---------- dessin de l'écran ---------- */
+/* ========================= DESSIN DE L'ÉCRAN ========================= */
 function yOf(v, k) {
   if (k === 2) return GY + GH / 2 - (v + S.math.pos) / S.math.vdiv * DY;
   const c = S.ch[k]; return GY + GH / 2 - (v + c.pos) / c.vdiv * DY;
 }
 function grille(g) {
   const a = 0.12 + 0.55 * S.aff.grille;
-  g.strokeStyle = `rgba(150,150,150,${a})`; g.lineWidth = 1; g.setLineDash([1, 3]);
+  g.strokeStyle = `rgba(${P.grille},${a})`; g.lineWidth = 1; g.setLineDash([1, 3]);
   g.beginPath();
   for (let i = 1; i < 10; i++) { const x = GX + i * DX + 0.5; g.moveTo(x, GY); g.lineTo(x, GY + GH); }
   for (let i = 1; i < 8; i++) { const y = GY + i * DY + 0.5; g.moveTo(GX, y); g.lineTo(GX + GW, y); }
   g.stroke(); g.setLineDash([]);
   const cx = GX + GW / 2 + 0.5, cy = GY + GH / 2 + 0.5;
-  g.strokeStyle = `rgba(175,175,175,${Math.min(1, a + 0.12)})`;
+  g.strokeStyle = `rgba(${P.grille},${Math.min(1, a + 0.12)})`;
   g.beginPath();
   for (let i = 1; i < 50; i++) { const x = GX + i * DX / 5 + 0.5; g.moveTo(x, cy - 3); g.lineTo(x, cy + 3); }
   for (let i = 1; i < 40; i++) { const y = GY + i * DY / 5 + 0.5; g.moveTo(cx - 3, y); g.lineTo(cx + 3, y); }
@@ -1199,11 +1389,12 @@ function grille(g) {
 function traces(g, now) {
   if (!ACQ) return;
   g.save(); g.beginPath(); g.rect(GX, GY, GW, GH); g.clip();
+  g.globalAlpha *= 0.35 + 0.65 * S.aff.intens;
   let jmax = NS;
   if (ACQ.lent && S.run && ACQ.ver === S.ver) jmax = Math.max(1, Math.min(NS, Math.floor((now - ACQ.time) / ACQ.W * NS)));
   if (S.horiz === 'XY') {
     const c0 = S.ch[0];
-    g.fillStyle = COL[0]; g.strokeStyle = COL[0]; g.lineWidth = 1.3;
+    g.fillStyle = P.ch[0]; g.strokeStyle = P.ch[0]; g.lineWidth = 1.3;
     const ligne = !ACQ.env && (INP.noise || ACQ.dt < INP.T / 25);
     g.beginPath();
     for (let j = 0; j < jmax; j++) {
@@ -1213,7 +1404,7 @@ function traces(g, now) {
     ligne ? g.stroke() : g.fill();
     g.restore(); return;
   }
-  const x0 = GX + GW / 2 + (ACQ.t0 - ACQ.tTrig - S.delay) / S.tdiv * DX, px = ACQ.dt / S.tdiv * DX;
+  const x0 = GX + XREF() * DX + (ACQ.t0 - ACQ.tTrig - S.delay) / S.tdiv * DX, px = ACQ.dt / S.tdiv * DX;
   const dessine = (arr, k, col) => {
     g.strokeStyle = col; g.lineWidth = 1.4; g.beginPath();
     for (let j = 0; j < jmax; j++) { const x = x0 + j * px, y = yOf(arr[j], k); j ? g.lineTo(x, y) : g.moveTo(x, y); }
@@ -1222,238 +1413,823 @@ function traces(g, now) {
   for (let k = 0; k < 2; k++) {
     if (!S.ch[k].on) continue;
     if (ACQ.env) {
-      g.strokeStyle = COL[k]; g.lineWidth = Math.max(1, px + 0.3); g.beginPath();
+      g.strokeStyle = P.ch[k]; g.lineWidth = Math.max(1, px + 0.3); g.beginPath();
       for (let j = 0; j < jmax; j++) { const x = x0 + j * px; g.moveTo(x, yOf(ACQ.mx[k][j], k) - 0.5); g.lineTo(x, yOf(ACQ.mn[k][j], k) + 0.5); }
       g.stroke();
-    } else dessine(ACQ.v[k], k, COL[k]);
+    } else dessine(ACQ.v[k], k, P.ch[k]);
   }
-  if (mathTemp()) dessine(mathArr(), 2, COL[2]);
+  if (mathTemp()) dessine(mathArr(), 2, P.ch[2]);
   g.restore();
 }
 function dessinerFFT(g) {
-  if (!ACQ || S.math.op !== 'FFT' || S.horiz === 'XY') return;
-  const db = spectre(), df = 1 / (NS * ACQ.dt), sp = spanFFT(), fc = centreFFT(), M = S.math;
+  if (!ACQ || !fftOn() || S.horiz === 'XY') return;
+  const vr = spectre(), df = 1 / (NS * ACQ.dt), sp = spanFFT(), fc = centreFFT(), F = S.fft, dB = F.unite === 'dBV';
+  const yv = a => dB ? GY + (F.ref - 20 * Math.log10(Math.max(a, 1e-9))) / F.dbdiv * DY : GY + GH - (a - F.ref) / F.vdiv * DY;
   g.save(); g.beginPath(); g.rect(GX, GY, GW, GH); g.clip();
-  g.strokeStyle = COL[2]; g.lineWidth = 1.3; g.beginPath();
+  g.strokeStyle = P.ch[2]; g.lineWidth = 1.3; g.beginPath();
   const parPx = sp / GW / df; let premier = true;
   if (parPx > 1) {
     for (let p = 0; p <= GW; p++) {
-      const f1 = fc - sp / 2 + p * sp / GW, k1 = Math.max(0, Math.floor(f1 / df)), k2 = Math.min(db.length - 1, Math.floor((f1 + sp / GW) / df));
-      if (k2 < 0 || k1 >= db.length) continue;
-      let m = -Infinity; for (let k = k1; k <= k2; k++) if (db[k] > m) m = db[k];
-      const y = GY + (M.ref - m) / M.dbdiv * DY;
-      premier ? g.moveTo(GX + p, y) : g.lineTo(GX + p, y); premier = false;
+      const f1 = fc - sp / 2 + p * sp / GW, k1 = Math.max(0, Math.floor(f1 / df)), k2 = Math.min(vr.length - 1, Math.floor((f1 + sp / GW) / df));
+      if (k2 < 0 || k1 >= vr.length) continue;
+      let m = 0; for (let k = k1; k <= k2; k++) if (vr[k] > m) m = vr[k];
+      const y = yv(m); premier ? g.moveTo(GX + p, y) : g.lineTo(GX + p, y); premier = false;
     }
   } else {
-    for (let k = 0; k < db.length; k++) {
+    for (let k = 0; k < vr.length; k++) {
       const x = GX + GW / 2 + (k * df - fc) / sp * GW; if (x < GX - 20 || x > GX + GW + 20) continue;
-      const y = GY + (M.ref - db[k]) / M.dbdiv * DY;
-      premier ? g.moveTo(x, y) : g.lineTo(x, y); premier = false;
+      const y = yv(vr[k]); premier ? g.moveTo(x, y) : g.lineTo(x, y); premier = false;
     }
   }
   g.stroke(); g.restore();
-  g.fillStyle = COL[2]; g.font = '12px ' + FC; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-  g.fillText(`FFT voie ${M.src + 1}  ${M.dbdiv} dB/div  réf ${M.ref} dBV   centre ${fmtSI(fc, 'Hz', 4)}   span ${fmtSI(sp, 'Hz', 3)}   (${M.fen})`, GX + 6, GY + 16);
+  g.fillStyle = P.ch[2]; g.font = '12px ' + FC; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  const ech = dB ? `${F.dbdiv} dB/div  réf ${F.ref} dBV` : `${fmtSI(F.vdiv, 'V', 3)}/div  décalage ${fmtSI(F.ref, 'V', 3)}`;
+  g.fillText(`FFT ${srcNom(F.src)}   ${ech}   centre ${fmtSI(fc, 'Hz', 4)}   span ${fmtSI(sp, 'Hz', 3)}   ${F.fen}`, GX + 6, GY + 16);
 }
 function etiquette(g, x, y, txt, col, versDroite) {
   g.fillStyle = col; g.beginPath();
-  if (versDroite) { g.moveTo(x, y - 7); g.lineTo(x + 26, y - 7); g.lineTo(x + 34, y); g.lineTo(x + 26, y + 7); g.lineTo(x, y + 7); }
-  else { g.moveTo(x + 34, y - 7); g.lineTo(x + 8, y - 7); g.lineTo(x, y); g.lineTo(x + 8, y + 7); g.lineTo(x + 34, y + 7); }
+  if (versDroite) { g.moveTo(x, y - 7); g.lineTo(x + 13, y - 7); g.lineTo(x + 20, y); g.lineTo(x + 13, y + 7); g.lineTo(x, y + 7); }
+  else { g.moveTo(x + 20, y - 7); g.lineTo(x + 7, y - 7); g.lineTo(x, y); g.lineTo(x + 7, y + 7); g.lineTo(x + 20, y + 7); }
   g.closePath(); g.fill();
-  g.fillStyle = '#000'; g.font = 'bold 11px ' + FC; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(txt, versDroite ? x + 14 : x + 20, y + 0.5);
+  g.fillStyle = P === PAL_INV ? '#fff' : '#000'; g.font = 'bold 11px ' + FC; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(txt, versDroite ? x + 8 : x + 12, y + 0.5);
 }
-function reperes(g) {
+function reperes(g, now) {
   if (S.horiz === 'XY') return;
-  for (let k = 0; k < 2; k++) if (S.ch[k].on) etiquette(g, 3, clamp(yOf(0, k), GY + 7, GY + GH - 7), String(k + 1), COL[k], true);
-  if (mathTemp()) etiquette(g, 3, clamp(yOf(0, 2), GY + 7, GY + GH - 7), 'M', COL[2], true);
-  if (S.horiz !== 'Roll') {
-    const ts = S.trig.src; etiquette(g, GX + GW + 2, clamp(yOf(S.trig.niv, ts), GY + 7, GY + GH - 7), 'T', ORANGE, false);
-    const xt = GX + GW / 2 - S.delay / S.tdiv * DX;
-    g.fillStyle = ORANGE; g.beginPath();
-    if (xt < GX) { g.moveTo(GX + 2, GY + 6); g.lineTo(GX + 12, GY + 1); g.lineTo(GX + 12, GY + 11); }
-    else if (xt > GX + GW) { g.moveTo(GX + GW - 2, GY + 6); g.lineTo(GX + GW - 12, GY + 1); g.lineTo(GX + GW - 12, GY + 11); }
-    else { g.moveTo(xt - 6, GY + 1); g.lineTo(xt + 6, GY + 1); g.lineTo(xt, GY + 10); }
-    g.fill();
+  for (let k = 0; k < 2; k++) if (S.ch[k].on) etiquette(g, 2, clamp(yOf(0, k), GY + 7, GY + GH - 7), String(k + 1), P.ch[k], true);
+  if (mathTemp()) etiquette(g, 2, clamp(yOf(0, 2), GY + 7, GY + GH - 7), 'M', P.ch[2], true);
+  if (S.horiz === 'Roll') return;
+  const s = S.trig.src;
+  if (s < 2) {
+    const y = yOf(S.trig.niv[s], s), dedans = y >= GY && y <= GY + GH;
+    etiquette(g, GX + GW + 1, clamp(y, GY + 7, GY + GH - 7), 'T', P.orange, false);
+    if (now - S.nivT < 2 && dedans) {
+      g.save(); g.strokeStyle = P.orange; g.setLineDash([6, 4]); g.lineWidth = 1;
+      g.beginPath(); g.moveTo(GX, Math.round(y) + 0.5); g.lineTo(GX + GW, Math.round(y) + 0.5); g.stroke(); g.restore();
+    }
   }
+  const xt = GX + XREF() * DX - S.delay / S.tdiv * DX;
+  g.fillStyle = P.orange; g.beginPath();
+  if (xt < GX) { g.moveTo(GX + 2, GY + 6); g.lineTo(GX + 12, GY + 1); g.lineTo(GX + 12, GY + 11); }
+  else if (xt > GX + GW) { g.moveTo(GX + GW - 2, GY + 6); g.lineTo(GX + GW - 12, GY + 1); g.lineTo(GX + GW - 12, GY + 11); }
+  else { g.moveTo(xt - 6, GY + 1); g.lineTo(xt + 6, GY + 1); g.lineTo(xt, GY + 10); }
+  g.fill();
 }
+const PENTE_TXT = { mont: '↗', desc: '↘', alt: '↗↘', deux: '↕' };
+function srcDecl() { return ['1', '2', 'Ext', 'Sect.'][S.trig.src]; }
 function bandeau(g, now) {
-  g.fillStyle = '#15181d'; g.fillRect(0, 0, SW, 22);
-  g.font = '13px ' + FC; g.textBaseline = 'middle';
+  g.fillStyle = P.bandeau; g.fillRect(0, 0, SW, BH);
+  g.textBaseline = 'middle';
   let x = 6;
   for (let k = 0; k < 2; k++) {
-    const c = S.ch[k], col = c.on ? COL[k] : '#666';
-    g.fillStyle = col; g.fillRect(x, 4, 15, 15);
-    g.fillStyle = '#000'; g.textAlign = 'center'; g.font = 'bold 12px ' + FC; g.fillText(String(k + 1), x + 7.5, 12);
+    const c = S.ch[k], col = c.on ? P.ch[k] : '#777';
+    g.fillStyle = col; g.fillRect(x, 5, 15, 15);
+    g.fillStyle = P === PAL_INV ? '#fff' : '#000'; g.textAlign = 'center'; g.font = 'bold 12px ' + FC; g.fillText(String(k + 1), x + 7.5, 13);
     g.textAlign = 'left'; g.font = '13px ' + FC; g.fillStyle = col;
-    g.fillText(fmtSI(c.vdiv, 'V', 3) + '/' + (c.coup === 'CA' ? ' ∿' : '') + (c.bwl ? ' BW' : ''), x + 20, 12);
-    x += 108;
+    g.fillText(fmtSI(c.vdiv, 'V', 3) + '/' + (c.coup === 'CA' ? ' CA' : '') + (c.bwl ? ' BW' : ''), x + 20, 13);
+    x += 104;
   }
   if (mathOn()) {
-    g.fillStyle = COL[2]; g.fillRect(x, 4, 15, 15); g.fillStyle = '#000'; g.textAlign = 'center'; g.font = 'bold 12px ' + FC; g.fillText('M', x + 7.5, 12);
-    g.textAlign = 'left'; g.font = '13px ' + FC; g.fillStyle = COL[2];
-    g.fillText(S.math.op === 'FFT' ? S.math.dbdiv + 'dB/' : fmtSI(S.math.vdiv, S.math.op === '1×2' ? 'V²' : 'V', 3) + '/', x + 20, 12);
+    g.fillStyle = P.ch[2]; g.fillRect(x, 5, 15, 15); g.fillStyle = P === PAL_INV ? '#fff' : '#000'; g.textAlign = 'center'; g.font = 'bold 12px ' + FC; g.fillText('M', x + 7.5, 13);
+    g.textAlign = 'left'; g.font = '13px ' + FC; g.fillStyle = P.ch[2];
+    const t = fftOn() ? (S.fft.unite === 'dBV' ? S.fft.dbdiv + 'dB/' : fmtSI(S.fft.vdiv, 'V', 3) + '/') : fmtSI(S.math.vdiv, unMath(), 3) + '/';
+    g.fillText(t, x + 20, 13);
   }
-  x = 330;
-  g.fillStyle = '#ddd'; g.fillRect(x, 4, 15, 15); g.fillStyle = '#000'; g.textAlign = 'center'; g.font = 'bold 12px ' + FC;
-  g.fillText(S.horiz === 'XY' ? 'X' : 'H', x + 7.5, 12);
-  g.textAlign = 'left'; g.font = '13px ' + FC; g.fillStyle = '#eee';
-  g.fillText(S.horiz === 'XY' ? 'Mode XY' : fmtSI(S.tdiv, 's', 4) + '/', x + 20, 12);
-  if (S.horiz !== 'XY') { g.fillStyle = '#bbb'; g.fillText('▷ ' + fmtSI(S.delay, 's', 4), x + 104, 12); }
-  // état
+  x = 320;
+  g.fillStyle = P.texte; g.fillRect(x, 5, 15, 15); g.fillStyle = P.bandeau; g.textAlign = 'center'; g.font = 'bold 12px ' + FC;
+  g.fillText(S.horiz === 'XY' ? 'X' : 'H', x + 7.5, 13);
+  g.textAlign = 'left'; g.font = '13px ' + FC; g.fillStyle = P.texte;
+  g.fillText(S.horiz === 'XY' ? 'Mode XY' : fmtSI(S.tdiv, 's', 4) + '/', x + 20, 13);
+  if (S.horiz !== 'XY') { g.fillStyle = P.doux; g.fillText('▷' + fmtSI(S.delay, 's', 4), x + 96, 13); }
+  // état de l'acquisition
   let st, col;
   if (!S.run) { st = 'Stop'; col = '#ff4a4a'; }
-  else if (S.single) { st = 'Single'; col = '#ffd23a'; }
-  else if (S.horiz === 'Roll') { st = 'Roll'; col = '#7fe07f'; }
+  else if (S.single) { st = 'Single'; col = '#ffb000'; }
+  else if (S.horiz === 'Roll') { st = 'Roll'; col = '#3fc95a'; }
   else if (S.attente) { st = (Math.floor(now * 2) % 2) ? 'Trig\'d?' : ''; col = '#ffb347'; }
-  else { st = ACQ ? ACQ.statut : 'Auto'; col = st === 'Auto?' ? '#ffb347' : '#7fe07f'; }
-  g.fillStyle = col; g.font = 'bold 13px ' + FC; g.fillText(st, 560, 12);
+  else { st = ACQ ? ACQ.statut : 'Auto'; col = st === 'Auto?' ? '#ffb347' : '#3fc95a'; }
+  if (S.fige) { st = 'Figé'; col = '#8fb5ff'; }
+  g.fillStyle = col; g.fillRect(560, 4, 58, 17);
+  g.fillStyle = '#000'; g.font = 'bold 13px ' + FC; g.textAlign = 'center'; g.fillText(st, 589, 13);
   if (S.horiz !== 'Roll' && S.horiz !== 'XY') {
-    g.font = '13px ' + FC; g.fillStyle = ORANGE;
-    g.fillText('T ' + (S.trig.pente > 0 ? '↑' : '↓') + ' ' + (S.trig.src + 1) + '  ' + fmtSI(S.trig.niv, 'V', 3), 628, 12);
+    g.textAlign = 'left'; g.font = '13px ' + FC; g.fillStyle = P.orange;
+    const t = S.trig;
+    let d = t.type === 'Front' ? PENTE_TXT[t.pente] : (t.imp.pol > 0 ? '⊓' : '⊔') + t.imp.cond;
+    d += ' ' + srcDecl();
+    if (t.src < 3) d += ' ' + fmtSI(t.niv[t.src], 'V', 3);
+    g.fillText(d, 628, 13);
+  }
+}
+function lectureCurseurs() {
+  const c = S.cur, s = c.src;
+  let fx, fy, ux, uy;
+  if (fftOn() && s === 2) {
+    const sp = spanFFT(), fc = centreFFT();
+    fx = d => fc + d * sp / 10; ux = 'Hz';
+    if (S.fft.unite === 'dBV') { fy = d => S.fft.ref - (4 - d) * S.fft.dbdiv; uy = 'dBV'; }
+    else { fy = d => S.fft.ref + (d + 4) * S.fft.vdiv; uy = 'V'; }
+  } else if (S.horiz === 'XY') {
+    fx = d => d * S.ch[0].vdiv - S.ch[0].pos; ux = 'V';
+    fy = d => d * S.ch[1].vdiv - S.ch[1].pos; uy = 'V';
+  } else {
+    fx = d => (d + 5 - XREF()) * S.tdiv + S.delay; ux = 's';
+    if (s === 2) { fy = d => d * S.math.vdiv - S.math.pos; uy = unMath(); }
+    else { fy = d => d * S.ch[s].vdiv - S.ch[s].pos; uy = 'V'; }
+  }
+  const x1 = fx(c.x[0]), x2 = fx(c.x[1]), y1 = fy(c.y[0]), y2 = fy(c.y[1]), dx = x2 - x1;
+  const fy2 = v => uy === 'dBV' ? v.toFixed(1) + ' dBV' : fmtSI(v, uy, 4);
+  const L = [['X1', fmtSI(x1, ux, 4)], ['X2', fmtSI(x2, ux, 4)], ['ΔX', fmtSI(dx, ux, 4)]];
+  if (ux === 's') L.push(['1/ΔX', Math.abs(dx) > 0 ? fmtSI(1 / Math.abs(dx), 'Hz', 4) : '---']);
+  L.push(['Y1', fy2(y1)], ['Y2', fy2(y2)], ['ΔY', uy === 'dBV' ? (y2 - y1).toFixed(1) + ' dB' : fmtSI(y2 - y1, uy, 4)]);
+  return L;
+}
+function suiviCurseurs() {                              // mode « Suivi »: Y1, Y2 suivent la trace aux abscisses X1, X2
+  const c = S.cur; if (c.mode !== 'Suivi' || !ACQ || S.horiz === 'XY' || (fftOn() && c.src === 2)) return;
+  const v = c.src === 2 ? (mathTemp() ? mathArr() : null) : ACQ.v[c.src]; if (!v) return;
+  const x0 = XREF() * DX + (ACQ.t0 - ACQ.tTrig - S.delay) / S.tdiv * DX, px = ACQ.dt / S.tdiv * DX;
+  for (let i = 0; i < 2; i++) {
+    const j = clamp(Math.round(((c.x[i] + 5) * DX - x0) / px), 0, NS - 1);
+    c.y[i] = (GY + GH / 2 - yOf(v[j], c.src)) / DY;
   }
 }
 function curseurs(g) {
-  if (!S.cur.on) return;
+  if (S.cur.mode === 'Non') return;
   const c = S.cur;
   g.save(); g.setLineDash([5, 4]); g.lineWidth = 1; g.font = '11px ' + FC; g.textBaseline = 'alphabetic';
   for (let i = 0; i < 2; i++) {
     const x = GX + GW / 2 + c.x[i] * DX, y = GY + GH / 2 - c.y[i] * DY;
     const selX = c.sel === i || c.sel === 2, selY = c.sel === 3 + i || c.sel === 5;
-    g.strokeStyle = selX ? ORANGE : 'rgba(255,158,61,0.6)';
+    g.strokeStyle = selX ? P.orange : 'rgba(255,158,61,0.6)';
     g.beginPath(); g.moveTo(x + 0.5, GY); g.lineTo(x + 0.5, GY + GH); g.stroke();
-    g.fillStyle = ORANGE; g.textAlign = 'left'; g.fillText('X' + (i + 1), x + 3, GY + GH - 4);
-    g.strokeStyle = selY ? ORANGE : 'rgba(255,158,61,0.6)';
-    g.beginPath(); g.moveTo(GX, y + 0.5); g.lineTo(GX + GW, y + 0.5); g.stroke();
-    g.fillText('Y' + (i + 1), GX + 4, y - 3);
+    g.fillStyle = P.orange; g.textAlign = 'left'; g.fillText('X' + (i + 1), x + 3, GY + GH - 4);
+    if (y >= GY && y <= GY + GH) {
+      g.strokeStyle = selY ? P.orange : 'rgba(255,158,61,0.6)';
+      g.beginPath(); g.moveTo(GX, y + 0.5); g.lineTo(GX + GW, y + 0.5); g.stroke();
+      g.fillText('Y' + (i + 1), GX + 4, y - 3);
+    }
   }
   g.restore();
-  // lecture
-  const L = lectureCurseurs();
-  g.fillStyle = 'rgba(10,12,16,0.82)'; g.fillRect(GX + GW - 168, GY + 4, 164, 14 * L.length + 8);
-  g.strokeStyle = 'rgba(255,158,61,0.5)'; g.strokeRect(GX + GW - 167.5, GY + 4.5, 163, 14 * L.length + 7);
-  g.font = '12px ' + FC; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-  L.forEach((s, i) => { g.fillStyle = i < 4 ? '#ffd2a6' : '#fff'; g.fillText(s, GX + GW - 160, GY + 18 + 14 * i); });
 }
-function lectureCurseurs() {
-  const c = S.cur, s = c.src;
-  let fx, fy, ux, uy;
-  if (S.math.op === 'FFT' && s === 2) {
-    const sp = spanFFT(), fc = centreFFT();
-    fx = d => fc + d * sp / 10; ux = 'Hz';
-    fy = d => S.math.ref - (4 - d) * S.math.dbdiv; uy = 'dBV';
-  } else if (S.horiz === 'XY') {
-    fx = d => d * S.ch[0].vdiv - S.ch[0].pos; ux = 'V';
-    fy = d => d * S.ch[1].vdiv - S.ch[1].pos; uy = 'V';
-  } else {
-    fx = d => d * S.tdiv + S.delay; ux = 's';
-    if (s === 2) { fy = d => d * S.math.vdiv - S.math.pos; uy = S.math.op === '1×2' ? 'V²' : 'V'; }
-    else { fy = d => d * S.ch[s].vdiv - S.ch[s].pos; uy = 'V'; }
+/* barre latérale: curseurs, mesures, ou résumé des réglages */
+function barreLaterale(g) {
+  g.fillStyle = P.bandeau; g.fillRect(SBX, BH + 2, SW - SBX, YT - BH - 4);
+  let y = BH + 6;
+  const titre = (t, col) => { g.fillStyle = col || P.doux; g.font = 'bold 12px ' + FC; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(t, SBX + 7, y + 12); y += 17; };
+  const ligne = (a, b, col) => {
+    g.font = '12.5px ' + FC; g.textAlign = 'left'; g.fillStyle = col || P.doux; g.fillText(a, SBX + 9, y + 11);
+    g.textAlign = 'right'; g.fillStyle = col || P.texte; g.fillText(b, SW - 7, y + 11); y += 16;
+  };
+  if (S.cur.mode !== 'Non') {
+    titre('Curseurs ' + (S.cur.mode === 'Suivi' ? '(suivi) ' : '') + srcNom(S.cur.src), P.orange);
+    for (const [a, b] of lectureCurseurs()) ligne(a + ':', b);
+    y += 6;
   }
-  const x1 = fx(c.x[0]), x2 = fx(c.x[1]), y1 = fy(c.y[0]), y2 = fy(c.y[1]), dx = Math.abs(x2 - x1);
-  const fy2 = v => uy === 'dBV' ? v.toFixed(1) + ' dBV' : fmtSI(v, uy, 4);
-  const L = ['X1: ' + fmtSI(x1, ux, 4), 'X2: ' + fmtSI(x2, ux, 4), 'ΔX: ' + fmtSI(dx, ux, 4)];
-  L.push(ux === 's' ? '1/ΔX: ' + (dx > 0 ? fmtSI(1 / dx, 'Hz', 4) : '---') : '');
-  L.push('Y1: ' + fy2(y1), 'Y2: ' + fy2(y2), 'ΔY: ' + (uy === 'dBV' ? Math.abs(y2 - y1).toFixed(1) + ' dB' : fmtSI(Math.abs(y2 - y1), uy, 4)));
-  return L.filter(x => x !== '');
+  if (S.mres.length) {
+    titre('Mesures');
+    for (const m of S.mres) {
+      if (y > YT - 40) break;
+      g.font = '12px ' + FC; g.textAlign = 'left'; g.fillStyle = P.ch[m.src]; g.fillText(m.nom + ':', SBX + 9, y + 11); y += 15;
+      g.font = 'bold 14px ' + FC; g.textAlign = 'right'; g.fillStyle = P.texte; g.fillText(fmtMes(m.r, m.id), SW - 7, y + 12); y += 20;
+    }
+    y += 4;
+  }
+  if (S.cur.mode === 'Non' && !S.mres.length) {
+    titre('Réglages');
+    for (let k = 0; k < 2; k++) {
+      const c = S.ch[k]; if (!c.on) continue;
+      g.font = 'bold 12px ' + FC; g.textAlign = 'left'; g.fillStyle = P.ch[k]; g.fillText('Voie ' + (k + 1), SBX + 9, y + 11); y += 15;
+      ligne('Décalage', fmtSI(-c.pos, 'V', 3)); ligne('Couplage', c.coup + (c.bwl ? ', BW 20 MHz' : '')); ligne('Sonde', c.sonde + ':1');
+    }
+    g.font = 'bold 12px ' + FC; g.textAlign = 'left'; g.fillStyle = P.orange; g.fillText('Déclenchement', SBX + 9, y + 11); y += 15;
+    ligne('Mode', S.trig.mode); ligne('Couplage', { CC: 'CC', CA: 'CA', BF: 'Réj. BF' }[S.trig.coup] + (S.trig.rejHF ? ', réj. HF' : ''));
+    if (S.trig.holdoff > 41e-9) ligne('Holdoff', fmtSI(S.trig.holdoff, 's', 3));
+  }
+  // pied: acquisition
+  g.font = '11.5px ' + FC; g.textAlign = 'left'; g.fillStyle = P.doux;
+  const mode = S.acq.mode === 'Moyennage' ? 'Moy. ×' + S.acq.n : S.acq.mode;
+  g.fillText('Acq.: ' + mode, SBX + 7, YT - 22);
+  g.fillText(fmtSI(frequenceEch(), 'Sa/s', 3) + (S.tref !== 'Centre' ? '   réf. ' + S.tref.toLowerCase() : ''), SBX + 7, YT - 8);
 }
-function zoneMesures(g) {
-  g.fillStyle = '#0b0d11'; g.fillRect(0, YM, SW, YK - YM);
-  g.font = '13px ' + FC; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-  S.mres.forEach((r, i) => { g.fillStyle = COL[r.src]; g.fillText(r.txt, 8 + (i % 2) * 300, YM + 18 + Math.floor(i / 2) * 19); });
-  const m = menuObj();
-  if (m) { g.fillStyle = '#8e97a6'; g.font = '11px ' + FC; g.textAlign = 'right'; g.fillText('Menu ' + m.titre, SW - 8, YK - 6); }
-  if (!S.mres.length && !m) { g.fillStyle = '#5c6470'; g.font = '12px ' + FC; g.fillText('Touche Mesures: choisir et ajouter jusqu\'à 4 mesures automatiques', 8, YM + 18); }
+function tableauStats(g) {
+  if (!S.stats || !S.mres.length) return;
+  const h = 17, n = S.mres.length, y0 = GY + GH - 6 - h * (n + 1), x0 = GX + 4, w = GW - 8;
+  g.fillStyle = P.panneau; g.fillRect(x0, y0, w, h * (n + 1) + 4);
+  const cols = [['', 0], ['Actuelle', 212], ['Moyenne', 292], ['Min', 368], ['Max', 444], ['Écart type', 524], ['N', 586]];
+  g.font = 'bold 11.5px ' + FC; g.fillStyle = P.doux; g.textBaseline = 'alphabetic';
+  cols.forEach(([t, x], i) => { g.textAlign = i ? 'right' : 'left'; g.fillText(t, x0 + x + (i ? 0 : 6), y0 + 13); });
+  S.mres.forEach((m, i) => {
+    const st = S.mstat[i], y = y0 + h * (i + 2) - 3, u = m.r ? m.r.u : '';
+    const f = v => (st && st.n) ? fmtMes({ v, u, pre: '' }, m.id) : '---';
+    const vals = [fmtMes(m.r, m.id), f(st && st.moy), f(st && st.min), f(st && st.max),
+      (st && st.n > 1) ? fmtMes({ v: Math.sqrt(st.m2 / (st.n - 1)), u: u === '°' || u === '%' ? u : u, pre: '' }, m.id) : '---', st ? String(st.n) : '0'];
+    g.font = '11.5px ' + FC; g.textAlign = 'left'; g.fillStyle = P.ch[m.src]; g.fillText(m.nom, x0 + 6, y);
+    g.fillStyle = P.texte; g.textAlign = 'right';
+    vals.forEach((t, c) => g.fillText(t, x0 + cols[c + 1][1], y));
+  });
+}
+function instantane(g) {
+  if (!S.snap || !ACQ) return;
+  const src = S.snap.src, L = MTL.filter(t => t.id !== 'snap' && !t.deux);
+  const x0 = GX + 20, y0 = GY + 18, w = GW - 40, lh = 15, nl = Math.ceil(L.length / 2), h = nl * lh + 34;
+  g.fillStyle = P.panneau; g.fillRect(x0, y0, w, h); g.strokeStyle = P.ch[src]; g.strokeRect(x0 + 0.5, y0 + 0.5, w, h);
+  g.font = 'bold 13px ' + FC; g.fillStyle = P.ch[src]; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.fillText('Tout mesurer — source ' + srcNom(src) + '   (Back pour fermer)', x0 + 10, y0 + 17);
+  L.forEach((t, i) => {
+    const c = i < nl ? 0 : 1, r = i % nl, x = x0 + 10 + c * (w / 2), y = y0 + 34 + r * lh;
+    g.font = '12px ' + FC; g.fillStyle = P.doux; g.textAlign = 'left'; g.fillText(t.nom, x, y);
+    g.fillStyle = P.texte; g.textAlign = 'right'; g.fillText(fmtMes(mesureVal({ type: t.id, src, src2: 1 - src }), t.id), x + w / 2 - 24, y);
+  });
 }
 function touchesEcran(g) {
   const m = menuObj(), w = SW / 6;
+  g.fillStyle = P.fond; g.fillRect(0, YT, SW, SH - YT);
+  if (m) {
+    g.font = 'bold 12px ' + FC; const tw = g.measureText(m.titre).width + 22;
+    g.fillStyle = P.toucheSel; g.fillRect(2, YT + 2, tw, YK - YT - 2);
+    g.fillStyle = P.toucheVal; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(m.titre, 12, YT + 12);
+  } else {
+    g.font = '11.5px ' + FC; g.fillStyle = P.doux; g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.fillText(S.aide ? 'Aide: appuyer sur une touche ou tourner une molette pour savoir à quoi elle sert' : 'Appuyer sur une touche de la façade pour afficher son menu', 10, YT + 12);
+  }
   for (let i = 0; i < 6; i++) {
     const it = m && m.items[i], x = i * w;
-    g.fillStyle = it ? '#262b33' : '#121418'; g.fillRect(x + 2, YK + 2, w - 4, SH - YK - 4);
+    g.fillStyle = it ? P.touche : P.toucheVide; g.fillRect(x + 2, YK + 2, w - 4, SH - YK - 4);
     if (!it) continue;
     const sel = it.knob && S.entry === i;
-    if (sel) { g.fillStyle = '#34507a'; g.fillRect(x + 2, YK + 2, w - 4, SH - YK - 4); }
-    g.strokeStyle = sel ? '#9cc3ff' : '#4a5160'; g.strokeRect(x + 2.5, YK + 2.5, w - 5, SH - YK - 5);
+    if (sel) { g.fillStyle = P.toucheSel; g.fillRect(x + 2, YK + 2, w - 4, SH - YK - 4); }
+    g.strokeStyle = sel ? '#9cc3ff' : P.toucheBord; g.strokeRect(x + 2.5, YK + 2.5, w - 5, SH - YK - 5);
     g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-    g.fillStyle = '#c9d0db'; g.font = '12px ' + FC; g.fillText(it.l, x + w / 2, YK + 18);
-    g.fillStyle = '#fff'; g.font = 'bold 13px ' + FC; g.fillText((it.knob ? '↻ ' : '') + it.v(), x + w / 2, YK + 36);
+    g.fillStyle = P.toucheTxt; g.font = '12px ' + FC; g.fillText(it.l, x + w / 2, YK + 17);
+    g.fillStyle = P.toucheVal; g.font = 'bold 13px ' + FC;
+    const val = (it.knob ? '⟲ ' : '') + (it.v ? it.v() : '') + (it.sous ? ' ▸' : '');
+    g.fillText(val, x + w / 2, YK + 36);
   }
 }
-function dessinerEcran(now) {
-  const g = ctx; g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  g.fillStyle = '#000'; g.fillRect(0, 0, SW, SH);
+function dessinerSur(g, now, exp) {
+  g.fillStyle = P.fond; g.fillRect(0, 0, SW, SH);
   grille(g);
-  g.font = 'bold 14px ' + FC; g.fillStyle = 'rgba(255,255,255,0.17)'; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.font = 'bold 14px ' + FC; g.fillStyle = P.filigrane; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
   g.fillText('MP* Malherbe', GX + 8, GY + GH - 8);
-  if (S.aff.persist !== 'Non' && ACQ && !ACQ.lent) {
+  if (!exp && S.aff.persist !== 'Non' && ACQ && !ACQ.lent) {
     lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (calqueVer !== S.ver || calqueId < 0) { lctx.clearRect(0, 0, SW, SH); calqueVer = S.ver; }
     if (calqueId !== ACQ.id) {
-      if (S.aff.persist === 'Courte') { lctx.globalCompositeOperation = 'destination-out'; lctx.fillStyle = 'rgba(0,0,0,0.22)'; lctx.fillRect(0, 0, SW, SH); lctx.globalCompositeOperation = 'source-over'; }
+      if (S.aff.persist === 'Variable') {
+        const dtf = Math.max(1 / 60, now - (dessinerSur.tPrec || now));
+        lctx.globalCompositeOperation = 'destination-out'; lctx.fillStyle = `rgba(0,0,0,${clamp(1 - Math.pow(0.05, dtf / S.aff.ptemps), 0.002, 1)})`;
+        lctx.fillRect(0, 0, SW, SH); lctx.globalCompositeOperation = 'source-over';
+      }
       lctx.globalAlpha = 0.85; traces(lctx, now); lctx.globalAlpha = 1; calqueId = ACQ.id;
     }
+    dessinerSur.tPrec = now;
     g.drawImage(calque, 0, 0, SW, SH);
   } else traces(g, now);
   dessinerFFT(g);
-  reperes(g);
+  reperes(g, now);
   curseurs(g);
-  if (S.flash && now - S.flash.t < 1.4) {
-    g.font = '13px ' + FC; const w = g.measureText(S.flash.txt).width + 20;
-    g.fillStyle = 'rgba(30,34,42,0.9)'; g.fillRect(GX + GW / 2 - w / 2, GY + 30, w, 24);
-    g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(S.flash.txt, GX + GW / 2, GY + 42.5);
+  tableauStats(g);
+  instantane(g);
+  if (!exp && S.flash && now - S.flash.t < 1.8) {
+    g.font = '13px ' + FC; const w = Math.min(GW - 20, g.measureText(S.flash.txt).width + 20);
+    g.fillStyle = 'rgba(30,34,42,0.92)'; g.fillRect(GX + GW / 2 - w / 2, GY + 34, w, 24);
+    g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(S.flash.txt, GX + GW / 2, GY + 46.5, GW - 30);
   }
   bandeau(g, now);
-  zoneMesures(g);
+  barreLaterale(g);
   touchesEcran(g);
 }
+function dessinerEcran(now) { const g = ctx; g.setTransform(dpr, 0, 0, dpr, 0, 0); P = PAL_ECRAN; dessinerSur(g, now, false); }
 
-/* ---------- boucle ---------- */
+/* ========================= MENUS (six touches sous l'écran) ========================= */
+const cyc = (L, v, d) => L[(L.indexOf(v) + (d || 1) + L.length) % L.length];
+const CURSEL = ['X1', 'X2', 'X1 X2', 'Y1', 'Y2', 'Y1 Y2'];
+const FORMATS = [
+  ['scp', 'Réglages (*.scp)'], ['bmp8', 'Image BMP 8 bits'], ['bmp24', 'Image BMP 24 bits'], ['png', 'Image PNG 24 bits'],
+  ['csv', 'Données CSV'], ['xy', 'Données ASCII XY'], ['bin', 'Données binaires (*.bin)']];
+const FMTNOM = Object.fromEntries(FORMATS);
+const estImage = f => f === 'png' || f === 'bmp8' || f === 'bmp24';
+const LONGUEURS = [100, 250, 500, 1000, 2000, 5000, 10000, 20000, 50000];
+const QA = ['Non', 'Mesurer tout', 'Enregistrer', 'Figer l\'affichage', 'Effacer l\'affichage', 'Mode de décl.'];
+const reglerSel = (L, v, d) => { let i = L.findIndex(x => x >= v * 0.999); if (i < 0) i = L.length - 1; return L[clamp(i + d, 0, L.length - 1)]; };
+const DUREES = seq125(10e-9, 10);
+const HOLDOFFS = [40e-9].concat(seq125(50e-9, 10));
+
+function chMenu(k) {
+  const c = S.ch[k];
+  return { titre: 'Voie ' + (k + 1), items: [
+    { l: 'Couplage', v: () => c.coup, act: () => { c.coup = c.coup === 'CC' ? 'CA' : 'CC'; modele(); } },
+    { l: 'Limite BP', v: () => c.bwl ? '20 MHz' : 'Non', act: () => { c.bwl = !c.bwl; modele(); } },
+    { l: 'Réglage fin', v: () => c.fin ? 'Oui' : 'Non', act: () => { c.fin = !c.fin; if (!c.fin) c.vdiv = snapV(k, c.vdiv); } },
+    { l: 'Inverser', v: () => c.inv ? 'Oui' : 'Non', act: () => { c.inv = !c.inv; } },
+    { l: 'Sonde', v: () => c.sonde + ':1', act: () => {
+      const f = c.sonde === 1 ? 10 : 0.1; c.sonde = c.sonde === 1 ? 10 : 1;
+      c.vdiv = +(c.vdiv * f).toPrecision(6); c.pos *= f; S.trig.niv[k] *= f; } },
+    { l: 'Impédance', v: () => '1 MΩ' } ] };
+}
+function menuObj() {
+  const id = S.menu; if (!id) return null;
+  const T = S.trig;
+  switch (id) {
+    case 'ch0': return chMenu(0);
+    case 'ch1': return chMenu(1);
+    case 'acq': return { titre: 'Acquisition', items: [
+      { l: 'Mode acq.', v: () => S.acq.mode, act: () => { S.acq.mode = cyc(['Normal', 'Crête', 'Moyennage', 'Haute rés.'], S.acq.mode); } },
+      S.acq.mode === 'Moyennage' ? { l: 'Nb moyennes', v: () => String(S.acq.n), knob: d => { S.acq.n = clamp(d > 0 ? S.acq.n * 2 : S.acq.n / 2, 2, 65536); } } : null,
+      { l: 'Mode temps', v: () => S.horiz, act: () => { S.horiz = cyc(['Normal', 'XY', 'Roll'], S.horiz); if (S.horiz === 'Roll' && S.tdiv < 50e-3) S.tdiv = 50e-3; } },
+      { l: 'Réf. temps', v: () => S.tref, act: () => { S.tref = cyc(['Gauche', 'Centre', 'Droite'], S.tref); } },
+      { l: 'Base de temps', v: () => S.finT ? 'Fine' : 'Calibrée', act: () => { S.finT = !S.finT; if (!S.finT) S.tdiv = reglerSel(TDIV, S.tdiv, 0); } },
+      { l: 'Éch. (écran)', v: () => fmtSI(frequenceEch(), 'Sa/s', 3) } ] };
+    case 'trig': {
+      const it = [
+        { l: 'Type', v: () => T.type === 'Front' ? 'Front' : 'Larg. impulsion', act: () => { T.type = T.type === 'Front' ? 'Impulsion' : 'Front'; if (T.src === 3) T.src = 0; } },
+        { l: 'Source', v: () => ['Voie 1', 'Voie 2', 'Ext', 'Secteur'][T.src], act: () => { T.src = (T.src + 1) % (T.type === 'Front' ? 4 : 3); } } ];
+      if (T.type === 'Front') it.push(
+        { l: 'Pente', v: () => ({ mont: '↗ Montante', desc: '↘ Descend.', alt: '↗↘ Alternée', deux: '↕ Les deux' })[T.pente], act: () => { T.pente = cyc(['mont', 'desc', 'alt', 'deux'], T.pente); } },
+        T.src < 3 ? { l: 'Niveau', v: () => fmtSI(T.niv[T.src], 'V', 3), knob: d => tournerNiveau(d), act: () => niveau50() } : null,
+        null);
+      else it.push(
+        { l: 'Polarité', v: () => T.imp.pol > 0 ? '+ ⊓' : '− ⊔', act: () => { T.imp.pol = -T.imp.pol; } },
+        { l: 'Condition', v: () => ({ '<': '< t', '>': '> t', '><': 't1 < … < t2' })[T.imp.cond], act: () => { T.imp.cond = cyc(['<', '>', '><'], T.imp.cond); T.imp.quel = 0; } },
+        { l: T.imp.cond === '><' ? (T.imp.quel ? 'Durée t2' : 'Durée t1') : 'Durée t', v: () => fmtSI(T.imp.quel ? T.imp.t2 : T.imp.t1, 's', 3),
+          knob: d => { const q = T.imp.quel ? 't2' : 't1'; T.imp[q] = reglerSel(DUREES, T.imp[q], d); },
+          act: () => { if (T.imp.cond === '><') T.imp.quel = 1 - T.imp.quel; } });
+      it.push({ l: 'Mode/Couplage', v: () => '', sous: 'trigmode' });
+      return { titre: 'Déclenchement', items: it };
+    }
+    case 'trigmode': return { titre: 'Mode et couplage du déclenchement', parent: 'trig', items: [
+      { l: 'Mode', v: () => T.mode, act: () => { T.mode = T.mode === 'Auto' ? 'Normal' : 'Auto'; } },
+      { l: 'Couplage', v: () => ({ CC: 'CC', CA: 'CA', BF: 'Réj. BF' })[T.coup], act: () => { T.coup = cyc(['CC', 'CA', 'BF'], T.coup); } },
+      { l: 'Réj. bruit', v: () => T.rejBruit ? 'Oui' : 'Non', act: () => { T.rejBruit = !T.rejBruit; } },
+      { l: 'Réj. HF', v: () => T.rejHF ? 'Oui' : 'Non', act: () => { T.rejHF = !T.rejHF; } },
+      { l: 'Holdoff', v: () => fmtSI(T.holdoff, 's', 3), knob: d => { T.holdoff = reglerSel(HOLDOFFS, T.holdoff, d); }, act: () => { T.holdoff = 40e-9; } },
+      null ] };
+    case 'meas': {
+      const m = S.msel, t = MT[m.type], nsrc = mathTemp() ? 3 : 2;
+      return { titre: 'Mesures', items: [
+        { l: 'Source', v: () => srcNom(m.src), act: () => { m.src = (m.src + 1) % nsrc; } },
+        { l: 'Type', v: () => MT[m.type].court, knob: d => { const i = MTL.findIndex(x => x.id === m.type); m.type = MTL[(i + d + MTL.length) % MTL.length].id; } },
+        t.deux ? { l: 'Source 2', v: () => srcNom(m.src2), act: () => { m.src2 = 1 - m.src2; } } : null,
+        { l: m.type === 'snap' ? 'Afficher' : 'Ajouter', v: () => m.type === 'snap' ? 'le tableau' : 'la mesure', act: () => {
+          if (m.type === 'snap') { S.snap = { src: Math.min(m.src, 1) }; return; }
+          S.meas.push({ type: m.type, src: m.src, src2: m.src2 }); if (S.meas.length > 4) S.meas.shift(); mesVer = -1; } },
+        { l: 'Effacer', v: () => '', sous: 'measclr' },
+        { l: 'Statistiques', v: () => S.stats ? 'Oui' : 'Non', sous: 'measstat' } ] };
+    }
+    case 'measclr': {
+      const it = S.meas.map((m, i) => ({ l: 'Effacer', v: () => nomMes(m), act: () => { S.meas.splice(i, 1); S.mres = []; mesVer = -1; } }));
+      while (it.length < 5) it.push(null);
+      it.push({ l: 'Effacer', v: () => 'tout', act: () => { S.meas = []; S.mres = []; } });
+      return { titre: 'Effacer des mesures', parent: 'meas', items: it.slice(0, 6) };
+    }
+    case 'measstat': return { titre: 'Statistiques', parent: 'meas', items: [
+      { l: 'Affichage', v: () => S.stats ? 'Oui' : 'Non', act: () => { S.stats = !S.stats; } },
+      { l: 'Remise à zéro', v: () => 'statistiques', act: () => { S.mstat = []; } }, null, null, null, null ] };
+    case 'curs': return { titre: 'Curseurs', items: [
+      { l: 'Mode', v: () => S.cur.mode, act: () => { S.cur.mode = cyc(['Non', 'Manuel', 'Suivi'], S.cur.mode); } },
+      { l: 'Source', v: () => srcNom(S.cur.src) + (S.cur.src === 2 && fftOn() ? ' (FFT)' : ''), act: () => { S.cur.src = (S.cur.src + 1) % (mathOn() ? 3 : 2); } },
+      { l: 'Curseurs', v: () => CURSEL[S.cur.sel], knob: d => bougerCurseur(d), act: () => { S.cur.sel = (S.cur.sel + 1) % CURSEL.length; } },
+      { l: 'Position', v: () => 'au centre', act: () => { S.cur.x = [-2, 2]; S.cur.y = [1.5, -1.5]; } }, null, null ] };
+    case 'math': {
+      const M = S.math, it = [
+        { l: 'Opérateur', v: () => M.op === 'FFT' ? 'FFT' : M.op, act: () => {
+          M.op = M.op === 'FFT' ? '1+2' : cyc(MATHOPS, M.op);
+          if (mathTemp()) echelleMath();
+        } } ];
+      if (M.op === 'd/dt' || M.op === '∫dt') it.push({ l: 'Source', v: () => 'Voie ' + (M.src + 1), act: () => { M.src = 1 - M.src; echelleMath(); } });
+      else it.push(null);
+      if (mathTemp()) it.push(
+        { l: 'Échelle', v: () => fmtSI(M.vdiv, unMath(), 3) + '/', knob: d => { M.vdiv = reglerSel(seq125(1e-9, 1e9), M.vdiv, -d); } },
+        { l: 'Position', v: () => fmtSI(M.pos, unMath(), 3), knob: d => { M.pos = +(M.pos + d * M.vdiv / 25).toPrecision(8); }, act: () => { M.pos = 0; } },
+        null, { l: 'Affichage', v: () => 'Non', act: () => { M.op = 'Non'; } });
+      else it.push(null, null, null, null);
+      return { titre: 'Math', items: it };
+    }
+    case 'fft': {
+      const F = S.fft, dB = F.unite === 'dBV';
+      return { titre: 'FFT', items: [
+        { l: 'Source', v: () => 'Voie ' + (F.src + 1), act: () => { F.src = 1 - F.src; } },
+        { l: 'Span', v: () => fmtSI(spanFFT(), 'Hz', 3), knob: d => changerSpan(d) },
+        { l: 'Centre', v: () => fmtSI(centreFFT(), 'Hz', 4), knob: d => { F.centre = Math.max(0, centreFFT() + d * spanFFT() / 50); } },
+        dB ? { l: 'Échelle', v: () => F.dbdiv + ' dB/div', knob: d => { F.dbdiv = reglerSel([1, 2, 5, 10, 20], F.dbdiv, d); } }
+           : { l: 'Échelle', v: () => fmtSI(F.vdiv, 'V', 3) + '/div', knob: d => { F.vdiv = reglerSel(seq125(1e-4, 10), F.vdiv, -d); } },
+        dB ? { l: 'Niveau réf.', v: () => F.ref.toFixed(0) + ' dBV', knob: d => { F.ref = clamp(F.ref + d * 5, -120, 60); } }
+           : { l: 'Décalage', v: () => fmtSI(F.ref, 'V', 3), knob: d => { F.ref = +(F.ref + d * F.vdiv / 5).toPrecision(6); } },
+        { l: 'Plus', v: () => 'Fenêtre…', sous: 'fft2' } ] };
+    }
+    case 'fft2': {
+      const F = S.fft;
+      return { titre: 'FFT: autres réglages', parent: 'fft', items: [
+        { l: 'Fenêtre', v: () => F.fen, act: () => { F.fen = cyc(Object.keys(FENETRES), F.fen); } },
+        { l: 'Unités', v: () => F.unite === 'dBV' ? 'dBV' : 'V eff', act: () => { F.unite = F.unite === 'dBV' ? 'Veff' : 'dBV'; if (F.unite === 'Veff') { F.ref = 0; F.vdiv = 0.2; } else { F.ref = 10; } } },
+        { l: 'Réglage auto', v: () => 'span, réf.', act: () => fftAuto() },
+        { l: 'Affichage', v: () => 'Non', act: () => { S.math.op = 'Non'; S.menu = null; } }, null, null ] };
+    }
+    case 'disp': return { titre: 'Affichage', items: [
+      { l: 'Persistance', v: () => S.aff.persist, act: () => { S.aff.persist = cyc(['Non', 'Variable', 'Infinie'], S.aff.persist); calqueId = -1; } },
+      S.aff.persist === 'Variable' ? { l: 'Durée', v: () => fmtSI(S.aff.ptemps, 's', 3), knob: d => { S.aff.ptemps = reglerSel([0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 60], S.aff.ptemps, d); } } : null,
+      { l: 'Effacer', v: () => 'persistance', act: () => { calqueId = -1; calqueVer = -1; } },
+      { l: 'Effacer', v: () => 'affichage', act: () => effacerAffichage() },
+      { l: 'Grille', v: () => Math.round(S.aff.grille * 100) + ' %', knob: d => { S.aff.grille = clamp(Math.round((S.aff.grille + d * 0.05) * 100) / 100, 0, 1); } },
+      { l: 'Intensité', v: () => Math.round(S.aff.intens * 100) + ' %', knob: d => { S.aff.intens = clamp(Math.round((S.aff.intens + d * 0.05) * 100) / 100, 0, 1); } } ] };
+    case 'save': return { titre: 'Save/Recall', items: [
+      { l: 'Enregistrer', v: () => '', sous: 'saveS' }, { l: 'Rappeler', v: () => '', sous: 'rcl' },
+      { l: 'Défaut/Effacer', v: () => '', sous: 'defe' }, null, null, null ] };
+    case 'saveS': {
+      const W = S.save;
+      return { titre: 'Enregistrer', parent: 'save', items: [
+        { l: 'Format', v: () => FMTNOM[W.fmt], knob: d => { const i = FORMATS.findIndex(f => f[0] === W.fmt); W.fmt = FORMATS[(i + d + FORMATS.length) % FORMATS.length][0]; } },
+        W.fmt === 'scp' ? null : { l: 'Paramètres', v: () => estImage(W.fmt) ? 'image' : 'données', sous: estImage(W.fmt) ? 'saveImg' : 'saveDat' },
+        { l: 'Nom de fichier', v: () => nomFichier() + extension(), knob: d => { W.n = Math.max(0, W.n + d); } },
+        { l: 'Appuyer pour', v: () => 'enregistrer', act: () => enregistrer() }, null, null ] };
+    }
+    case 'saveImg': return { titre: 'Paramètres de l\'image', parent: 'saveS', items: [
+      { l: 'Infos réglages', v: () => S.save.info ? 'Oui' : 'Non', act: () => { S.save.info = !S.save.info; } },
+      { l: 'Grille inversée', v: () => S.save.inv ? 'Oui' : 'Non', act: () => { S.save.inv = !S.save.inv; } },
+      { l: 'Palette', v: () => S.save.pal, act: () => { S.save.pal = S.save.pal === 'Couleur' ? 'Niveaux de gris' : 'Couleur'; } }, null, null, null ] };
+    case 'saveDat': return { titre: 'Paramètres des données', parent: 'saveS', items: [
+      { l: 'Longueur', v: () => String(S.save.len), knob: d => { S.save.len = reglerSel(LONGUEURS, S.save.len, d); } },
+      { l: 'Voies', v: () => 'affichées' }, null, null, null, null ] };
+    case 'rcl': return { titre: 'Rappeler', parent: 'save', items: [
+      { l: 'Rappeler', v: () => 'réglages *.scp', act: () => document.getElementById('fRappel').click() }, null, null, null, null, null ] };
+    case 'defe': return { titre: 'Défaut/Effacer', parent: 'save', items: [
+      { l: 'Configuration', v: () => 'usine', act: () => configDefaut('Configuration usine rappelée') }, null, null, null, null, null ] };
+    case 'util': return { titre: 'Utility', items: [
+      { l: 'Action rapide', v: () => S.qa, act: () => { S.qa = cyc(QA, S.qa); } },
+      { l: 'À propos', v: () => 'de l\'émulation', act: () => flash('Émulation pédagogique d\'un DSOX1102A, MP* Malherbe') }, null, null, null, null ] };
+  }
+  return null;
+}
+function echelleMath() {
+  const M = S.math, a = S.ch[0].vdiv, b = S.ch[1].vdiv, w = INP && INP.T ? TAU / INP.T : 1 / (10 * S.tdiv);
+  if (M.op === '1×2') M.vdiv = reglerSel(seq125(1e-9, 1e9), a * b, 0);
+  else if (M.op === 'd/dt') M.vdiv = reglerSel(seq125(1e-9, 1e12), S.ch[M.src].vdiv * w, 0);
+  else if (M.op === '∫dt') M.vdiv = reglerSel(seq125(1e-12, 1e9), S.ch[M.src].vdiv / w, 0);
+  else M.vdiv = Math.max(a, b);
+  M.pos = 0;
+}
+function ouvrirMenu(id) {
+  S.menu = id; S.snap = null; const m = menuObj();
+  S.entry = m ? m.items.findIndex(x => x && x.knob) : -1;
+  majTouches();
+}
+function retour() {
+  if (S.snap) { S.snap = null; return; }
+  const m = menuObj(); ouvrirMenu(m && m.parent ? m.parent : null);
+}
+function softkey(i) {
+  if (S.snap) { S.snap = null; }
+  const m = menuObj(); if (!m) return;
+  const it = m.items[i]; if (!it) return;
+  if (it.sous) { ouvrirMenu(it.sous); return; }
+  if (it.knob) { if (S.entry !== i) { S.entry = i; return; } if (it.act) it.act(); }
+  else if (it.act) it.act();
+  touche(); majTouches();
+}
+function tournerEntry(d) {
+  if (S.intensMode) { S.aff.intens = clamp(Math.round((S.aff.intens + d * 0.05) * 100) / 100, 0, 1); flash('Intensité des traces: ' + Math.round(S.aff.intens * 100) + ' %'); return; }
+  const m = menuObj();
+  if (m && S.entry >= 0 && m.items[S.entry] && m.items[S.entry].knob) {
+    m.items[S.entry].knob(d);
+    if (!['curs', 'disp', 'saveS', 'saveDat', 'saveImg', 'meas'].includes(S.menu)) touche();
+  }
+}
+function pousserEntry() {
+  const m = menuObj();
+  if (m && S.entry >= 0 && m.items[S.entry] && m.items[S.entry].act) { m.items[S.entry].act(); touche(); }
+}
+function snapV(k, v) {
+  const L = vdivList(k); let best = L[0];
+  for (const x of L) if (Math.abs(Math.log(x / v)) < Math.abs(Math.log(best / v))) best = x;
+  return best;
+}
+function tournerV(k, d) {
+  const c = S.ch[k];
+  if (!c.on) return;
+  const ancien = c.vdiv;
+  if (c.fin) c.vdiv = +(c.vdiv * (1 - d * 0.01)).toPrecision(4);
+  else c.vdiv = reglerSel(vdivList(k), c.vdiv, -d);
+  c.vdiv = clamp(c.vdiv, 1e-3 * c.sonde, 5 * c.sonde);
+  c.pos *= 1;                                     // la position (en volts) est conservée, comme sur l'appareil
+  if (ancien !== c.vdiv) touche();
+}
+function tournerP(k, d) {
+  const c = S.ch[k]; if (!c.on) return;
+  c.pos = +(c.pos + d * c.vdiv / 25).toPrecision(8);
+  flash('Position voie ' + (k + 1) + ': ' + fmtSI(c.pos, 'V', 3)); touche();
+}
+function tournerT(d) {
+  const min = S.horiz === 'Roll' ? 50e-3 : 5e-9;
+  if (S.finT) S.tdiv = clamp(+(S.tdiv * (1 - d * 0.02)).toPrecision(4), min, 50);
+  else S.tdiv = Math.max(min, reglerSel(TDIV, S.tdiv, -d));
+  touche();
+}
+function bougerCurseur(d) {
+  const c = S.cur, s = c.sel, st = d * 0.05;
+  if (c.mode === 'Non') c.mode = 'Manuel';
+  if (s === 0 || s === 2) c.x[0] = clamp(c.x[0] + st, -5, 5);
+  if (s === 1 || s === 2) c.x[1] = clamp(c.x[1] + st, -5, 5);
+  if (c.mode === 'Suivi') return;
+  if (s === 3 || s === 5) c.y[0] = clamp(c.y[0] + st, -4, 4);
+  if (s === 4 || s === 5) c.y[1] = clamp(c.y[1] + st, -4, 4);
+}
+function effacerAffichage() { ACQ = null; AVG = null; calqueId = -1; calqueVer = -1; S.mres = []; }
+
+function autoScale() {
+  if (dirty) { rebuild(); dirty = false; }
+  let premier = -1;
+  for (let k = 0; k < 2; k++) {
+    const c = S.ch[k], sc = chScale(k);
+    let a = sc * TAB.min[k], b = sc * TAB.max[k]; if (a > b) { const t = a; a = b; b = t; }
+    const pp = b - a, mid = (a + b) / 2;
+    if (pp < 0.01 * c.sonde && Math.abs(mid) < 0.01 * c.sonde) { c.on = false; continue; }
+    c.on = true; c.fin = false; if (premier < 0) premier = k;
+    const L = vdivList(k);
+    if (pp < 1e-6) { c.vdiv = L.find(v => v >= Math.abs(mid) / 3) || L[L.length - 1]; c.pos = 0; }
+    else { c.vdiv = L.find(v => v >= pp / 6) || L[L.length - 1]; c.pos = +(-mid).toPrecision(4); }
+  }
+  if (premier < 0) { S.ch[0].on = true; premier = 0; flash('Aucun signal détecté'); }
+  let td;
+  if (INP.noise) td = 1 / G.nbw;
+  else if (INP.dc) td = 100e-6;
+  else td = INP.arb ? INP.T / 10 : INP.T / 5;
+  S.tdiv = TDIV.find(v => v >= td * 0.999) || TDIV[TDIV.length - 1];
+  S.finT = false; S.horiz = 'Normal'; S.delay = 0; S.tref = 'Centre';
+  const T = S.trig; T.type = 'Front'; T.src = premier; T.pente = 'mont'; T.mode = 'Auto'; T.coup = 'CC';
+  const sc = chScale(premier); T.niv[premier] = +((sc * TAB.min[premier] + sc * TAB.max[premier]) / 2).toPrecision(4);
+  S.run = true; S.single = false;
+  touche(); majTouches(); calqueId = -1;
+}
+function configDefaut(msg) {
+  const garde = { meas: [] };
+  S = defautsScope(); Object.assign(S, garde); ACQ = null; modele(); majTouches(); flash(msg || 'Configuration par défaut');
+}
+
+/* ========================= ENREGISTREMENT (Save/Recall) ========================= */
+function nomFichier() { return 'scope_' + S.save.n; }
+function extension() { const f = S.save.fmt; return f === 'scp' ? '.scp' : f === 'png' ? '.png' : (f === 'bmp8' || f === 'bmp24') ? '.bmp' : f === 'bin' ? '.bin' : '.csv'; }
+/* Dans claude.ai, la page passe par la capacité « downloads » (confirmation du lecteur, extensions limitées);
+   ailleurs (GitHub Pages, fichier local), par un lien de téléchargement classique. */
+let DLCAP = null;
+(async () => { try { if (window.claude && typeof window.claude.use === 'function') DLCAP = await window.claude.use('downloads'); } catch (e) { DLCAP = null; } })();
+function telecharger(blob, nom) {
+  if (DLCAP) return DLCAP.save({ filename: nom, data: blob }).then(() => true, e => {
+    const c = e && e.code;
+    if (c === 'rejected_extension' || c === 'extension_not_enabled') flash('Format ' + nom.split('.').pop().toUpperCase() + ' non téléchargeable dans claude.ai: utiliser le site GitHub Pages des applets');
+    else if (c !== 'declined') flash('Téléchargement impossible ici (' + (c || 'erreur') + ')');
+    return false;
+  });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nom;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 5000);
+  return Promise.resolve(true);
+}
+function expo(v, n) {                                // format « 1.23456E-01 »
+  if (!isFinite(v)) v = 0;
+  const s = v.toExponential(n), [m, e] = s.split('e'), ex = parseInt(e, 10);
+  return m + 'E' + (ex < 0 ? '-' : '+') + String(Math.abs(ex)).padStart(2, '0');
+}
+function voiesAffichees() { return [0, 1].filter(k => S.ch[k].on); }
+function imageEcran() {
+  const info = S.save.info, H = SH + (info ? 74 : 0);
+  const c = document.createElement('canvas'); c.width = SW; c.height = H;
+  const g = c.getContext('2d');
+  P = S.save.inv ? PAL_INV : PAL_ECRAN;
+  dessinerSur(g, performance.now() / 1000, true);
+  if (info) {
+    g.fillStyle = P.fond; g.fillRect(0, SH, SW, 74);
+    g.fillStyle = P.texte; g.font = '12px ' + FC; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    const L = texteReglages(); L.forEach((t, i) => g.fillText(t, 10, SH + 16 + 14 * i));
+  }
+  P = PAL_ECRAN;
+  if (S.save.pal !== 'Couleur') {
+    const d = g.getImageData(0, 0, SW, H), p = d.data;
+    for (let i = 0; i < p.length; i += 4) { const y = Math.round(0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2]); p[i] = p[i + 1] = p[i + 2] = y; }
+    g.putImageData(d, 0, 0);
+  }
+  return c;
+}
+function texteReglages() {
+  const L = [], d = new Date();
+  L.push('DSOX1102A (émulation, MP* Malherbe)   ' + d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR'));
+  L.push([0, 1].map(k => { const c = S.ch[k]; return 'Voie ' + (k + 1) + (c.on ? ': ' + fmtSI(c.vdiv, 'V', 3) + '/div, décalage ' + fmtSI(-c.pos, 'V', 3) + ', ' + c.coup + ', sonde ' + c.sonde + ':1' + (c.bwl ? ', BW 20 MHz' : '') : ': éteinte'); }).join('    '));
+  const T = S.trig;
+  L.push('Horizontal: ' + fmtSI(S.tdiv, 's', 4) + '/div, retard ' + fmtSI(S.delay, 's', 4) + ', mode ' + S.horiz + '    Acquisition: ' + S.acq.mode + (S.acq.mode === 'Moyennage' ? ' ×' + S.acq.n : ''));
+  L.push('Déclenchement: ' + (T.type === 'Front' ? 'front ' + PENTE_TXT[T.pente] : 'impulsion') + ', source ' + srcDecl() + (T.src < 3 ? ', niveau ' + fmtSI(T.niv[T.src], 'V', 3) : '') + ', ' + T.mode + ', couplage ' + T.coup + (T.rejHF ? ', réj. HF' : '') + ', holdoff ' + fmtSI(T.holdoff, 's', 3));
+  return L;
+}
+function bmp(canvas, bits) {
+  const w = canvas.width, h = canvas.height, px = canvas.getContext('2d').getImageData(0, 0, w, h).data;
+  const ligne = bits === 24 ? Math.ceil(w * 3 / 4) * 4 : Math.ceil(w / 4) * 4;
+  const npal = bits === 8 ? 256 : 0, off = 54 + npal * 4, taille = off + ligne * h;
+  const buf = new ArrayBuffer(taille), dv = new DataView(buf), u8 = new Uint8Array(buf);
+  u8[0] = 66; u8[1] = 77; dv.setUint32(2, taille, true); dv.setUint32(10, off, true);
+  dv.setUint32(14, 40, true); dv.setInt32(18, w, true); dv.setInt32(22, h, true); dv.setUint16(26, 1, true); dv.setUint16(28, bits, true);
+  dv.setUint32(34, ligne * h, true); dv.setInt32(38, 3780, true); dv.setInt32(42, 3780, true); dv.setUint32(46, npal, true);
+  if (bits === 24) {
+    for (let y = 0; y < h; y++) { const r = off + (h - 1 - y) * ligne; for (let x = 0; x < w; x++) { const i = (y * w + x) * 4, o = r + x * 3; u8[o] = px[i + 2]; u8[o + 1] = px[i + 1]; u8[o + 2] = px[i]; } }
+  } else {
+    // palette: couleurs les plus fréquentes, puis plus proche voisine
+    const cpt = new Map();
+    for (let i = 0; i < px.length; i += 4) { const k = ((px[i] >> 3) << 10) | ((px[i + 1] >> 3) << 5) | (px[i + 2] >> 3); cpt.set(k, (cpt.get(k) || 0) + 1); }
+    const pal = [...cpt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 256).map(e => [((e[0] >> 10) & 31) * 8 + 4, ((e[0] >> 5) & 31) * 8 + 4, (e[0] & 31) * 8 + 4]);
+    while (pal.length < 256) pal.push([0, 0, 0]);
+    pal.forEach((c, i) => { u8[54 + 4 * i] = c[2]; u8[55 + 4 * i] = c[1]; u8[56 + 4 * i] = c[0]; });
+    const memo = new Map();
+    for (let y = 0; y < h; y++) {
+      const r = off + (h - 1 - y) * ligne;
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4, k = ((px[i] >> 3) << 10) | ((px[i + 1] >> 3) << 5) | (px[i + 2] >> 3);
+        let q = memo.get(k);
+        if (q === undefined) { let bd = Infinity; q = 0; for (let j = 0; j < 256; j++) { const c = pal[j], dd = (c[0] - px[i]) ** 2 + (c[1] - px[i + 1]) ** 2 + (c[2] - px[i + 2]) ** 2; if (dd < bd) { bd = dd; q = j; } } memo.set(k, q); }
+        u8[r + x] = q;
+      }
+    }
+  }
+  return new Blob([buf], { type: 'image/bmp' });
+}
+function fichierBin(rec, voies) {
+  const N = rec.y[0].length, d = new Date(), MOIS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const dateS = String(d.getDate()).padStart(2, '0') + ' ' + MOIS[d.getMonth()] + ' ' + d.getFullYear(), heureS = d.toTimeString().slice(0, 8);
+  const tailleOnde = 140 + 12 + 4 * N, taille = 12 + voies.length * tailleOnde;
+  const buf = new ArrayBuffer(taille), dv = new DataView(buf), u8 = new Uint8Array(buf);
+  const chaine = (o, s, n) => { for (let i = 0; i < n; i++) u8[o + i] = i < s.length ? s.charCodeAt(i) & 0x7f : 0; };
+  chaine(0, 'AG10', 4); dv.setInt32(4, taille, true); dv.setInt32(8, voies.length, true);
+  const type = S.acq.mode === 'Moyennage' ? 3 : S.acq.mode === 'Crête' ? 2 : 1;
+  let o = 12;
+  for (const k of voies) {
+    dv.setInt32(o, 140, true); dv.setInt32(o + 4, type, true); dv.setInt32(o + 8, 1, true); dv.setInt32(o + 12, N, true);
+    dv.setInt32(o + 16, S.acq.mode === 'Moyennage' ? S.acq.n : 1, true); dv.setFloat32(o + 20, 10 * S.tdiv, true);
+    dv.setFloat64(o + 24, rec.tl, true); dv.setFloat64(o + 32, rec.dt, true); dv.setFloat64(o + 40, rec.tl, true);
+    dv.setInt32(o + 48, 2, true); dv.setInt32(o + 52, 1, true);
+    chaine(o + 56, dateS, 16); chaine(o + 72, heureS, 16); chaine(o + 88, 'DSOX1102A:EMULATION', 24); chaine(o + 112, String(k + 1), 16);
+    dv.setFloat64(o + 128, 0, true); dv.setUint32(o + 136, 0, true);
+    o += 140;
+    dv.setInt32(o, 12, true); dv.setInt16(o + 4, 1, true); dv.setInt16(o + 6, 4, true); dv.setInt32(o + 8, 4 * N, true);
+    o += 12;
+    for (let j = 0; j < N; j++) dv.setFloat32(o + 4 * j, rec.y[k][j], true);
+    o += 4 * N;
+  }
+  return new Blob([buf], { type: 'application/octet-stream' });
+}
+function reglagesJSON() {
+  const c = JSON.parse(JSON.stringify(S));
+  for (const k of ['flash', 'snap', 'mres', 'mstat', 'menu', 'entry', 'ver', 'aide', 'intensMode', 'nivT', 'attente', 'single', 'mstatVer']) delete c[k];
+  return JSON.stringify({ format: 'Réglages oscilloscope DSOX1102A (émulation MP* Malherbe)', version: 1, reglages: c }, null, 1);
+}
+function enregistrer() {
+  const W = S.save, nom = nomFichier(), f = W.fmt;
+  if (f !== 'scp' && !ACQ) { flash('Aucune acquisition à enregistrer'); return; }
+  try {
+    if (f === 'scp') telecharger(new Blob([reglagesJSON()], { type: 'application/json' }), nom + '.scp');
+    else if (f === 'png') { const c = imageEcran(); c.toBlob(b => telecharger(b, nom + '.png'), 'image/png'); }
+    else if (f === 'bmp24' || f === 'bmp8') telecharger(bmp(imageEcran(), f === 'bmp24' ? 24 : 8), nom + '.bmp');
+    else {
+      const V = voiesAffichees(); if (!V.length) { flash('Aucune voie affichée'); return; }
+      const rec = enregistrement(W.len), N = W.len;
+      if (f === 'csv') {
+        const L = ['x-axis,' + V.map(k => k + 1).join(','), 'second,' + V.map(() => 'Volt').join(',')];
+        for (let j = 0; j < N; j++) L.push(expo(rec.tl + j * rec.dt, 8) + ',' + V.map(k => expo(rec.y[k][j], 5)).join(','));
+        telecharger(new Blob([L.join('\n') + '\n'], { type: 'text/csv' }), nom + '.csv');
+      } else if (f === 'xy') {
+        V.reduce((pr, k) => pr.then(() => {
+          const L = []; for (let j = 0; j < N; j++) L.push(expo(rec.tl + j * rec.dt, 8) + ',' + expo(rec.y[k][j], 5));
+          return telecharger(new Blob([L.join('\n') + '\n'], { type: 'text/csv' }), nom + '_' + (k + 1) + '.csv').then(() => new Promise(r => setTimeout(r, 400)));
+        }), Promise.resolve());
+      } else if (f === 'bin') telecharger(fichierBin(rec, V), nom + '.bin');
+    }
+    flash('Enregistré: ' + nom + (f === 'xy' ? '_n.csv' : extension()) + ' (téléchargement)');
+    W.n++;
+  } catch (e) { flash('Échec de l\'enregistrement: ' + e.message); }
+}
+document.getElementById('fRappel').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  f.text().then(t => {
+    try {
+      const o = JSON.parse(t), r = o.reglages; if (!r || !r.ch) throw new Error('format');
+      const base = defautsScope();
+      const fusion = (a, b) => { for (const k in b) { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && a[k] && typeof a[k] === 'object') fusion(a[k], b[k]); else a[k] = b[k]; } };
+      fusion(base, r); base.ch = r.ch.map(c => Object.assign(voieDefaut(false), c));
+      S = base; ACQ = null; modele(); majTouches(); flash('Réglages rappelés: ' + f.name);
+    } catch (err) { flash('Fichier non reconnu (seuls les .scp de cette émulation sont lisibles)'); }
+    e.target.value = '';
+  });
+});
+function actionRapide() {
+  switch (S.qa) {
+    case 'Non': flash('Action rapide non configurée: Utility > Action rapide'); break;
+    case 'Mesurer tout': S.snap = { src: Math.min(S.msel.src, 1) }; break;
+    case 'Enregistrer': enregistrer(); break;
+    case 'Figer l\'affichage': S.fige = !S.fige; break;
+    case 'Effacer l\'affichage': effacerAffichage(); break;
+    case 'Mode de décl.': S.trig.mode = S.trig.mode === 'Auto' ? 'Normal' : 'Auto'; flash('Mode de déclenchement: ' + S.trig.mode); touche(); break;
+  }
+}
+
+/* ========================= AIDE RAPIDE ========================= */
+const AIDES = {
+  kEntry: 'Entry: règle la case du menu marquée ⟲; un appui valide la case choisie.',
+  bIntens: 'Intensity: allumée, la molette Entry règle l\'intensité des traces.',
+  bAuto: 'Auto Scale: règle automatiquement voies, base de temps et déclenchement.',
+  bDef: 'Default Setup: rappelle la configuration par défaut.',
+  kTdiv: 'Molette horizontale: base de temps (s/div). Le réglage fin se choisit dans Acquire.',
+  kDelay: 'Position horizontale: retard du point de déclenchement; un appui le remet à zéro.',
+  acq: 'Acquire: mode d\'acquisition (normal, crête, moyennage, haute résolution), mode XY ou Roll, référence de temps.',
+  bRun: 'Run/Stop: lance ou arrête les acquisitions (vert: en marche, rouge: arrêté).',
+  bSingle: 'Single: une seule acquisition au prochain déclenchement.',
+  kNiv: 'Level: niveau de déclenchement; un appui le place au milieu du signal (50 %).',
+  trig: 'Trigger: type (front ou largeur d\'impulsion), source (1, 2, Ext, secteur), pente.',
+  bForce: 'Force: provoque une acquisition sans attendre le déclenchement.',
+  trigmode: 'Mode/Coupling: mode Auto ou Normal, couplage CC, CA, réjection BF, réjection HF et du bruit, holdoff.',
+  kCurs: 'Molette Cursors: déplace le curseur choisi; un appui change de curseur.',
+  curs: 'Cursors: curseurs manuels ou en mode suivi de la trace.',
+  meas: 'Meas: mesures automatiques (jusqu\'à 4), tableau « Tout mesurer », statistiques.',
+  util: 'Utility: choix de l\'action rapide.',
+  bQA: 'Quick Action: exécute l\'action choisie dans Utility.',
+  save: 'Save/Recall: enregistrer l\'écran (PNG, BMP), les données (CSV, ASCII XY, BIN) ou les réglages (.scp).',
+  bUSB: 'Save to USB: enregistre aussitôt avec le format choisi dans Save/Recall.',
+  disp: 'Display: persistance, effacement, intensité de la grille et des traces.',
+  bMath: 'Math: opération entre voies (+, −, ×) ou dérivée, intégrale d\'une voie.',
+  bFFT: 'FFT: spectre d\'une voie (fenêtres Hanning, Flat Top, rectangulaire, Blackman-Harris).',
+  bC1: 'Touche 1: allume la voie 1 et ouvre son menu; nouvel appui menu ouvert: l\'éteint.',
+  bC2: 'Touche 2: allume la voie 2 et ouvre son menu; nouvel appui menu ouvert: l\'éteint.',
+  kV1: 'Sensibilité de la voie 1 (V/div); un appui bascule le réglage fin.', kV2: 'Sensibilité de la voie 2 (V/div); un appui bascule le réglage fin.',
+  kP1: 'Position verticale de la voie 1; un appui la remet à zéro.', kP2: 'Position verticale de la voie 2; un appui la remet à zéro.',
+  bBack: 'Back: remonte d\'un niveau dans les menus, ferme le menu au niveau le plus haut.',
+  bHelp: 'Help: aide rapide sur la prochaine touche.'
+};
+function aideTouche(id) { S.aide = false; document.getElementById('bHelp').classList.remove('on'); flash(AIDES[id] || 'Pas d\'aide pour cette commande'); }
+
+/* ========================= BOUCLE ========================= */
 function boucle(ts) {
   const now = ts / 1000;
-  if (dirty) { rebuild(); dirty = false; }
-  if (S.run) {
+  if (dirty) { rebuild(); dirty = false; RID++; TRC = null; }
+  if (S.run && !S.fige) {
     const W = 10 * S.tdiv, lent = S.horiz !== 'Roll' && W >= 0.5;
     if (lent) { if (!ACQ || ACQ.ver !== S.ver || !ACQ.lent || now - ACQ.time >= ACQ.W) acquerir(now, false); }
     else if (now - dernierEssai > 1 / 30) { dernierEssai = now; acquerir(now, false); }
   }
   if (ACQ && (now - dernieresMes > 0.35 || mesVer !== S.ver) && (S.run || mesVer !== S.ver)) {
-    dernieresMes = now; mesVer = S.ver;
-    S.mres = S.meas.map(m => ({ txt: mesureTxt(m), src: m.src }));
+    dernieresMes = now; mesVer = S.ver; majMesures();
   }
+  suiviCurseurs();
   dessinerEcran(now);
   requestAnimationFrame(boucle);
 }
 
 /* ---------- touches de l'oscilloscope ---------- */
 function majTouches() {
-  document.querySelectorAll('[data-k]').forEach(b => b.classList.toggle('on', S.menu === b.dataset.k));
-  document.getElementById('bMath').classList.toggle('on', S.menu === 'math' || mathOn());
+  document.querySelectorAll('[data-k]').forEach(b => b.classList.toggle('on', S.menu === b.dataset.k || (b.dataset.k === 'trig' && S.menu === 'trigmode') ||
+    (b.dataset.k === 'meas' && /^meas/.test(S.menu || '')) || (b.dataset.k === 'save' && ['saveS', 'saveImg', 'saveDat', 'rcl', 'defe'].includes(S.menu))));
+  document.getElementById('bMath').classList.toggle('on', mathTemp() || S.menu === 'math');
+  document.getElementById('bFFT').classList.toggle('on', fftOn());
   document.getElementById('bC1').classList.toggle('on', S.ch[0].on);
   document.getElementById('bC2').classList.toggle('on', S.ch[1].on);
-  document.querySelector('#bRun .led').className = 'led ' + (S.run ? 'vert' : 'rouge');
-  document.querySelector('#bSingle .led').className = 'led ' + (S.single ? 'jaune' : '');
+  document.getElementById('bRun').classList.toggle('stop', !S.run);
+  document.getElementById('bSingle').classList.toggle('on', S.single);
+  document.getElementById('bIntens').classList.toggle('on', S.intensMode);
+  document.getElementById('bHelp').classList.toggle('on', S.aide);
 }
-document.querySelectorAll('[data-k]').forEach(b => b.addEventListener('click', () => ouvrirMenu(b.dataset.k)));
-[0, 1].forEach(k => document.getElementById('bC' + (k + 1)).addEventListener('click', () => {
+function bouton(el, fn) {
+  el.addEventListener('click', () => { const id = el.id || el.dataset.k; if (S.aide && id !== 'bHelp') { aideTouche(id); return; } fn(); });
+}
+document.querySelectorAll('[data-k]').forEach(b => bouton(b, () => { if (S.menu === b.dataset.k) ouvrirMenu(null); else ouvrirMenu(b.dataset.k); }));
+document.querySelectorAll('[data-ns]').forEach(b => bouton(b, () => nsim(b.dataset.ns)));
+[0, 1].forEach(k => bouton(document.getElementById('bC' + (k + 1)), () => {
   const c = S.ch[k], id = 'ch' + k;
   if (!c.on) { c.on = true; ouvrirMenu(id); }
   else if (S.menu === id) { c.on = false; S.menu = null; }
   else ouvrirMenu(id);
   touche(); majTouches();
 }));
-document.getElementById('bRun').addEventListener('click', () => { S.run = !S.run; S.single = false; majTouches(); });
-document.getElementById('bSingle').addEventListener('click', () => { S.run = true; S.single = true; touche(); majTouches(); });
-document.getElementById('bAuto').addEventListener('click', () => autoScale());
-document.getElementById('bDef').addEventListener('click', () => { S = defautsScope(); ACQ = null; modele(); majTouches(); flash('Configuration par défaut'); });
-document.getElementById('bForce').addEventListener('click', () => { if (dirty) { rebuild(); dirty = false; } acquerir(performance.now() / 1000, true); });
+bouton(document.getElementById('bMath'), () => {
+  if (S.menu === 'math') { if (mathTemp()) S.math.op = 'Non'; ouvrirMenu(null); }
+  else { if (!mathTemp()) { S.math.op = '1+2'; echelleMath(); } ouvrirMenu('math'); }
+  touche(); majTouches();
+});
+bouton(document.getElementById('bFFT'), () => {
+  if (S.menu === 'fft' && fftOn()) { S.math.op = 'Non'; ouvrirMenu(null); }
+  else { if (!fftOn()) { S.math.op = 'FFT'; fftAuto(); } ouvrirMenu('fft'); }
+  touche(); majTouches();
+});
+bouton(document.getElementById('bRun'), () => { S.run = !S.run; S.single = false; S.fige = false; majTouches(); });
+bouton(document.getElementById('bSingle'), () => { S.run = true; S.single = true; S.fige = false; touche(); majTouches(); });
+bouton(document.getElementById('bAuto'), () => autoScale());
+bouton(document.getElementById('bDef'), () => configDefaut());
+bouton(document.getElementById('bForce'), () => { if (dirty) { rebuild(); dirty = false; RID++; TRC = null; } acquerir(performance.now() / 1000, true); });
+bouton(document.getElementById('bBack'), () => { retour(); majTouches(); });
+bouton(document.getElementById('bIntens'), () => { S.intensMode = !S.intensMode; majTouches(); if (S.intensMode) flash('Molette Entry: intensité des traces'); });
+bouton(document.getElementById('bQA'), () => actionRapide());
+bouton(document.getElementById('bUSB'), () => enregistrer());
+document.getElementById('bHelp').addEventListener('click', () => { S.aide = !S.aide; majTouches(); if (S.aide) flash('Aide rapide: appuyer sur une touche ou tourner une molette'); });
 (function () {
   const z = document.getElementById('oSofts');
   for (let i = 0; i < 6; i++) { const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-label', 'Touche de menu ' + (i + 1)); b.addEventListener('click', () => softkey(i)); z.appendChild(b); }
 })();
-molette('kEntry', d => { const m = menuObj(); if (m && S.entry >= 0 && m.items[S.entry] && m.items[S.entry].knob) { m.items[S.entry].knob(d); if (S.menu !== 'curs' && S.menu !== 'disp') touche(); } }, () => { const m = menuObj(); if (m && S.entry >= 0 && m.items[S.entry] && m.items[S.entry].act) { m.items[S.entry].act(); touche(); } }, 'Molette de réglage');
-molette('kTdiv', d => tournerT(d), null, 'Base de temps (s/div)');
+molette('kEntry', d => tournerEntry(d), () => pousserEntry(), 'Molette Entry');
+molette('kTdiv', d => tournerT(d), () => { S.finT = !S.finT; if (!S.finT) S.tdiv = reglerSel(TDIV, S.tdiv, 0); flash('Base de temps: réglage ' + (S.finT ? 'fin' : 'calibré')); touche(); }, 'Base de temps (s/div)');
 molette('kDelay', d => { S.delay = +(S.delay + d * S.tdiv / 10).toPrecision(10); flash('Retard: ' + fmtSI(S.delay, 's', 4)); touche(); }, () => { S.delay = 0; flash('Retard: 0 s'); touche(); }, 'Position horizontale (retard)');
 molette('kNiv', d => tournerNiveau(d), () => niveau50(), 'Niveau de déclenchement');
+molette('kCurs', d => bougerCurseur(d), () => { if (S.cur.mode === 'Non') S.cur.mode = 'Manuel'; else S.cur.sel = (S.cur.sel + 1) % CURSEL.length; flash('Curseur: ' + CURSEL[S.cur.sel]); }, 'Molette des curseurs');
 molette('kV1', d => tournerV(0, d), () => { S.ch[0].fin = !S.ch[0].fin; if (!S.ch[0].fin) S.ch[0].vdiv = snapV(0, S.ch[0].vdiv); flash('Réglage fin voie 1: ' + (S.ch[0].fin ? 'oui' : 'non')); }, 'Sensibilité voie 1 (V/div)');
 molette('kV2', d => tournerV(1, d), () => { S.ch[1].fin = !S.ch[1].fin; if (!S.ch[1].fin) S.ch[1].vdiv = snapV(1, S.ch[1].vdiv); flash('Réglage fin voie 2: ' + (S.ch[1].fin ? 'oui' : 'non')); }, 'Sensibilité voie 2 (V/div)');
 molette('kP1', d => tournerP(0, d), () => { S.ch[0].pos = 0; flash('Position voie 1: 0 V'); touche(); }, 'Position verticale voie 1');
@@ -1465,17 +2241,17 @@ function posEcran(e) { const r = cv.getBoundingClientRect(); return { x: (e.clie
 cv.addEventListener('pointerdown', e => {
   const p = posEcran(e);
   if (p.y >= YK) { softkey(Math.floor(p.x / (SW / 6))); return; }
-  if (!S.cur.on || p.y < GY || p.y > GY + GH) return;
+  if (S.cur.mode === 'Non' || p.y < GY || p.y > GY + GH || p.x > GX + GW) return;
   const c = S.cur; let best = null, bd = 9;
   for (let i = 0; i < 2; i++) {
     const dx = Math.abs(p.x - (GX + GW / 2 + c.x[i] * DX)); if (dx < bd) { bd = dx; best = { a: 'x', i }; }
-    const dy = Math.abs(p.y - (GY + GH / 2 - c.y[i] * DY)); if (dy < bd) { bd = dy; best = { a: 'y', i }; }
+    if (c.mode === 'Manuel') { const dy = Math.abs(p.y - (GY + GH / 2 - c.y[i] * DY)); if (dy < bd) { bd = dy; best = { a: 'y', i }; } }
   }
   if (best) { glisse = best; cv.setPointerCapture(e.pointerId); c.sel = best.a === 'x' ? best.i : 3 + best.i; }
 });
 cv.addEventListener('pointermove', e => {
   const p = posEcran(e);
-  if (!glisse) { cv.style.cursor = (S.cur.on && p.y < YK) ? 'crosshair' : (p.y >= YK ? 'pointer' : 'default'); return; }
+  if (!glisse) { cv.style.cursor = (S.cur.mode !== 'Non' && p.y < YK && p.x < GX + GW) ? 'crosshair' : (p.y >= YK ? 'pointer' : 'default'); return; }
   if (glisse.a === 'x') S.cur.x[glisse.i] = clamp((p.x - GX - GW / 2) / DX, -5, 5);
   else S.cur.y[glisse.i] = clamp((GY + GH / 2 - p.y) / DY, -4, 4);
 });
@@ -1785,6 +2561,7 @@ function construireMontage() {
     CIR.probe[k] = +b.dataset.v; majMontage(); modele();
   })));
   document.getElementById('theoChk').addEventListener('change', theorie);
+  document.getElementById('syncChk').addEventListener('change', e => { CIR.sync = e.target.checked; touche(); });
 }
 function majMontage() {
   document.querySelectorAll('#cirTypes button').forEach(b => b.classList.toggle('actif', b.dataset.t === CIR.type));
