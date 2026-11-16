@@ -113,6 +113,7 @@ button.k.mth.on { background: linear-gradient(#f4dcfc, var(--cm)); border-color:
 button.k.run { background: linear-gradient(#b8f5c0, #39c44f); border-color: #237a31; font-weight: 700; }
 button.k.run.stop { background: linear-gradient(#ffc4c4, #e84040); border-color: #8e2020; color: #fff; }
 button.k.sgl.on { background: linear-gradient(#fff1b8, #ffc531); border-color: #a77d00; }
+button.k.wg.on { background: linear-gradient(#d9ffd2, #7fe26e); border-color: #3f9a32; box-shadow: 0 0 6px #7fe26e; }
 button.k.int { width: 22px; height: 22px; border-radius: 50%; padding: 0; font-size: 12px; }
 button.k.int.on { background: radial-gradient(circle, #fff7c2, #f2cf3c); }
 button.k.back { position: absolute; left: 36px; top: 550px; width: 40px; height: 28px; font-size: 16px; padding: 0; }
@@ -211,7 +212,7 @@ details.aide li { margin-bottom: 3px; }
       <div class="ks-softs" id="oSofts"></div>
       <div class="ks-bas">
         <div class="col"><div class="marche" title="Interrupteur">⏻</div><span class="ksl">Power</span></div>
-        <div class="col"><div class="bnc" title="Sortie du générateur intégré (Wave Gen, non simulé)"></div><span class="ksl">Gen Out</span></div>
+        <div class="col"><div class="bnc" title="Sortie du générateur intégré (Wave Gen)"></div><span class="ksl">Gen Out</span></div>
         <div class="col"><div class="dig" title="Entrée des voies logiques (non simulée)"></div><span class="ksl">DIGITAL</span></div>
         <div class="col"><div class="usb" title="Port USB (les fichiers enregistrés sont téléchargés)"></div><span class="ksl">USB</span></div>
         <div class="col"><div class="lig" style="gap:10px"><div class="borne"></div><div class="borne"></div><div class="borne"></div></div><span class="ksl">Demo 2 · Probe Comp · Demo 1</span></div>
@@ -262,7 +263,7 @@ details.aide li { margin-bottom: 3px; }
           <div class="st">Tools</div>
           <div class="grk" style="grid-template-columns:1fr 1fr">
             <button class="k" data-k="util">Utility</button><button class="k" id="bQA">Quick<br>Action</button>
-            <button class="k" id="bWG">Wave<br>Gen</button><button class="k" data-ns="Analyze">Analyze</button>
+            <button class="k wg" id="bWG">Wave<br>Gen</button><button class="k" data-ns="Analyze">Analyze</button>
           </div>
         </div>
         <div class="sec" style="left:196px;top:284px;width:112px;height:54px">
@@ -353,8 +354,9 @@ details.aide li { margin-bottom: 3px; }
 
       <!-- ============ MONTAGE ============ -->
       <section class="montage" aria-label="Montage" data-mt-vue="Montage">
-        <h2>Montage entre le GBF et l'oscilloscope</h2>
+        <h2>Montage entre le générateur et l'oscilloscope</h2>
         <div class="schema"><svg id="schema" viewBox="0 0 500 190" role="img" aria-label="Schéma du montage"></svg></div>
+        <div class="sondes"><span>Source du montage <span class="seg" id="srcSeg"><button data-v="gbf">GBF (DG1022)</button><button data-v="wg">Gen Out de l'oscilloscope</button></span></span></div>
         <div class="puces" id="cirTypes"></div>
         <div id="reglages" style="display:flex;flex-direction:column;gap:6px"></div>
         <div class="sondes">
@@ -371,7 +373,8 @@ details.aide li { margin-bottom: 3px; }
   <details class="aide" data-mt-vue="Mode d'emploi">
     <summary>Mode d'emploi</summary>
     <ul>
-      <li><b>Façade</b>: disposition inspirée du Keysight DSO-X 2002A (touches en anglais comme sur l'appareil, menus à l'écran en français). La barre de droite de l'écran affiche en permanence l'acquisition, les voies, puis les curseurs ou les mesures. Les touches Search, Navigate, Zoom, Serial, Digital, Ref, Label, Analyze, Print et Wave Gen ne sont pas simulées.</li>
+      <li><b>Façade</b>: disposition inspirée du Keysight DSO-X 2002A (touches en anglais comme sur l'appareil, menus à l'écran en français). La barre de droite de l'écran affiche en permanence l'acquisition, les voies, puis les curseurs ou les mesures. Les touches Search, Navigate, Zoom, Serial, Digital, Ref, Label, Analyze et Print ne sont pas simulées.</li>
+      <li><b>Wave Gen</b> (générateur intégré, sortie Gen Out): un appui ouvre le menu et active la sortie; menu ouvert, un nouvel appui la coupe. Choisir « Gen Out » comme source sous le montage. Sinus jusqu'à 20 MHz, carré et impulsion jusqu'à 10 MHz, rampe jusqu'à 100 kHz, amplitude de 20 mVpp à 5 Vpp (à vide), décalage ±2,5 V, résistance de sortie 50 Ω. <b>Impulsions très fines</b> (largeur jusqu'à 20 ns): à basse fréquence, on obtient un quasi peigne de Dirac, dont le spectre (Math → FFT) est un peigne de raies d'amplitudes presque égales. Attention: à grand s/div l'échantillonnage peut manquer les impulsions; le mode d'acquisition « Crête » (Acquire) les retrouve. Avec une sonde ×1 (bande passante 6 MHz), une impulsion de 20 ns est très atténuée et élargie: prendre une sonde ×10 (en la déclarant dans le menu de la voie) pour la voir avec son amplitude. Les molettes avancent en 1-2-5; un appui sur Entry (ou Réglages → Pas) passe en pas fin.</li>
       <li><b>Horiz</b>: mode de la base de temps (normal, <b>XY</b>, Roll), réglage fin, référence de temps. <b>Acquire</b>: mode d'acquisition (normal, crête, moyennage, haute résolution).</li>
       <li><b>Math</b>: l'opérateur se choisit dans le menu (1+2, 1−2, 1×2, d/dt, ∫dt ou <b>FFT</b>); la formule f(t) s'affiche dans le titre du menu. Les deux molettes à droite des touches Serial… Ref règlent l'échelle et la position de la fonction Math.</li>
       <li><b>Molettes</b>: molette de la souris, glisser vers le haut ou la droite, ou clic sur la moitié gauche/droite. Pour le niveau de déclenchement, les positions, le retard et les curseurs, un mouvement rapide accélère le réglage. <b>Appuyer sur une molette</b>: maintenir le clic une demi-seconde sans bouger (elle s'éclaire) puis relâcher (niveau à 50 %, retard ou position à zéro, réglage fin, choix du curseur).</li>
@@ -422,8 +425,15 @@ function defautsGBF() {
     ce: { freq: 3, per: -6, amp: -1, hi: -1, off: -1, lo: -1, phase: 0, duty: 0, sym: 0, pw: -6 },
     menu: 'params', entry: null, msg: '', msgT: 0 };
 }
-const CIR = { type: 'RC_C', R: 1000, C: 100e-9, L: 10e-3, r: 10, probe: [1, 1], sync: false };
+const CIR = { type: 'RC_C', R: 1000, C: 100e-9, L: 10e-3, r: 10, probe: [1, 1], sync: false, src: 'gbf' };
 let G = defautsGBF();
+/* générateur intégré de l'oscilloscope (option Wave Gen du DSO-X 2002A, sortie Gen Out) */
+function defautsWG() {
+  return { wave: 'sine', freq: 1000, vpp: 1, offset: 0, duty: 50, sym: 50, pw: 1e-6, pe: 10e-9, nbw: 20e6, phase: 0,
+    load: 'HZ', out: false, fin: false };
+}
+let WG = defautsWG();
+function sourceActive() { return CIR.src === 'wg' ? WG : G; }
 /* ---------- forme arbitraire: points chargés depuis un fichier ---------- */
 const ARB_MAX = 20000;                   // nombre maximal de points rejoués
 function arbExemple() {                  // triangle échantillonné (20 points par période, 2 périodes)
@@ -579,6 +589,7 @@ function buildModel() {
 
 /* ---------- signal du générateur (f.e.m. interne) ---------- */
 function buildInput() {
+  const G = sourceActive();                // GBF ou Wave Gen, selon la source choisie sous le montage
   const g = G.load === '50' ? 2 : 1, on = G.out;
   const A = on ? g * G.vpp / 2 : 0, O = on ? g * G.offset : 0;
   if (G.wave === 'sine' || G.wave === 'dc') {
@@ -612,7 +623,9 @@ function buildInput() {
     cT[i] = pts[i][0]; uP[i] = A * pts[i][1] + O;
     sP[i] = (A * nx[1] + O - uP[i]) / (nx[0] - pts[i][0]);
   }
-  INP = { kind: 'pwl', T, cT, uP, sP, noise: G.wave === 'noise', dc: false, arb: G.wave === 'arb', dense: n > 4096 };
+  let minPiece = T - cT[n - 1];
+  for (let i = 1; i < n; i++) if (cT[i] - cT[i - 1] < minPiece) minPiece = cT[i] - cT[i - 1];
+  INP = { kind: 'pwl', T, cT, uP, sP, noise: G.wave === 'noise', dc: false, arb: G.wave === 'arb', dense: n > 4096, minPiece };
 }
 
 /* ---------- propagation exacte (entrée affine par morceaux) ---------- */
@@ -725,7 +738,13 @@ function rebuild() {
     if (a < mn[0]) mn[0] = a; if (a > mx[0]) mx[0] = a; if (b < mn[1]) mn[1] = b; if (b > mx[1]) mx[1] = b;
     x = applyE(getE(Hs[k], true), x, U[k], Sl[k]);
   }
-  TAB = { kind: 'pwl', nodeT: nodes, X, U, S: Sl, Y1, Y2, min: mn, max: mx };
+  // indices des nœuds qui sont des cassures de l'entrée (fronts): les extremums des réponses y sont souvent atteints
+  const brk = [];
+  if (!INP.noise) { let ci = 0; for (let k = 0; k < K && ci < cT.length; k++) { while (ci < cT.length && cT[ci] < nodes[k] - 1e-12 * T) ci++; if (ci < cT.length && Math.abs(cT[ci] - nodes[k]) <= 1e-12 * T) { brk.push(k); ci++; } } }
+  // intégrales cumulées sur une période (interpolation linéaire entre nœuds), pour les moyennes par intervalle (FFT)
+  const C1 = new Float64Array(K + 1), C2 = new Float64Array(K + 1);
+  for (let k = 0; k < K; k++) { const j = (k + 1) % K; C1[k + 1] = C1[k] + Hs[k] * (Y1[k] + Y1[j]) / 2; C2[k + 1] = C2[k] + Hs[k] * (Y2[k] + Y2[j]) / 2; }
+  TAB = { kind: 'pwl', nodeT: nodes, X, U, S: Sl, Y1, Y2, min: mn, max: mx, brk: Int32Array.from(brk), C: [C1, C2] };
 }
 
 /* ---------- évaluation des signaux vus par les deux voies ---------- */
@@ -796,6 +815,14 @@ function envWindow(t0, dt, N, mn, mx) {  // enveloppe min/max par point quand pl
     for (let i = 0; i <= 10; i++) {
       evalTab(t0 + j * dt + i * dt / 10, o);
       if (o[0] < a0) a0 = o[0]; if (o[0] > b0) b0 = o[0]; if (o[1] < a1) a1 = o[1]; if (o[1] > b1) b1 = o[1];
+    }
+    if (TAB.kind === 'pwl' && TAB.brk && TAB.brk.length && TAB.brk.length < 2000) {   // fronts compris dans l'intervalle (impulsions très fines)
+      const nT = TAB.nodeT, B = TAB.brk; let ta = (t0 + j * dt) % T; if (ta < 0) ta += T;
+      for (let q = 0; q < B.length; q++) {
+        let u = nT[B[q]] - ta; if (u < 0) u += T;
+        if (u <= dt) { const k = B[q], a = TAB.Y1[k], b = TAB.Y2[k];
+          if (a < a0) a0 = a; if (a > b0) b0 = a; if (b < a1) a1 = b; if (b > b1) b1 = b; }
+      }
     }
     mn[0][j] = a0; mx[0][j] = b0; mn[1][j] = a1; mx[1][j] = b1;
   }
@@ -1032,7 +1059,7 @@ function franchissements(src, L) {
     tn = TAB.nodeT; y = new Float64Array(Y.length); for (let i = 0; i < Y.length; i++) y[i] = sc * Y[i];
     exact = !filt.length;
   } else {
-    if (!CIR.sync || INP.noise || INP.dc || !G.out) return ev;
+    if (!CIR.sync || CIR.src !== 'gbf' || INP.noise || INP.dc || !G.out) return ev;
     const te = Math.min(10e-9, T / 1000);
     // réglage Phase du GBF: au front montant de la sortie Sync, la phase du signal vaut φ (front en t0 = φT/360 de la référence interne)
     const t0 = (((G.phase || 0) / 360 * T) % T + T) % T, md = t => ((t % T) + T) % T;
@@ -1167,7 +1194,10 @@ function acquerir(now, force) {
   S.attente = false;
   const y1 = new Float64Array(NS), y2 = new Float64Array(NS);
   sampleWindow(t0, dt, NS, y1, y2);
-  const env = !INP.noise && !INP.dc && dt > T / 6;
+  // enveloppe min/max: plusieurs périodes par point, ou détails plus fins qu'un point d'écran (impulsions très fines)
+  // vus par l'appareil (échantillonnage réel assez rapide) ou par la détection de crête
+  const fins = INP.kind === 'pwl' && !INP.noise && INP.minPiece < dt && (S.acq.mode === 'Crête' || 1 / frequenceEch() <= INP.minPiece);
+  const env = !INP.noise && !INP.dc && (dt > T / 6 || fins);
   let mnY = null, mxY = null;
   if (env) { mnY = [new Float64Array(NS), new Float64Array(NS)]; mxY = [new Float64Array(NS), new Float64Array(NS)]; envWindow(t0, dt, NS, mnY, mxY); }
   let v = [new Float32Array(NS), new Float32Array(NS)];
@@ -1403,10 +1433,27 @@ const FENETRES = {
   'Hanning': [0.5, 0.5], 'Flat Top': [0.21557895, 0.41663158, 0.277263158, 0.083578947, 0.006947368],
   'Rectangulaire': [1], 'Blackman-Harris': [0.35875, 0.48829, 0.14128, 0.01168]
 };
+/* moyenne de la voie k sur [a, b] (signal périodique affine par morceaux): ce que donne un enregistrement
+   rapide décimé; évite qu'un échantillonnage ponctuel manque des impulsions très fines dans la FFT */
+function primitive(k, t) {                               // ∫ sur [0, t mod T], et nombre de périodes entières
+  const T = INP.T, n = Math.floor(t / T), tm = t - n * T, nT = TAB.nodeT, K = nT.length, i = nodeIdx(tm), j = (i + 1) % K;
+  const Y = k ? TAB.Y2 : TAB.Y1, t2 = j === 0 ? T : nT[j], f = (tm - nT[i]) / (t2 - nT[i]), d = tm - nT[i];
+  return { n, c: TAB.C[k][i] + d * (Y[i] + (Y[i] + (Y[j] - Y[i]) * f)) / 2 };
+}
+function moyennesFFT(k) {
+  const N = NS, dt = ACQ.dt, out = new Float64Array(N), sc = chScale(k), CT = TAB.C[k][TAB.nodeT.length];
+  let pa = primitive(k, ACQ.t0);
+  for (let j = 0; j < N; j++) {
+    const pb = primitive(k, ACQ.t0 + (j + 1) * dt);
+    out[j] = sc * ((pb.n - pa.n) * CT + pb.c - pa.c) / dt; pa = pb;
+  }
+  return out;
+}
 function spectre() {                                    // valeurs efficaces par raie (V)
   const F = S.fft;
   if (ACQ.fft && ACQ.fft.src === F.src && ACQ.fft.fen === F.fen) return ACQ.fft.vr;
-  const v = ACQ.v[F.src], N = v.length, re = new Float64Array(N), im = new Float64Array(N), a = FENETRES[F.fen];
+  const fin = TAB && TAB.kind === 'pwl' && TAB.C && !INP.noise && INP.minPiece < ACQ.dt && S.horiz === 'Normal' && ACQ.ver === S.ver;
+  const v = fin ? moyennesFFT(F.src) : ACQ.v[F.src], N = v.length, re = new Float64Array(N), im = new Float64Array(N), a = FENETRES[F.fen];
   for (let j = 0; j < N; j++) {
     let w = 0; for (let q = 0; q < a.length; q++) w += (q % 2 ? -1 : 1) * a[q] * Math.cos(TAU * q * j / N);
     re[j] = v[j] * w;
@@ -1428,7 +1475,7 @@ function changerSpan(d) {
 }
 function fftAuto() {
   const F = S.fft; F.span = null; F.centre = null;
-  if (INP && !INP.noise && !INP.dc) { const s = seq125(1e-3, fsFFT() / 2).find(v => v >= 20 / INP.T); if (s) { F.span = s; F.centre = s / 2; } }
+  if (INP && !INP.noise && !INP.dc) { const s = seq125(1e-3, fsFFT() / 2).find(v => v >= 20 / INP.T); if (s && s <= fsFFT() / 2) { F.span = s; F.centre = s / 2; } }
   F.ref = 10; F.dbdiv = 10;
 }
 
@@ -1932,11 +1979,59 @@ function menuObj() {
       { l: 'Rappeler', v: () => 'réglages *.scp', act: () => document.getElementById('fRappel').click() }, null, null, null, null, null ] };
     case 'defe': return { titre: 'Défaut/Effacer', parent: 'save', items: [
       { l: 'Configuration', v: () => 'usine', act: () => configDefaut('Configuration usine rappelée') }, null, null, null, null, null ] };
+    case 'wg': {
+      const W = WG, it = [{ l: 'Forme', v: () => WGNOM[W.wave], act: () => { W.wave = cyc(Object.keys(WGNOM), W.wave); wgLimites(); } }];
+      const pas = W.fin ? 'fin' : '1-2-5';
+      it.push(W.wave === 'dc' || W.wave === 'noise' ? null : { l: 'Fréquence', v: () => fmtSI(W.freq, 'Hz', W.fin ? 5 : 3), knob: d => wgRegler('freq', d), act: wgFin });
+      it.push(W.wave === 'dc' ? null : { l: 'Amplitude', v: () => fmtSI(W.vpp, 'Vpp', W.fin ? 4 : 3), knob: d => wgRegler('vpp', d), act: wgFin });
+      it.push({ l: 'Décalage', v: () => fmtSI(W.offset, 'V', 3), knob: d => wgRegler('offset', d), act: wgFin });
+      if (W.wave === 'square') it.push({ l: 'Rapp. cyclique', v: () => W.duty.toFixed(W.fin ? 1 : 0) + ' %', knob: d => wgRegler('duty', d), act: wgFin });
+      else if (W.wave === 'ramp') it.push({ l: 'Symétrie', v: () => W.sym.toFixed(W.fin ? 1 : 0) + ' %', knob: d => wgRegler('sym', d), act: wgFin });
+      else if (W.wave === 'pulse') it.push({ l: 'Largeur', v: () => fmtSI(W.pw, 's', W.fin ? 4 : 3), knob: d => wgRegler('pw', d), act: wgFin });
+      else it.push(null);
+      it.push({ l: 'Réglages', v: () => (W.load === '50' ? '50 Ω' : 'High Z') + ', ' + pas, sous: 'wg2' });
+      return { titre: 'Wave Gen   ' + (W.out ? 'sortie active' : 'sortie coupée') + ' (Gen Out)', items: it };
+    }
+    case 'wg2': return { titre: 'Wave Gen: réglages', parent: 'wg', items: [
+      { l: 'Sortie', v: () => WG.out ? 'Active' : 'Coupée', act: () => { WG.out = !WG.out; modele(); } },
+      { l: 'Charge', v: () => WG.load === '50' ? '50 Ω' : 'High Z', act: () => {
+        if (WG.load === '50') { WG.load = 'HZ'; WG.vpp *= 2; WG.offset *= 2; } else { WG.load = '50'; WG.vpp /= 2; WG.offset /= 2; }
+        wgLimites(); flash(WG.load === '50' ? 'Charge 50 Ω: valeurs affichées pour une charge de 50 Ω' : 'Charge High Z: valeurs affichées à vide'); } },
+      { l: 'Pas des molettes', v: () => WG.fin ? 'Fin' : '1-2-5', act: wgFin },
+      { l: 'Réglages', v: () => 'par défaut', act: () => { const o = WG.out; WG = defautsWG(); WG.out = o; modele(); flash('Wave Gen: réglages par défaut'); } },
+      null, null ] };
     case 'util': return { titre: 'Utility', items: [
       { l: 'Action rapide', v: () => S.qa, act: () => { S.qa = cyc(QA, S.qa); } },
       { l: 'À propos', v: () => 'de l\'émulation', act: () => flash('Émulation pédagogique d\'un DSO-X 2002A, MP* Malherbe') }, null, null, null, null ] };
   }
   return null;
+}
+/* ---------- Wave Gen: limites du générateur intégré des InfiniiVision 2000 X ---------- */
+const WGNOM = { sine: 'Sinus', square: 'Carré', ramp: 'Rampe', pulse: 'Impulsion', dc: 'Continu', noise: 'Bruit' };
+const wgVmax = () => WG.load === '50' ? 1.25 : 2.5;                 // |décalage| + amplitude/2 ≤ 2,5 V à vide
+const wgFmax = () => ({ sine: 20e6, square: 10e6, pulse: 10e6, ramp: 100e3 })[WG.wave] || 20e6;
+function wgLimites() {
+  const W = WG, vm = wgVmax(), amin = W.load === '50' ? 10e-3 : 20e-3;
+  W.freq = clamp(W.freq, 0.1, wgFmax());
+  W.vpp = clamp(W.vpp, amin, 2 * vm);
+  W.offset = clamp(W.offset, -(vm - (W.wave === 'dc' ? 0 : W.vpp / 2)), vm - (W.wave === 'dc' ? 0 : W.vpp / 2));
+  W.duty = clamp(W.duty, 20, 80); W.sym = clamp(W.sym, 0, 100);
+  W.pw = clamp(W.pw, 20e-9, Math.max(20e-9, 1 / W.freq - 20e-9));
+  modele();
+}
+function wgFin() { WG.fin = !WG.fin; flash('Wave Gen: pas ' + (WG.fin ? 'fin' : '1-2-5')); }
+function wgRegler(k, d) {
+  const W = WG, f = W.fin;
+  if (k === 'freq') W.freq = f ? +(W.freq * (1 + 0.01 * d)).toPrecision(6) : reglerSel(seq125(0.1, 20e6), W.freq, d);
+  else if (k === 'vpp') {
+    W.vpp = f ? +(W.vpp * (1 + 0.01 * d)).toPrecision(5) : reglerSel(seq125(10e-3, 5), W.vpp, d);
+    const m = 2 * (wgVmax() - Math.abs(W.offset)); if (W.vpp > m) { W.vpp = m; flash('Amplitude limitée par le décalage'); }
+  }
+  else if (k === 'offset') W.offset = +(W.offset + d * (f ? 1e-3 : 50e-3)).toPrecision(6);
+  else if (k === 'duty') W.duty = +(W.duty + d * (f ? 0.1 : 1)).toFixed(1);
+  else if (k === 'sym') W.sym = +(W.sym + d * (f ? 0.1 : 1)).toFixed(1);
+  else if (k === 'pw') W.pw = f ? +(W.pw * (1 + 0.01 * d)).toPrecision(5) : reglerSel([20e-9].concat(seq125(50e-9, 10)), W.pw, d);
+  wgLimites();
 }
 function exprMath() {
   const op = S.math.op, s = 'Ch' + (S.math.src + 1);
@@ -2032,7 +2127,7 @@ function autoScale() {
   }
   if (premier < 0) { S.ch[0].on = true; premier = 0; flash('Aucun signal détecté'); }
   let td;
-  if (INP.noise) td = 1 / G.nbw;
+  if (INP.noise) td = 1 / sourceActive().nbw;
   else if (INP.dc) td = 100e-6;
   else td = INP.arb ? INP.T / 10 : INP.T / 5;
   S.tdiv = TDIV.find(v => v >= td * 0.999) || TDIV[TDIV.length - 1];
@@ -2230,7 +2325,7 @@ const AIDES = {
   util: 'Utility: choix de l\'action rapide (Quick Action).',
   bQA: 'Quick Action: exécute l\'action choisie dans Utility.',
   save: 'Save/Recall: enregistrer l\'écran (PNG, BMP), les données (CSV, ASCII XY, BIN) ou les réglages (.scp).',
-  bWG: 'Wave Gen: générateur intégré (sortie Gen Out), non simulé ici: utiliser le GBF.',
+  bWG: 'Wave Gen: générateur intégré (sortie Gen Out, à choisir comme source sous le montage); appui menu ouvert: coupe ou rétablit la sortie.',
   kMS: 'Molette d\'échelle de Math (V/div de la fonction ou de la FFT).', kMP: 'Molette de position de Math; un appui la remet à zéro.',
   disp: 'Display: persistance, effacement, intensité de la grille et des traces.',
   bMath: 'Math: opération entre voies (+, −, ×), dérivée, intégrale d\'une voie ou FFT (opérateur « FFT »).',
@@ -2271,6 +2366,7 @@ function majTouches() {
   document.getElementById('bSingle').classList.toggle('on', S.single);
   document.getElementById('bIntens').classList.toggle('on', S.intensMode);
   document.getElementById('bHelp').classList.toggle('on', S.aide);
+  document.getElementById('bWG').classList.toggle('on', WG.out);
 }
 function bouton(el, fn) {
   el.addEventListener('click', () => { const id = el.id || el.dataset.k; if (S.aide && id !== 'bHelp') { aideTouche(id); return; } fn(); });
@@ -2297,7 +2393,12 @@ bouton(document.getElementById('bForce'), () => { if (dirty) { rebuild(); dirty 
 bouton(document.getElementById('bBack'), () => { retour(); majTouches(); });
 bouton(document.getElementById('bIntens'), () => { S.intensMode = !S.intensMode; majTouches(); if (S.intensMode) flash('Molette Entry: intensité des traces'); });
 bouton(document.getElementById('bQA'), () => actionRapide());
-bouton(document.getElementById('bWG'), () => flash('Wave Gen: générateur intégré non simulé, utiliser le GBF'));
+bouton(document.getElementById('bWG'), () => {
+  if (S.menu === 'wg' || S.menu === 'wg2') { WG.out = !WG.out; flash('Wave Gen: sortie ' + (WG.out ? 'active' : 'coupée')); }
+  else { if (!WG.out) { WG.out = true; flash('Wave Gen: sortie active sur Gen Out'); } ouvrirMenu('wg'); }
+  if (WG.out && CIR.src !== 'wg') flash('Wave Gen actif: choisir « Gen Out » comme source sous le montage');
+  modele(); majTouches();
+});
 document.getElementById('bHelp').addEventListener('click', () => { S.aide = !S.aide; majTouches(); if (S.aide) flash('Aide rapide: appuyer sur une touche ou tourner une molette'); });
 (function () {
   const z = document.getElementById('oSofts');
@@ -2745,6 +2846,10 @@ function construireMontage() {
   [0, 1].forEach(k => document.querySelectorAll('#sonde' + k + ' button').forEach(b => b.addEventListener('click', () => {
     CIR.probe[k] = +b.dataset.v; majMontage(); modele();
   })));
+  document.querySelectorAll('#srcSeg button').forEach(b => b.addEventListener('click', () => {
+    CIR.src = b.dataset.v; majMontage(); modele();
+    if (CIR.src === 'wg' && !WG.out) flash('Gen Out: activer la sortie avec la touche Wave Gen');
+  }));
   document.getElementById('theoChk').addEventListener('change', theorie);
   document.getElementById('syncChk').addEventListener('change', e => { CIR.sync = e.target.checked; touche(); });
 }
@@ -2757,6 +2862,8 @@ function majMontage() {
     document.getElementById('t' + key).value = fmtSI(CIR[key], REGL[key].u, 3);
   }
   [0, 1].forEach(k => document.querySelectorAll('#sonde' + k + ' button').forEach(b => b.classList.toggle('actif', +b.dataset.v === CIR.probe[k])));
+  document.querySelectorAll('#srcSeg button').forEach(b => b.classList.toggle('actif', b.dataset.v === CIR.src));
+  document.getElementById('syncChk').disabled = CIR.src !== 'gbf';
   dessinerSchema(); theorie();
 }
 function theorie() {
@@ -2775,14 +2882,14 @@ function theorie() {
     h = (t === 'RLC_C' ? 'Passe-bas du second ordre.' : 'Passe-bande du second ordre.') +
       ` f<sub>0</sub> = 1/(2π√(LC)) = ${f(f0)}; Q = √(L/C)/(R+r) = ${Q.toPrecision(3)}` + (t === 'RLC_R' ? `; Δf = f<sub>0</sub>/Q = ${f(f0 / Q)}.` : '.');
   }
-  z.innerHTML = h + (t !== 'direct' ? '<div class="note">Valeurs calculées sans la résistance de sortie R<sub>g</sub> = 50 Ω du GBF, qui est prise en compte dans la simulation.</div>' : '');
+  z.innerHTML = h + (t !== 'direct' ? '<div class="note">Valeurs calculées sans la résistance de sortie R<sub>g</sub> = 50 Ω du générateur, qui est prise en compte dans la simulation.</div>' : '');
 }
 function dessinerSchema() {
   const svg = document.getElementById('schema'), t = CIR.type;
   const yH = 50, yB = 160, xE = 140, xS = 400;
   const st = 'stroke="#222" stroke-width="1.6" fill="none"';
   let s = `<rect x="14" y="30" width="112" height="146" rx="6" fill="#f6f8fa" stroke="#9aa3ad" stroke-dasharray="4 3"/>
-    <text x="22" y="170" font-size="11" fill="#555">GBF</text>
+    <text x="22" y="170" font-size="11" fill="#555">${CIR.src === 'wg' ? 'Gen Out' : 'GBF'}</text>
     <circle cx="50" cy="105" r="16" ${st}/><path d="M40 105 q5 -9 10 0 t10 0" ${st}/>
     <path d="M50 89 V${yH} H64 M96 ${yH} H${xE}" ${st}/>
     <rect x="64" y="${yH - 6}" width="32" height="12" fill="#fff" stroke="#222" stroke-width="1.6"/>
