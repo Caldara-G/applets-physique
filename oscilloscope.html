@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Roboto+Mono:wght@400;500&display=swap">
 <style>
-/* Banc de TP: oscilloscope (façade inspirée du DSOX1102A) en haut, GBF et montage en dessous. */
+/* Banc de TP: oscilloscope (façade inspirée du Keysight DSO-X 2002A) en haut, GBF (Rigol DG1022) et montage en dessous. */
 :root {
   --page: #eef0f3; --carte: #fff; --texte: #222; --doux: #555; --bord: #d5d9df;
   --bleu: #3b5f96; --lien: #4a6fa5; --accent: #3b6fb6;
@@ -36,7 +36,7 @@ main { max-width: 1240px; margin: 0 auto; padding-block: 12px 40px;
 .rangee { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
 .casier { width: 100%; position: relative; overflow: hidden; }
 .casier.o { max-width: 1240px; margin: 0 auto; }
-.casier.g { flex: 1 1 560px; max-width: 660px; }
+.casier.g { flex: 1 1 600px; max-width: 760px; }
 .inst { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 
 /* ---------- éléments communs ---------- */
@@ -75,17 +75,19 @@ button:focus-visible, .knob:focus-visible { outline: 2px solid var(--accent); ou
   background: radial-gradient(circle, #1b1b1b 0 16%, #d3d4d6 18% 38%, #8b8f94 40% 58%, #e3e4e6 60% 68%, #a6aaaf 70%);
   box-shadow: 0 1px 2px rgba(0,0,0,0.4); }
 
-/* ---------- oscilloscope (façade type InfiniiVision 1000 X) ---------- */
+/* ---------- oscilloscope (façade type InfiniiVision 2000 X) ---------- */
 .ks { background: linear-gradient(180deg, #e9eaec, #d4d6d9); border: 1px solid #8f949a; border-radius: 16px;
   box-shadow: 0 4px 14px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.8); }
 .ks-tete { position: absolute; left: 22px; top: 9px; width: 830px; display: flex; justify-content: space-between; align-items: baseline;
   font: 13px var(--f-ecran); color: #3a3e44; }
 .ks-tete b { font-size: 17px; letter-spacing: 0.05em; color: #1d2024; }
 .ks-tete .em { font-size: 11.5px; color: #6a7078; }
+.ks-logo { font: 700 16px var(--f-ecran); color: #1d2024; letter-spacing: 0.04em; }
+.ks-logo::first-letter { color: #d2232a; }
 .ks-cadre { position: absolute; left: 20px; top: 38px; width: 832px; height: 504px; background: #111316; border-radius: 9px;
   box-shadow: inset 0 2px 7px rgba(0,0,0,0.8), 0 0 0 3px #a9adb3; }
 .ks-cadre canvas { left: 16px; top: 12px; width: 800px; height: 480px; }
-.ks-softs { position: absolute; left: 36px; top: 553px; width: 800px; display: grid; grid-template-columns: repeat(6, 1fr); }
+.ks-softs { position: absolute; left: 96px; top: 553px; width: 740px; display: grid; grid-template-columns: repeat(6, 1fr); }
 .ks-softs button { margin: 0 22px; height: 22px; border-radius: 5px; border: 1px solid #5d6268; cursor: pointer; padding: 0;
   background: linear-gradient(#f3f4f5, #c9ccd0); box-shadow: 0 1px 0 rgba(0,0,0,0.35); }
 .ks-softs button:active { transform: translateY(1px); box-shadow: none; }
@@ -113,7 +115,10 @@ button.k.run.stop { background: linear-gradient(#ffc4c4, #e84040); border-color:
 button.k.sgl.on { background: linear-gradient(#fff1b8, #ffc531); border-color: #a77d00; }
 button.k.int { width: 22px; height: 22px; border-radius: 50%; padding: 0; font-size: 12px; }
 button.k.int.on { background: radial-gradient(circle, #fff7c2, #f2cf3c); }
-button.k.back { position: absolute; left: 864px; top: 549px; width: 40px; height: 28px; font-size: 16px; padding: 0; }
+button.k.back { position: absolute; left: 36px; top: 550px; width: 40px; height: 28px; font-size: 16px; padding: 0; }
+button.k.rond { width: 30px; height: 30px; border-radius: 50%; padding: 0; font-size: 17px; }
+button.k.nav { width: 28px; padding: 4px 0; font-size: 11px; }
+.dig { width: 150px; height: 22px; border-radius: 3px; background: repeating-linear-gradient(90deg, #2b2e33 0 5px, #6d7176 5px 7px); box-shadow: inset 0 0 0 3px #b9bdc2; }
 .grk { display: grid; gap: 5px; }
 .grk .k { width: 100%; }
 .ksl { font: 10.5px var(--f-ecran); color: #3c4046; white-space: nowrap; text-align: center; }
@@ -121,20 +126,41 @@ button.k.back { position: absolute; left: 864px; top: 549px; width: 40px; height
 .ch-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .ch-col .k.chk { width: 62px; font-weight: 700; font-size: 14px; padding: 5px 0; justify-content: center; }
 
-/* ---------- GBF ---------- */
-.panneau { position: absolute; display: flex; flex-direction: column; gap: 8px; }
-.g-cadre { left: 14px; top: 12px; width: 350px; height: 306px; }
-.g-cadre canvas { left: 15px; top: 24px; width: 320px; height: 220px; }
-.g-cadre .softs { left: 15px; top: 252px; width: 320px; }
-.g-cadre .softs button { margin: 0 6px; }
-.g-panneau { left: 378px; top: 12px; width: 268px; height: 306px; }
-.g-feat { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-.g-mid { display: flex; gap: 10px; align-items: flex-start; }
-.g-pad { display: grid; grid-template-columns: repeat(3, 40px); gap: 4px; }
-.g-pad .tk { font-family: var(--f-chiffres); font-size: 13px; padding: 4px 0; }
-.g-fl { display: flex; gap: 6px; }
-.g-fl .tk { width: 30px; padding: 3px 0; }
-.g-bas { display: flex; gap: 14px; align-items: center; }
+/* ---------- GBF (façade type Rigol DG1022) ---------- */
+.rg { background: linear-gradient(180deg, #efede4, #dcd9cd); border: 1px solid #a9a698; border-radius: 16px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.8); }
+.rg-coin { position: absolute; width: 74px; height: 40px; border-radius: 12px; background: linear-gradient(#a6aaa9, #8b8f8e); box-shadow: inset 0 2px 3px rgba(255,255,255,0.35); }
+.rg-tete { position: absolute; left: 70px; top: 28px; width: 486px; height: 42px; border: 1.5px solid #bdb9a8; border-radius: 9px;
+  display: flex; align-items: center; gap: 12px; padding-right: 10px; background: #f6f4ec; }
+.rg-logo { font: 900 25px Georgia, "Times New Roman", serif; color: #111; background: #f4c51c; border-radius: 8px 0 0 8px; padding: 2px 10px; height: 100%; display: flex; align-items: center; letter-spacing: 0.02em; }
+.rg-mod { font: 12px var(--f-ecran); color: #222; line-height: 1.15; }
+.rg-mod b { font-size: 17px; letter-spacing: 0.03em; }
+.rg-car { font: 12px var(--f-ecran); color: #222; line-height: 1.25; margin-left: auto; }
+.rg-lcd { position: absolute; left: 70px; top: 80px; width: 486px; height: 150px; border-radius: 10px; background: #d7d4c7;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.35); }
+.rg-lcd canvas { left: 17px; top: 11px; width: 452px; height: 128px; border-radius: 3px; background: #a9d6f5; }
+.rg-softs { position: absolute; left: 70px; top: 238px; width: 486px; display: grid; grid-template-columns: repeat(6, 1fr); }
+.rg-softs button { margin: 0 11px; height: 30px; border-radius: 7px; border: 1px solid #4e6474; cursor: pointer; padding: 0;
+  background: linear-gradient(#9fb6c6, #6f8a9d); box-shadow: 0 2px 0 rgba(0,0,0,0.3); }
+.rg-softs button:active { transform: translateY(1px); box-shadow: none; }
+button.rk { font: 12px var(--f-ecran); color: #2a2a2a; background: linear-gradient(#f7f7f3, #d5d4cc); border: 1px solid #9f9d92;
+  border-radius: 8px; padding: 4px 6px; cursor: pointer; line-height: 1.1; box-shadow: 0 2px 0 rgba(0,0,0,0.25); white-space: nowrap; }
+button.rk:active { transform: translateY(1px); box-shadow: none; }
+.rg-bas { position: absolute; left: 70px; top: 284px; width: 486px; display: flex; gap: 9px; align-items: center; }
+.rg-bas .rk { height: 46px; flex: 1; padding: 2px 0; }
+.rg-bas .rk.pw { flex: none; width: 46px; border-radius: 50%; font-size: 20px; color: #1a7a2a; background: radial-gradient(circle, #d9ffd2, #7fe26e); border-color: #4a9a3c; }
+.rk.wv i { display: block; font-style: normal; font-size: 15px; line-height: 1; margin-top: 2px; }
+.rk.wv.on { background: radial-gradient(circle at 50% 40%, #e9ffd9, #8ef06a); border-color: #4fae2e; box-shadow: 0 0 8px #8ef06a; }
+.rg-menu { position: absolute; left: 574px; top: 22px; width: 124px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px;
+  padding: 9px; border: 2.5px solid #1f2a33; border-radius: 9px; }
+.rg-menu .rk { height: 34px; padding: 2px 0; font-size: 11.5px; }
+.rg-menu .rk.on { background: linear-gradient(#fffbe4, #f1e3a8); border-color: #b49a3c; }
+button.rk.fl { position: absolute; width: 34px; height: 30px; padding: 0; font-size: 13px; }
+.rg-pad { position: absolute; left: 574px; top: 160px; width: 124px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 6px;
+  padding: 7px; border: 2px solid #4c7894; border-radius: 9px; }
+.rg-pad .rk { font-family: var(--f-chiffres); font-size: 13px; padding: 4px 0; height: 30px; }
+button.rk.out { position: absolute; width: 66px; height: 40px; border: 3px solid #f0a23a; border-radius: 12px; font-size: 12px; }
+button.rk.out.on { background: radial-gradient(circle, #e9ffd9, #8ef06a); box-shadow: 0 0 9px #8ef06a; }
 
 /* ---------- montage ---------- */
 .montage { flex: 1 1 380px; min-width: 0; background: var(--carte); border: 1px solid var(--bord); border-radius: 8px; padding: 12px 14px 14px;
@@ -179,96 +205,103 @@ details.aide li { margin-bottom: 3px; }
   <div class="banc">
     <!-- ============ OSCILLOSCOPE ============ -->
     <div class="casier o" data-mt-vue="Oscilloscope" data-mt-paysage><div class="inst ks" id="instO" data-w="1320" data-h="690" style="width:1320px;height:690px">
-      <div class="ks-tete"><span><b>DSOX1102A</b>&nbsp;&nbsp;InfiniiVision&nbsp;&nbsp;·&nbsp;&nbsp;Oscilloscope 70 MHz&nbsp;&nbsp;2 GSa/s</span><span class="em">émulation pédagogique</span></div>
+      <div class="ks-tete"><span><span class="ks-logo">⩘ KEYSIGHT</span>&nbsp;&nbsp;InfiniiVision&nbsp;<b>DSO-X 2002A</b>&nbsp;&nbsp;Digital Storage Oscilloscope&nbsp;&nbsp;70 MHz&nbsp;&nbsp;2 GSa/s</span><span class="em"><i>MegaZoom</i> · émulation pédagogique</span></div>
       <div class="ks-cadre"><canvas class="ecran" id="ecran" aria-label="Écran de l'oscilloscope"></canvas></div>
-      <div class="ks-softs" id="oSofts"></div>
       <button class="k back" id="bBack" title="Back: remonter d'un niveau de menu" aria-label="Back">⮌</button>
+      <div class="ks-softs" id="oSofts"></div>
       <div class="ks-bas">
         <div class="col"><div class="marche" title="Interrupteur">⏻</div><span class="ksl">Power</span></div>
+        <div class="col"><div class="bnc" title="Sortie du générateur intégré (Wave Gen, non simulé)"></div><span class="ksl">Gen Out</span></div>
+        <div class="col"><div class="dig" title="Entrée des voies logiques (non simulée)"></div><span class="ksl">DIGITAL</span></div>
         <div class="col"><div class="usb" title="Port USB (les fichiers enregistrés sont téléchargés)"></div><span class="ksl">USB</span></div>
-        <div class="col"><div class="lig" style="gap:10px"><div class="borne"></div><div class="borne"></div><div class="borne"></div></div><span class="ksl">Demo 1 · Probe Comp · ⏚</span></div>
+        <div class="col"><div class="lig" style="gap:10px"><div class="borne"></div><div class="borne"></div><div class="borne"></div></div><span class="ksl">Demo 2 · Probe Comp · Demo 1</span></div>
         <span class="sigle">MP* Malherbe</span>
       </div>
 
       <div class="ks-pan">
-        <!-- rangée 1 -->
-        <div class="sec" style="left:0;top:0;width:96px;height:170px">
-          <div class="st">Entry</div>
-          <div class="col" style="gap:6px"><div class="knob" id="kEntry" style="--d:62px"></div><span class="ksl">⟲ Push to select</span>
-            <button class="k int" id="bIntens" title="Intensity: la molette Entry règle l'intensité des traces">☼</button><span class="ksl">Intensity</span></div>
-        </div>
-        <div class="nu grk" style="left:104px;top:22px;width:88px">
-          <button class="k" id="bAuto">Auto Scale</button>
-          <button class="k" id="bDef">Default Setup</button>
-          <button class="k" id="bHelp" style="margin-top:14px">Help</button>
-          <button class="k" data-ns="Bus">Bus</button>
-        </div>
-        <div class="sec" style="left:200px;top:0;width:126px;height:170px">
+        <!-- rangée 1: horizontal et Run Control -->
+        <div class="sec" style="left:0;top:0;width:252px;height:146px">
           <div class="st">Horizontal</div>
-          <div class="lig" style="align-items:flex-start;gap:6px">
-            <div class="col"><div class="knob" id="kTdiv" style="--d:58px"></div><span class="ksl">s/div</span></div>
-            <div class="col" style="gap:6px"><button class="k" data-k="acq">Acquire</button><button class="k" data-ns="Zoom">Zoom</button></div>
+          <div class="lig" style="align-items:flex-start;gap:8px">
+            <div class="col"><div class="knob" id="kTdiv" style="--d:60px"></div><span class="ksl">s/div · push for fine</span></div>
+            <div class="grk" style="width:62px"><button class="k" data-k="horiz">Horiz</button><button class="k" data-ns="Search">Search</button></div>
+            <div class="col" style="gap:5px"><button class="k rond" data-ns="Zoom" title="Zoom" aria-label="Zoom">⌕</button><div class="knob" id="kDelay" style="--d:30px"></div><span class="ksl">◁ ▷</span></div>
           </div>
-          <div class="lig" style="margin-top:4px;gap:6px"><div class="knob" id="kDelay" style="--d:30px"></div><span class="ksl">◁ Position ▷</span></div>
+          <div class="lig" style="margin-top:6px;gap:6px">
+            <button class="k" data-ns="Navigate">Navigate</button>
+            <button class="k nav" data-ns="Navigate" aria-label="Précédent">◀</button><button class="k nav" data-ns="Navigate" aria-label="Arrêt">■</button><button class="k nav" data-ns="Navigate" aria-label="Suivant">▶</button>
+          </div>
         </div>
-        <div class="sec" style="left:334px;top:0;width:86px;height:170px">
+        <div class="sec" style="left:260px;top:0;width:160px;height:146px">
           <div class="st">Run Control</div>
-          <div class="grk"><button class="k run" id="bRun" style="height:58px">Run<br>Stop</button><button class="k sgl" id="bSingle" style="height:36px">Single</button></div>
+          <div class="grk" style="grid-template-columns:1fr 1fr">
+            <button class="k run" id="bRun" style="height:46px">Run<br>Stop</button><button class="k sgl" id="bSingle" style="height:46px">Single</button>
+            <button class="k" id="bDef" style="margin-top:8px">Default<br>Setup</button><button class="k" id="bAuto" style="margin-top:8px">Auto<br>Scale</button>
+          </div>
         </div>
-        <!-- rangée 2 -->
-        <div class="sec" style="left:0;top:178px;width:164px;height:156px">
+        <!-- rangée 2: Entry, Trigger, Measure, Tools, Waveform, File, touches de droite -->
+        <div class="nu col" style="left:0;top:156px;width:68px;gap:6px">
+          <div class="knob" id="kEntry" style="--d:54px"></div><span class="ksl">⟲ Push to<br>Select</span>
+          <button class="k int" id="bIntens" title="Intensity: la molette Entry règle l'intensité des traces">☼</button><span class="ksl">Intensity</span>
+        </div>
+        <div class="sec" style="left:74px;top:154px;width:116px;height:124px">
           <div class="st">Trigger</div>
-          <div class="lig" style="align-items:flex-start">
-            <div class="col"><div class="knob" id="kNiv" style="--d:46px"></div><span class="ksl">Level</span><span class="ksl" style="color:#777">(push 50 %)</span></div>
-            <div class="grk" style="flex:1"><button class="k" data-k="trig">Trigger</button><button class="k" id="bForce">Force</button><button class="k" data-k="trigmode">Mode/Coupling</button></div>
+          <div class="grk" style="grid-template-columns:1fr 1fr;align-items:center">
+            <button class="k" data-k="trig">Trigger</button><button class="k" id="bForce">Force<br>Trigger</button>
+            <div class="col"><div class="knob" id="kNiv" style="--d:40px"></div><span class="ksl">Level</span></div><button class="k" data-k="trigmode">Mode<br>Coupling</button>
           </div>
         </div>
-        <div class="sec" style="left:172px;top:178px;width:116px;height:156px">
+        <div class="sec" style="left:196px;top:154px;width:112px;height:124px">
           <div class="st">Measure</div>
-          <div class="lig" style="align-items:flex-start;gap:6px">
-            <div class="col"><div class="knob" id="kCurs" style="--d:36px"></div><span class="ksl">Cursors</span></div>
-            <div class="grk" style="flex:1"><button class="k" data-k="curs">Cursors</button><button class="k" data-k="meas">Meas</button><button class="k" data-ns="Analyze">Analyze</button></div>
+          <div class="grk" style="grid-template-columns:1fr 1fr;align-items:center">
+            <button class="k" data-k="curs">Cursors</button><div class="col" style="grid-row:span 2"><div class="knob" id="kCurs" style="--d:38px"></div><span class="ksl">Cursors</span></div>
+            <button class="k" data-k="meas">Meas</button>
           </div>
         </div>
-        <div class="sec" style="left:296px;top:178px;width:124px;height:156px">
+        <div class="sec" style="left:74px;top:284px;width:116px;height:112px">
           <div class="st">Tools</div>
           <div class="grk" style="grid-template-columns:1fr 1fr">
             <button class="k" data-k="util">Utility</button><button class="k" id="bQA">Quick<br>Action</button>
-            <button class="k" data-k="save">Save/<br>Recall</button><button class="k" id="bUSB">Save to<br>USB</button>
-            <button class="k" data-k="disp" style="grid-column:span 2">Display</button>
+            <button class="k" id="bWG">Wave<br>Gen</button><button class="k" data-ns="Analyze">Analyze</button>
           </div>
         </div>
-        <!-- rangée 3 -->
-        <div class="sec" style="left:0;top:342px;width:420px;height:46px">
-          <div class="lig" style="gap:8px">
-            <div class="st" style="margin:0;width:66px">Waveform</div>
-            <button class="k mth" id="bMath" style="width:70px">Math</button>
-            <button class="k mth" id="bFFT" style="width:70px">FFT</button>
-            <button class="k" data-ns="Ref" style="width:70px">Ref</button>
-            <span class="ksl" style="margin-left:auto;color:#777">Wave Gen: modèles G</span>
+        <div class="sec" style="left:196px;top:284px;width:112px;height:54px">
+          <div class="st">Waveform</div>
+          <div class="grk" style="grid-template-columns:1fr 1fr"><button class="k" data-k="acq">Acquire</button><button class="k" data-k="disp">Display</button></div>
+        </div>
+        <div class="sec" style="left:196px;top:342px;width:112px;height:54px">
+          <div class="st">File</div>
+          <div class="grk" style="grid-template-columns:1fr 1fr"><button class="k" data-k="save">Save<br>Recall</button><button class="k" data-ns="Print">Print</button></div>
+        </div>
+        <div class="sec" style="left:314px;top:154px;width:106px;height:242px">
+          <div class="grk" style="grid-template-columns:52px 1fr;align-items:center;row-gap:8px">
+            <button class="k" data-ns="Serial">Serial</button><div class="col"><div class="knob" id="kMS" style="--d:36px"></div><span class="ksl">push fine</span></div>
+            <button class="k" data-ns="Digital">Digital</button><span></span>
+            <button class="k mth" id="bMath">Math</button><div class="col"><div class="knob" id="kMP" style="--d:36px"></div><span class="ksl">push zero</span></div>
+            <button class="k" data-ns="Ref">Ref</button><span></span>
           </div>
         </div>
-        <!-- rangée 4 -->
-        <div class="sec" style="left:0;top:396px;width:420px;height:280px">
+        <!-- rangée 3: vertical -->
+        <div class="sec" style="left:0;top:404px;width:420px;height:272px">
           <div class="st">Vertical</div>
           <div class="lig" style="justify-content:space-around;align-items:flex-start">
             <div class="ch-col">
+              <div class="knob" id="kV1" style="--d:62px"></div><span class="ksl">V/div · push for fine</span>
               <button class="k chk ch1" id="bC1">1</button>
-              <div class="knob" id="kV1" style="--d:60px"></div><span class="ksl">Scale (V/div)</span>
-              <div class="knob" id="kP1" style="--d:30px"></div><span class="ksl">Position</span>
-              <div class="bnc gros" title="Entrée 1"></div><span class="ksl"><b>1</b></span>
+              <div class="knob" id="kP1" style="--d:30px"></div><span class="ksl">push to zero</span>
+              <div class="bnc gros" title="Entrée 1 (X)"></div><span class="ksl"><b>1</b> · X</span>
             </div>
-            <div class="ch-col" style="padding-top:34px;gap:6px">
-              <span class="ksl">1 MΩ ≈ 11 pF</span><span class="ksl">≤ 300 V eff</span>
-              <div style="height:62px"></div>
-              <div class="bnc" title="Entrée de déclenchement externe"></div><span class="ksl">Ext Trig</span>
+            <div class="ch-col" style="padding-top:70px;gap:8px">
+              <button class="k" data-ns="Label">Label</button>
+              <span class="ksl" style="margin-top:62px">1 MΩ ≈ 11 pF</span><span class="ksl">300 V RMS</span>
             </div>
             <div class="ch-col">
+              <div class="knob" id="kV2" style="--d:62px"></div><span class="ksl">V/div · push for fine</span>
               <button class="k chk ch2" id="bC2">2</button>
-              <div class="knob" id="kV2" style="--d:60px"></div><span class="ksl">Scale (V/div)</span>
-              <div class="knob" id="kP2" style="--d:30px"></div><span class="ksl">Position</span>
-              <div class="bnc gros" title="Entrée 2"></div><span class="ksl"><b>2</b></span>
+              <div class="knob" id="kP2" style="--d:30px"></div><span class="ksl">push to zero</span>
+              <div class="bnc gros" title="Entrée 2 (Y)"></div><span class="ksl"><b>2</b> · Y</span>
             </div>
+            <div class="ch-col" style="padding-top:70px"><button class="k" id="bHelp">Help</button></div>
           </div>
         </div>
       </div>
@@ -277,34 +310,45 @@ details.aide li { margin-bottom: 3px; }
 
     <div class="rangee">
       <!-- ============ GBF ============ -->
-      <div class="casier g" data-mt-vue="GBF" data-mt-paysage><div class="inst boitier" id="instG" data-w="660" data-h="330" style="width:660px;height:330px">
-        <div class="cadre g-cadre">
-          <div class="marque"><b>33500B</b> · générateur de fonctions · émulation</div>
-          <canvas class="ecran" id="gecran" aria-label="Écran du générateur"></canvas>
-          <div class="softs" id="gSofts"></div>
+      <div class="casier g" data-mt-vue="GBF" data-mt-paysage><div class="inst rg" id="instG" data-w="860" data-h="372" style="width:860px;height:372px">
+        <div class="rg-coin" style="left:0;top:0;border-radius:15px 4px 10px 4px"></div><div class="rg-coin" style="right:0;top:0;border-radius:4px 15px 4px 10px"></div>
+        <div class="rg-tete">
+          <span class="rg-logo">RIGOL</span>
+          <span class="rg-mod"><b>DG1022</b><br>Function/Arbitrary Waveform Generator</span>
+          <span class="rg-car">2 Channel<span style="margin-left:22px">20MHz</span><br><span style="margin-left:68px">100MSa/s</span></span>
         </div>
-        <div class="panneau g-panneau">
-          <div class="g-feat">
-            <button class="tk" data-g="waves">Formes d'onde</button>
-            <button class="tk" data-g="params">Paramètres</button>
-            <button class="tk" data-g="units">Unités</button>
-            <button class="tk" data-g="sortie">Param. sortie</button>
-          </div>
-          <div class="g-mid">
-            <div class="col" style="gap:6px">
-              <div class="knob" id="gKnob" style="--d:68px"></div>
-              <div class="g-fl"><button class="tk" id="gG" aria-label="Chiffre vers la gauche">◀</button><button class="tk" id="gD" aria-label="Chiffre vers la droite">▶</button></div>
-              <button class="tk" data-p="⌫" style="width:66px">⌫ Effacer</button>
-            </div>
-            <div class="g-pad" id="gPad"></div>
-          </div>
-          <div class="g-bas">
-            <button class="tk" id="gOut" style="padding:6px 10px"><i class="led"></i>Sortie</button>
-            <button class="tk" id="gArb" style="padding:6px 10px" title="Forme arbitraire: rejouer les points d'un fichier CSV ou texte">Charger un<br>fichier (Arb)</button>
-            <div class="col"><div class="bnc"></div><span class="kl">Sortie 50 Ω</span></div>
-            <div class="col"><div class="bnc"></div><span class="kl">Sync</span></div>
-          </div>
+        <div class="col" style="position:absolute;left:22px;top:112px"><div class="usb" style="width:24px;height:44px" title="Port USB (non simulé)"></div><span class="kl">USB</span></div>
+        <div class="rg-lcd"><canvas class="ecran" id="gecran" aria-label="Écran du générateur"></canvas></div>
+        <div class="col" style="position:absolute;left:18px;top:226px;gap:2px"><span class="kl" style="font-family:Georgia,serif;font-size:13px">Local</span><button class="rk" id="gView" style="width:46px" title="View: affichage normal ou graphique">View</button></div>
+        <div class="rg-softs" id="gSofts"></div>
+        <div class="rg-bas">
+          <button class="rk pw" title="Interrupteur" aria-label="Marche">⏻</button>
+          <button class="rk wv" data-w="sine">Sine<i>∿</i></button>
+          <button class="rk wv" data-w="square">Square<i>⊓⊔</i></button>
+          <button class="rk wv" data-w="ramp">Ramp<i>⟋</i></button>
+          <button class="rk wv" data-w="pulse">Pulse<i>⎍</i></button>
+          <button class="rk wv" data-w="noise">Noise<i>≋</i></button>
+          <button class="rk wv" data-w="arb">Arb<i>⌇</i></button>
+          <button class="rk wv" id="gCH" style="line-height:1.05">CH1<br>CH2</button>
         </div>
+        <div class="rg-menu">
+          <button class="rk" data-gm="Mod">Mod</button><button class="rk" data-gm="store">Store/<br>Recall</button>
+          <button class="rk" data-gm="Sweep">Sweep</button><button class="rk" data-gm="util">Utility</button>
+          <button class="rk" data-gm="Burst">Burst</button><button class="rk" data-gm="help">Help</button>
+        </div>
+        <div class="knob" id="gKnob" style="--d:84px;position:absolute;left:728px;top:22px"></div>
+        <button class="rk fl" id="gG" style="left:700px;top:118px" aria-label="Chiffre vers la gauche (efface pendant une saisie)">◀</button>
+        <button class="rk fl" id="gD" style="left:806px;top:118px" aria-label="Chiffre vers la droite">▶</button>
+        <div class="rg-pad" id="gPad"></div>
+        <span class="kl" style="position:absolute;left:776px;top:160px;font-weight:700">CH2/Counter</span>
+        <button class="rk out" id="gOut2" style="left:706px;top:184px" title="Sortie de la voie 2">Output</button>
+        <div class="bnc gros" style="position:absolute;left:784px;top:182px"></div>
+        <span class="kl" style="position:absolute;left:796px;top:240px;font-weight:700">CH1</span>
+        <button class="rk out" id="gOut" style="left:706px;top:266px" title="Sortie de la voie 1">Output</button>
+        <div class="bnc gros" style="position:absolute;left:784px;top:262px"></div>
+        <span class="kl" style="position:absolute;left:830px;top:240px;font-size:9px">50 Ω</span>
+        <span class="sigle" style="position:absolute;left:22px;top:338px;margin:0">MP* Malherbe</span>
+        <span class="kl" style="position:absolute;left:150px;top:344px;color:#7a786c">émulation pédagogique · charge High Z ou 50 Ω: Utility</span>
       </div></div>
 
       <!-- ============ MONTAGE ============ -->
@@ -317,7 +361,7 @@ details.aide li { margin-bottom: 3px; }
           <span>Sonde voie 1 <span class="seg" id="sonde0"><button data-v="1">×1</button><button data-v="10">×10</button></span></span>
           <span>Sonde voie 2 <span class="seg" id="sonde1"><button data-v="1">×1</button><button data-v="10">×10</button></span></span>
         </div>
-        <label class="chk"><input type="checkbox" id="syncChk"> Câble entre la sortie Sync du GBF et l'entrée Ext Trig de l'oscilloscope</label>
+        <label class="chk"><input type="checkbox" id="syncChk"> Câble entre la sortie Sync du GBF et l'entrée Ext Trig de l'oscilloscope (toutes deux en face arrière)</label>
         <label class="chk"><input type="checkbox" id="theoChk" checked> Afficher les grandeurs caractéristiques</label>
         <div class="theo" id="theo"></div>
       </section>
@@ -327,16 +371,19 @@ details.aide li { margin-bottom: 3px; }
   <details class="aide" data-mt-vue="Mode d'emploi">
     <summary>Mode d'emploi</summary>
     <ul>
-      <li><b>Façade</b>: disposition inspirée du Keysight DSOX1102A (touches en anglais comme sur l'appareil, menus à l'écran en français). Les touches Zoom, Ref, Analyze et Bus ne sont pas simulées.</li>
+      <li><b>Façade</b>: disposition inspirée du Keysight DSO-X 2002A (touches en anglais comme sur l'appareil, menus à l'écran en français). La barre de droite de l'écran affiche en permanence l'acquisition, les voies, puis les curseurs ou les mesures. Les touches Search, Navigate, Zoom, Serial, Digital, Ref, Label, Analyze, Print et Wave Gen ne sont pas simulées.</li>
+      <li><b>Horiz</b>: mode de la base de temps (normal, <b>XY</b>, Roll), réglage fin, référence de temps. <b>Acquire</b>: mode d'acquisition (normal, crête, moyennage, haute résolution).</li>
+      <li><b>Math</b>: l'opérateur se choisit dans le menu (1+2, 1−2, 1×2, d/dt, ∫dt ou <b>FFT</b>); la formule f(t) s'affiche dans le titre du menu. Les deux molettes à droite des touches Serial… Ref règlent l'échelle et la position de la fonction Math.</li>
       <li><b>Molettes</b>: molette de la souris, glisser vers le haut ou la droite, ou clic sur la moitié gauche/droite. Pour le niveau de déclenchement, les positions, le retard et les curseurs, un mouvement rapide accélère le réglage. <b>Appuyer sur une molette</b>: maintenir le clic une demi-seconde sans bouger (elle s'éclaire) puis relâcher (niveau à 50 %, retard ou position à zéro, réglage fin, choix du curseur).</li>
       <li><b>Sur l'écran</b>: le repère orange <b>T</b> (à droite de la grille) se fait glisser pour régler directement le niveau de déclenchement; les repères <b>1</b> et <b>2</b> (à gauche) pour régler la position des voies.</li>
       <li><b>Menus</b>: une touche de la façade affiche son menu en bas de l'écran, piloté par les six touches placées dessous. Les cases marquées ⟲ se règlent avec la molette <b>Entry</b>, celles marquées ▸ ouvrent un sous-menu; la touche <b>⮌ (Back)</b> remonte d'un niveau. <b>Help</b> puis une touche: aide rapide sur cette touche.</li>
       <li><b>Déclenchement</b>: en mode <b>Auto</b>, un niveau placé hors du signal (molette Level) ne déclenche plus: l'affichage n'est plus synchronisé (état « Auto? »); en mode <b>Normal</b>, l'écran reste figé sur la dernière acquisition. Source 1, 2, <b>Ext</b> (cocher le câble Sync → Ext Trig sous le montage) ou <b>secteur</b> (50 Hz); pente montante, descendante, alternée ou les deux; largeur d'impulsion; couplage CC, CA, réjection BF; réjection HF et du bruit; <b>holdoff</b> (utile quand le signal franchit plusieurs fois le niveau par période).</li>
       <li><b>Mesures</b> (touche Meas): toute la liste de l'appareil, jusqu'à 4 mesures affichées à droite, tableau « Tout mesurer » et statistiques (moyenne, min, max, écart type, nombre).</li>
-      <li><b>Enregistrement</b> (Save/Recall puis Enregistrer, ou Save to USB): image PNG ou BMP (8 ou 24 bits, grille inversée, niveaux de gris, infos de réglage), données CSV, ASCII XY (un fichier par voie) ou binaires .bin au format Keysight, réglages .scp (relisibles par Rappeler). Les fichiers sont téléchargés par le navigateur. Le fichier CSV commence par deux lignes d'en-tête (<code>x-axis,1,2</code> puis <code>second,Volt,Volt</code>); temps comptés à partir du déclenchement.</li>
-      <li><b>GBF</b>: choisir un paramètre avec les touches sous l'écran, puis le modifier avec la molette (le chiffre souligné change; ◀ ▶ déplacent ce chiffre) ou au pavé numérique, en terminant par l'unité.</li>
-      <li><b>Forme arbitraire (Arb)</b>: « Formes d'onde » → « Arb », puis « Charger fichier » (ou glisser un fichier sur le générateur). Fichiers texte ou CSV: une colonne de temps puis une ou plusieurs colonnes de tension (fichiers de l'oscilloscope DSOX, de LaboAnalyse, de Python; séparateur et virgule décimale détectés). Le générateur rejoue les points en boucle, comme un convertisseur numérique-analogique: filtre « Normal » (points reliés) ou « Pas » (tension bloquée entre deux échantillons). Amplitude, décalage et fréquence de répétition sont réglés d'après le fichier et restent modifiables.</li>
-      <li><b>Charge 50 Ω ou Haute Z</b>: réglé sur 50 Ω, le générateur affiche la tension qu'il délivrerait sur une charge de 50 Ω; branché sur l'oscilloscope (1 MΩ), on mesure le double. La résistance de sortie de 50 Ω est prise en compte dans le montage.</li>
+      <li><b>Enregistrement</b> (Save/Recall puis Enregistrer, ou Quick Action réglée sur « Enregistrer » dans Utility): image PNG ou BMP (8 ou 24 bits, grille inversée, niveaux de gris, infos de réglage), données CSV, ASCII XY (un fichier par voie) ou binaires .bin au format Keysight, réglages .scp (relisibles par Rappeler). Les fichiers sont téléchargés par le navigateur. Le fichier CSV commence par deux lignes d'en-tête (<code>x-axis,1,2</code> puis <code>second,Volt,Volt</code>); temps comptés à partir du déclenchement.</li>
+      <li><b>GBF</b> (Rigol DG1022, voie 1 seule reliée au montage): touche de forme (Sine, Square, Ramp, Pulse, Noise, Arb), puis paramètre avec les touches bleues sous l'écran (Freq, Ampl, Offset, Phase…). Un second appui sur Freq, Ampl ou Offset bascule sur Period, HiLev ou LoLev. La molette modifie le chiffre en surbrillance, ◀ ▶ le déplacent; au pavé numérique, taper la valeur puis choisir l'unité sous l'écran (◀ efface le dernier chiffre). Affichage comme sur l'appareil: « 1.000,000,0kHz » = 1 kHz (point décimal, virgules entre groupes de trois décimales). <b>View</b> bascule l'affichage graphique, <b>Output</b> allume la sortie.</li>
+      <li><b>Phase du GBF</b>: avec une seule voie, elle n'est visible que par rapport à la sortie Sync (cocher le câble Sync → Ext Trig et déclencher sur Ext).</li>
+      <li><b>Forme arbitraire (Arb)</b>: touche Arb, puis Load → File… (ou glisser un fichier sur le générateur); Load → DC donne une tension continue. Fichiers texte ou CSV: une colonne de temps puis une ou plusieurs colonnes de tension (fichiers de l'oscilloscope DSOX, de LaboAnalyse, de Python; séparateur et virgule décimale détectés). Le générateur rejoue les points en boucle, comme un convertisseur numérique-analogique: Filter « Norm » (points reliés) ou « Step » (tension bloquée entre deux échantillons). Amplitude, décalage et fréquence de répétition sont réglés d'après le fichier et restent modifiables.</li>
+      <li><b>Charge 50 Ω ou High Z</b> (Utility → Load, indiquée en haut de l'écran du GBF): réglé sur 50 Ω, le générateur affiche la tension qu'il délivrerait sur une charge de 50 Ω; branché sur l'oscilloscope (1 MΩ), on mesure le double. Pour lire directement la tension à vide, laisser « High Z ». La résistance de sortie de 50 Ω est prise en compte dans le montage.</li>
       <li><b>Défauts simulés</b>: bruit de l'entrée, quantification sur 8 bits, écrêtage hors écran, bande passante (70 MHz, 20 MHz avec la limite, environ 6 MHz avec une sonde ×1), couplage CA (coupure 3,5 Hz), gigue de déclenchement, sondes ×10 dont l'atténuation doit être déclarée dans le menu de la voie.</li>
       <li><b>Phase(1→2)</b>: comme sur l'appareil réel, elle est positive quand la voie 2 est en retard sur la voie 1; le déphasage de la fonction de transfert est alors son opposé.</li>
     </ul>
@@ -370,9 +417,9 @@ function hashG(i) {
 
 /* ---------- états des appareils ---------- */
 function defautsGBF() {
-  return { wave: 'sine', freq: 1000, vpp: 2, offset: 0, duty: 50, sym: 100, pw: 100e-6, pe: 10e-9, nbw: 1e6,
-    load: 'HZ', out: true, ampU: 'Vpp', sel: 'freq', arbf: 'normal', wpage: 0,
-    ce: { freq: 2, amp: -1, off: -1, duty: 0, sym: 0, pw: -6, pe: -9, nbw: 5 },
+  return { wave: 'sine', freq: 1000, vpp: 2, offset: 0, phase: 0, duty: 50, sym: 100, pw: 100e-6, pe: 15e-9, nbw: 5e6,
+    load: 'HZ', out: true, ampU: 'Vpp', sel: 'freq', arbf: 'normal', vue: 0,
+    ce: { freq: 3, per: -6, amp: -1, hi: -1, off: -1, lo: -1, phase: 0, duty: 0, sym: 0, pw: -6 },
     menu: 'params', entry: null, msg: '', msgT: 0 };
 }
 const CIR = { type: 'RC_C', R: 1000, C: 100e-9, L: 10e-3, r: 10, probe: [1, 1], sync: false };
@@ -541,7 +588,7 @@ function buildInput() {
   }
   let pts, T = 1 / G.freq;
   if (G.wave === 'square') {
-    const d = G.duty / 100, te = Math.min(8.4e-9, 0.2 * Math.min(d, 1 - d) * T);
+    const d = G.duty / 100, te = Math.min(15e-9, 0.2 * Math.min(d, 1 - d) * T);   // fronts du DG1022: < 20 ns
     pts = [[0, -1], [te, 1], [d * T, 1], [d * T + te, -1]];
   } else if (G.wave === 'ramp') {
     const tmin = Math.min(8.4e-9, 1e-3 * T), a = clamp(G.sym / 100 * T, tmin, T - tmin);
@@ -810,10 +857,10 @@ const FC = '"Roboto Condensed","Arial Narrow",Arial,sans-serif';
 const FM = '"Roboto Mono",Consolas,monospace';
 const PAL_ECRAN = { fond: '#000', grille: '150,150,150', bandeau: '#15181d', texte: '#e8e8e8', doux: '#9aa3b0', cadre: '#2a2f38',
   ch: ['#f2e23c', '#4ddc50', '#d983f5'], orange: '#ff9e3d', panneau: 'rgba(12,14,18,0.86)', touche: '#262b33', toucheVide: '#121418',
-  toucheSel: '#34507a', toucheBord: '#4a5160', toucheTxt: '#c9d0db', toucheVal: '#fff', filigrane: 'rgba(255,255,255,0.17)' };
+  toucheSel: '#34507a', toucheBord: '#4a5160', toucheTxt: '#c9d0db', toucheVal: '#fff', filigrane: 'rgba(255,255,255,0.17)', titre: '#24508c', titreTxt: '#fff' };
 const PAL_INV = { fond: '#fff', grille: '90,90,90', bandeau: '#e4e6ea', texte: '#111', doux: '#555', cadre: '#c8ccd2',
   ch: ['#a58d00', '#16902a', '#8d2fb0'], orange: '#c25e00', panneau: 'rgba(246,247,249,0.92)', touche: '#e6e8ec', toucheVide: '#f4f5f7',
-  toucheSel: '#c9d8f0', toucheBord: '#9aa1ab', toucheTxt: '#333', toucheVal: '#000', filigrane: 'rgba(0,0,0,0.18)' };
+  toucheSel: '#c9d8f0', toucheBord: '#9aa1ab', toucheTxt: '#333', toucheVal: '#000', filigrane: 'rgba(0,0,0,0.18)', titre: '#c9d8f0', titreTxt: '#000' };
 let P = PAL_ECRAN;
 let dirty = true, ACQ = null, AVG = null, acqId = 0, dernierEssai = 0, dernieresMes = 0, mesVer = -1, prochainNormal = 0;
 
@@ -870,7 +917,7 @@ let dpr = 1, dprG = 1, calqueId = -1, calqueVer = -1;
 function preparer() {
   dpr = Math.min(2, window.devicePixelRatio || 1);
   cv.width = SW * dpr; cv.height = SH * dpr; calque.width = SW * dpr; calque.height = SH * dpr;
-  dprG = dpr; gcv.width = 320 * dprG; gcv.height = 220 * dprG;
+  dprG = dpr; gcv.width = 452 * dprG; gcv.height = 128 * dprG;
   calqueId = -1; dessinerG();
 }
 
@@ -987,9 +1034,11 @@ function franchissements(src, L) {
   } else {
     if (!CIR.sync || INP.noise || INP.dc || !G.out) return ev;
     const te = Math.min(10e-9, T / 1000);
-    tn = noeudsUniformes(T, [0, te, T / 2, T / 2 + te]);
+    // réglage Phase du GBF: au front montant de la sortie Sync, la phase du signal vaut φ (front en t0 = φT/360 de la référence interne)
+    const t0 = (((G.phase || 0) / 360 * T) % T + T) % T, md = t => ((t % T) + T) % T;
+    tn = noeudsUniformes(T, [t0, t0 + te, t0 + T / 2, t0 + T / 2 + te].map(md));
     y = new Float64Array(tn.length);
-    for (let i = 0; i < tn.length; i++) { const t = tn[i]; y[i] = t < te ? V_SYNC * t / te : t <= T / 2 ? V_SYNC : t < T / 2 + te ? V_SYNC * (1 - (t - T / 2) / te) : 0; }
+    for (let i = 0; i < tn.length; i++) { const t = md(tn[i] - t0); y[i] = t < te ? V_SYNC * t / te : t <= T / 2 ? V_SYNC : t < T / 2 + te ? V_SYNC * (1 - (t - T / 2) / te) : 0; }
   }
   for (const f of filt) y = filtrePeriodique(tn, y, T, f.fc, f.hp);
   const K = tn.length;
@@ -1587,45 +1636,51 @@ function curseurs(g) {
   }
   g.restore();
 }
-/* barre latérale: curseurs, mesures, ou résumé des réglages */
+/* barre latérale permanente (InfiniiVision 2000 X): Acquisition, Voies, puis curseurs, mesures ou déclenchement */
 function barreLaterale(g) {
   g.fillStyle = P.bandeau; g.fillRect(SBX, BH + 2, SW - SBX, YT - BH - 4);
-  let y = BH + 6;
-  const titre = (t, col) => { g.fillStyle = col || P.doux; g.font = 'bold 12px ' + FC; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(t, SBX + 7, y + 12); y += 17; };
-  const ligne = (a, b, col) => {
-    g.font = '12.5px ' + FC; g.textAlign = 'left'; g.fillStyle = col || P.doux; g.fillText(a, SBX + 9, y + 11);
-    g.textAlign = 'right'; g.fillStyle = col || P.texte; g.fillText(b, SW - 7, y + 11); y += 16;
+  let y = BH + 4;
+  const bas = YT - 4;
+  const titre = t => {
+    g.fillStyle = P.titre; g.fillRect(SBX + 3, y, SW - SBX - 6, 17);
+    g.fillStyle = P.titreTxt; g.font = 'bold 12.5px ' + FC; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, (SBX + SW) / 2, y + 9);
+    g.textBaseline = 'alphabetic'; y += 19;
   };
-  if (S.cur.mode !== 'Non') {
-    titre('Curseurs ' + (S.cur.mode === 'Suivi' ? '(suivi) ' : '') + srcNom(S.cur.src), P.orange);
-    for (const [a, b] of lectureCurseurs()) ligne(a + ':', b);
-    y += 6;
+  const ligne = (a, b, colA, colB) => {
+    g.font = '12.5px ' + FC; g.textAlign = 'left'; g.fillStyle = colA || P.doux; g.fillText(a, SBX + 8, y + 11);
+    g.textAlign = 'right'; g.fillStyle = colB || P.texte; g.fillText(b, SW - 7, y + 11); y += 15;
+  };
+  titre('Acquisition');
+  const mode = S.acq.mode === 'Moyennage' ? 'Moy. ×' + S.acq.n : S.acq.mode;
+  g.font = '12.5px ' + FC; g.textAlign = 'center'; g.fillStyle = P.texte;
+  g.fillText(mode, (SBX + SW) / 2, y + 11); y += 15;
+  g.fillText(fmtSI(frequenceEch(), 'Sa/s', 3) + (S.tref !== 'Centre' ? ' · réf. ' + S.tref.toLowerCase() : ''), (SBX + SW) / 2, y + 11); y += 19;
+  titre('Voies');
+  for (let k = 0; k < 2; k++) {
+    const c = S.ch[k], col = c.on ? P.ch[k] : '#666';
+    ligne((c.coup === 'CA' ? 'CA' : 'CC') + (c.bwl ? ' BW' : '') + (c.inv ? ' inv.' : ''), c.sonde.toFixed(2) + ':1', col, col);
   }
-  if (S.mres.length) {
+  if (mathOn()) ligne('Math', exprMath(), P.ch[2], P.ch[2]);
+  y += 4;
+  if (S.cur.mode !== 'Non') {
+    titre('Curseurs' + (S.cur.mode === 'Suivi' ? ' (suivi)' : ''));
+    for (const [a, b] of lectureCurseurs()) { if (y > bas - 16) break; ligne(a + ':', b, P.orange); }
+    y += 4;
+  }
+  if (S.mres.length && y < bas - 40) {
     titre('Mesures');
     for (const m of S.mres) {
-      if (y > YT - 40) break;
-      g.font = '12px ' + FC; g.textAlign = 'left'; g.fillStyle = P.ch[m.src]; g.fillText(m.nom + ':', SBX + 9, y + 11); y += 15;
-      g.font = 'bold 14px ' + FC; g.textAlign = 'right'; g.fillStyle = P.texte; g.fillText(fmtMes(m.r, m.id), SW - 7, y + 12); y += 20;
+      if (y > bas - 34) break;
+      g.font = '12px ' + FC; g.textAlign = 'left'; g.fillStyle = P.ch[m.src]; g.fillText(m.nom + ':', SBX + 8, y + 11); y += 15;
+      g.font = 'bold 14px ' + FC; g.textAlign = 'right'; g.fillStyle = P.texte; g.fillText(fmtMes(m.r, m.id), SW - 7, y + 12); y += 19;
     }
     y += 4;
   }
   if (S.cur.mode === 'Non' && !S.mres.length) {
-    titre('Réglages');
-    for (let k = 0; k < 2; k++) {
-      const c = S.ch[k]; if (!c.on) continue;
-      g.font = 'bold 12px ' + FC; g.textAlign = 'left'; g.fillStyle = P.ch[k]; g.fillText('Voie ' + (k + 1), SBX + 9, y + 11); y += 15;
-      ligne('Décalage', fmtSI(-c.pos, 'V', 3)); ligne('Couplage', c.coup + (c.bwl ? ', BW 20 MHz' : '')); ligne('Sonde', c.sonde + ':1');
-    }
-    g.font = 'bold 12px ' + FC; g.textAlign = 'left'; g.fillStyle = P.orange; g.fillText('Déclenchement', SBX + 9, y + 11); y += 15;
+    titre('Déclenchement');
     ligne('Mode', S.trig.mode); ligne('Couplage', { CC: 'CC', CA: 'CA', BF: 'Réj. BF' }[S.trig.coup] + (S.trig.rejHF ? ', réj. HF' : ''));
     if (S.trig.holdoff > 41e-9) ligne('Holdoff', fmtSI(S.trig.holdoff, 's', 3));
   }
-  // pied: acquisition
-  g.font = '11.5px ' + FC; g.textAlign = 'left'; g.fillStyle = P.doux;
-  const mode = S.acq.mode === 'Moyennage' ? 'Moy. ×' + S.acq.n : S.acq.mode;
-  g.fillText('Acq.: ' + mode, SBX + 7, YT - 22);
-  g.fillText(fmtSI(frequenceEch(), 'Sa/s', 3) + (S.tref !== 'Centre' ? '   réf. ' + S.tref.toLowerCase() : ''), SBX + 7, YT - 8);
 }
 function tableauStats(g) {
   if (!S.stats || !S.mres.length) return;
@@ -1752,10 +1807,13 @@ function menuObj() {
     case 'acq': return { titre: 'Acquisition', items: [
       { l: 'Mode acq.', v: () => S.acq.mode, act: () => { S.acq.mode = cyc(['Normal', 'Crête', 'Moyennage', 'Haute rés.'], S.acq.mode); } },
       S.acq.mode === 'Moyennage' ? { l: 'Nb moyennes', v: () => String(S.acq.n), knob: d => { S.acq.n = clamp(d > 0 ? S.acq.n * 2 : S.acq.n / 2, 2, 65536); } } : null,
+      { l: 'Éch. (écran)', v: () => fmtSI(frequenceEch(), 'Sa/s', 3) }, null, null, null ] };
+    case 'horiz': return { titre: 'Horizontal', items: [
       { l: 'Mode temps', v: () => S.horiz, act: () => { S.horiz = cyc(['Normal', 'XY', 'Roll'], S.horiz); if (S.horiz === 'Roll' && S.tdiv < 50e-3) S.tdiv = 50e-3; } },
+      { l: 'Zoom', v: () => 'Non' },
+      { l: 'Réglage fin', v: () => S.finT ? 'Oui' : 'Non', act: () => { S.finT = !S.finT; if (!S.finT) S.tdiv = reglerSel(TDIV, S.tdiv, 0); } },
       { l: 'Réf. temps', v: () => S.tref, act: () => { S.tref = cyc(['Gauche', 'Centre', 'Droite'], S.tref); } },
-      { l: 'Base de temps', v: () => S.finT ? 'Fine' : 'Calibrée', act: () => { S.finT = !S.finT; if (!S.finT) S.tdiv = reglerSel(TDIV, S.tdiv, 0); } },
-      { l: 'Éch. (écran)', v: () => fmtSI(frequenceEch(), 'Sa/s', 3) } ] };
+      null, null ] };
     case 'trig': {
       const it = [
         { l: 'Type', v: () => T.type === 'Front' ? 'Front' : 'Larg. impulsion', act: () => { T.type = T.type === 'Front' ? 'Impulsion' : 'Front'; if (T.src === 3) T.src = 0; } },
@@ -1807,23 +1865,27 @@ function menuObj() {
       { l: 'Curseurs', v: () => CURSEL[S.cur.sel], knob: d => bougerCurseur(d), act: () => { S.cur.sel = (S.cur.sel + 1) % CURSEL.length; } },
       { l: 'Position', v: () => 'au centre', act: () => { S.cur.x = [-2, 2]; S.cur.y = [1.5, -1.5]; } }, null, null ] };
     case 'math': {
-      const M = S.math, it = [
-        { l: 'Opérateur', v: () => M.op === 'FFT' ? 'FFT' : M.op, act: () => {
-          M.op = M.op === 'FFT' ? '1+2' : cyc(MATHOPS, M.op);
-          if (mathTemp()) echelleMath();
+      const M = S.math, F = S.fft, it = [
+        { l: 'Opérateur', v: () => M.op, act: () => {
+          M.op = cyc(MATHOPS.slice(1).concat('FFT'), M.op === 'Non' ? '∫dt' : M.op);
+          if (fftOn()) fftAuto(); else echelleMath();
         } } ];
-      if (M.op === 'd/dt' || M.op === '∫dt') it.push({ l: 'Source', v: () => 'Voie ' + (M.src + 1), act: () => { M.src = 1 - M.src; echelleMath(); } });
-      else it.push(null);
-      if (mathTemp()) it.push(
-        { l: 'Échelle', v: () => fmtSI(M.vdiv, unMath(), 3) + '/', knob: d => { M.vdiv = reglerSel(seq125(1e-9, 1e9), M.vdiv, -d); } },
-        { l: 'Position', v: () => fmtSI(M.pos, unMath(), 3), knob: d => { M.pos = +(M.pos + d * M.vdiv / 25).toPrecision(8); }, act: () => { M.pos = 0; } },
-        null, { l: 'Affichage', v: () => 'Non', act: () => { M.op = 'Non'; } });
-      else it.push(null, null, null, null);
-      return { titre: 'Math', items: it };
+      if (fftOn()) it.push({ l: 'Source', v: () => 'Voie ' + (F.src + 1), act: () => { F.src = 1 - F.src; } },
+        { l: 'Réglages FFT', v: () => '', sous: 'fft' }, null, null);
+      else {
+        if (M.op === 'd/dt' || M.op === '∫dt') it.push({ l: 'Source', v: () => 'Voie ' + (M.src + 1), act: () => { M.src = 1 - M.src; echelleMath(); } });
+        else it.push({ l: 'Sources', v: () => '1 et 2' });
+        it.push(
+          { l: 'Échelle', v: () => fmtSI(M.vdiv, unMath(), 3) + '/', knob: d => { M.vdiv = reglerSel(seq125(1e-9, 1e9), M.vdiv, -d); } },
+          { l: 'Position', v: () => fmtSI(M.pos, unMath(), 3), knob: d => { M.pos = +(M.pos + d * M.vdiv / 25).toPrecision(8); }, act: () => { M.pos = 0; } },
+          null);
+      }
+      it.push({ l: 'Affichage', v: () => 'Non', act: () => { M.op = 'Non'; } });
+      return { titre: 'Math   f(t) = ' + exprMath(), items: it };
     }
     case 'fft': {
       const F = S.fft, dB = F.unite === 'dBV';
-      return { titre: 'FFT', items: [
+      return { titre: 'Math: FFT', parent: 'math', items: [
         { l: 'Source', v: () => 'Voie ' + (F.src + 1), act: () => { F.src = 1 - F.src; } },
         { l: 'Span', v: () => fmtSI(spanFFT(), 'Hz', 3), knob: d => changerSpan(d) },
         { l: 'Centre', v: () => fmtSI(centreFFT(), 'Hz', 4), knob: d => { F.centre = Math.max(0, centreFFT() + d * spanFFT() / 50); } },
@@ -1839,7 +1901,7 @@ function menuObj() {
         { l: 'Fenêtre', v: () => F.fen, act: () => { F.fen = cyc(Object.keys(FENETRES), F.fen); } },
         { l: 'Unités', v: () => F.unite === 'dBV' ? 'dBV' : 'V eff', act: () => { F.unite = F.unite === 'dBV' ? 'Veff' : 'dBV'; if (F.unite === 'Veff') { F.ref = 0; F.vdiv = 0.2; } else { F.ref = 10; } } },
         { l: 'Réglage auto', v: () => 'span, réf.', act: () => fftAuto() },
-        { l: 'Affichage', v: () => 'Non', act: () => { S.math.op = 'Non'; S.menu = null; } }, null, null ] };
+        { l: 'Affichage', v: () => 'Non', act: () => { S.math.op = 'Non'; S.menu = 'math'; } }, null, null ] };
     }
     case 'disp': return { titre: 'Affichage', items: [
       { l: 'Persistance', v: () => S.aff.persist, act: () => { S.aff.persist = cyc(['Non', 'Variable', 'Infinie'], S.aff.persist); calqueId = -1; } },
@@ -1872,9 +1934,13 @@ function menuObj() {
       { l: 'Configuration', v: () => 'usine', act: () => configDefaut('Configuration usine rappelée') }, null, null, null, null, null ] };
     case 'util': return { titre: 'Utility', items: [
       { l: 'Action rapide', v: () => S.qa, act: () => { S.qa = cyc(QA, S.qa); } },
-      { l: 'À propos', v: () => 'de l\'émulation', act: () => flash('Émulation pédagogique d\'un DSOX1102A, MP* Malherbe') }, null, null, null, null ] };
+      { l: 'À propos', v: () => 'de l\'émulation', act: () => flash('Émulation pédagogique d\'un DSO-X 2002A, MP* Malherbe') }, null, null, null, null ] };
   }
   return null;
+}
+function exprMath() {
+  const op = S.math.op, s = 'Ch' + (S.math.src + 1);
+  return op === 'Non' ? '—' : op === 'FFT' ? 'FFT(Ch' + (S.fft.src + 1) + ')' : op === 'd/dt' ? 'd' + s + '/dt' : op === '∫dt' ? '∫' + s + ' dt' : 'Ch1 ' + op[1] + ' Ch2';
 }
 function echelleMath() {
   const M = S.math, a = S.ch[0].vdiv, b = S.ch[1].vdiv, w = INP && INP.T ? TAU / INP.T : 1 / (10 * S.tdiv);
@@ -2027,7 +2093,7 @@ function imageEcran() {
 }
 function texteReglages() {
   const L = [], d = new Date();
-  L.push('DSOX1102A (émulation, MP* Malherbe)   ' + d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR'));
+  L.push('DSO-X 2002A (émulation, MP* Malherbe)   ' + d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR'));
   L.push([0, 1].map(k => { const c = S.ch[k]; return 'Voie ' + (k + 1) + (c.on ? ': ' + fmtSI(c.vdiv, 'V', 3) + '/div, décalage ' + fmtSI(-c.pos, 'V', 3) + ', ' + c.coup + ', sonde ' + c.sonde + ':1' + (c.bwl ? ', BW 20 MHz' : '') : ': éteinte'); }).join('    '));
   const T = S.trig;
   L.push('Horizontal: ' + fmtSI(S.tdiv, 's', 4) + '/div, retard ' + fmtSI(S.delay, 's', 4) + ', mode ' + S.horiz + '    Acquisition: ' + S.acq.mode + (S.acq.mode === 'Moyennage' ? ' ×' + S.acq.n : ''));
@@ -2078,7 +2144,7 @@ function fichierBin(rec, voies) {
     dv.setInt32(o + 16, S.acq.mode === 'Moyennage' ? S.acq.n : 1, true); dv.setFloat32(o + 20, 10 * S.tdiv, true);
     dv.setFloat64(o + 24, rec.tl, true); dv.setFloat64(o + 32, rec.dt, true); dv.setFloat64(o + 40, rec.tl, true);
     dv.setInt32(o + 48, 2, true); dv.setInt32(o + 52, 1, true);
-    chaine(o + 56, dateS, 16); chaine(o + 72, heureS, 16); chaine(o + 88, 'DSOX1102A:EMULATION', 24); chaine(o + 112, String(k + 1), 16);
+    chaine(o + 56, dateS, 16); chaine(o + 72, heureS, 16); chaine(o + 88, 'DSO-X 2002A:EMULATION', 24); chaine(o + 112, String(k + 1), 16);
     dv.setFloat64(o + 128, 0, true); dv.setUint32(o + 136, 0, true);
     o += 140;
     dv.setInt32(o, 12, true); dv.setInt16(o + 4, 1, true); dv.setInt16(o + 6, 4, true); dv.setInt32(o + 8, 4 * N, true);
@@ -2091,7 +2157,7 @@ function fichierBin(rec, voies) {
 function reglagesJSON() {
   const c = JSON.parse(JSON.stringify(S));
   for (const k of ['flash', 'snap', 'mres', 'mstat', 'menu', 'entry', 'ver', 'aide', 'intensMode', 'nivT', 'attente', 'single', 'mstatVer']) delete c[k];
-  return JSON.stringify({ format: 'Réglages oscilloscope DSOX1102A (émulation MP* Malherbe)', version: 1, reglages: c }, null, 1);
+  return JSON.stringify({ format: 'Réglages oscilloscope DSO-X 2002A (émulation MP* Malherbe)', version: 1, reglages: c }, null, 1);
 }
 function enregistrer() {
   const W = S.save, nom = nomFichier(), f = W.fmt;
@@ -2148,9 +2214,10 @@ const AIDES = {
   bIntens: 'Intensity: allumée, la molette Entry règle l\'intensité des traces.',
   bAuto: 'Auto Scale: règle automatiquement voies, base de temps et déclenchement.',
   bDef: 'Default Setup: rappelle la configuration par défaut.',
-  kTdiv: 'Molette horizontale: base de temps (s/div). Le réglage fin se choisit dans Acquire.',
+  kTdiv: 'Molette horizontale: base de temps (s/div); un appui bascule le réglage fin.',
+  horiz: 'Horiz: mode de la base de temps (normal, XY, Roll), réglage fin, référence de temps (gauche, centre, droite).',
   kDelay: 'Position horizontale: retard du point de déclenchement; un appui le remet à zéro.',
-  acq: 'Acquire: mode d\'acquisition (normal, crête, moyennage, haute résolution), mode XY ou Roll, référence de temps.',
+  acq: 'Acquire: mode d\'acquisition (normal, crête, moyennage, haute résolution).',
   bRun: 'Run/Stop: lance ou arrête les acquisitions (vert: en marche, rouge: arrêté).',
   bSingle: 'Single: une seule acquisition au prochain déclenchement.',
   kNiv: 'Level: niveau de déclenchement; un appui le place au milieu du signal (50 %).',
@@ -2160,13 +2227,13 @@ const AIDES = {
   kCurs: 'Molette Cursors: déplace le curseur choisi; un appui change de curseur.',
   curs: 'Cursors: curseurs manuels ou en mode suivi de la trace.',
   meas: 'Meas: mesures automatiques (jusqu\'à 4), tableau « Tout mesurer », statistiques.',
-  util: 'Utility: choix de l\'action rapide.',
+  util: 'Utility: choix de l\'action rapide (Quick Action).',
   bQA: 'Quick Action: exécute l\'action choisie dans Utility.',
   save: 'Save/Recall: enregistrer l\'écran (PNG, BMP), les données (CSV, ASCII XY, BIN) ou les réglages (.scp).',
-  bUSB: 'Save to USB: enregistre aussitôt avec le format choisi dans Save/Recall.',
+  bWG: 'Wave Gen: générateur intégré (sortie Gen Out), non simulé ici: utiliser le GBF.',
+  kMS: 'Molette d\'échelle de Math (V/div de la fonction ou de la FFT).', kMP: 'Molette de position de Math; un appui la remet à zéro.',
   disp: 'Display: persistance, effacement, intensité de la grille et des traces.',
-  bMath: 'Math: opération entre voies (+, −, ×) ou dérivée, intégrale d\'une voie.',
-  bFFT: 'FFT: spectre d\'une voie (fenêtres Hanning, Flat Top, rectangulaire, Blackman-Harris).',
+  bMath: 'Math: opération entre voies (+, −, ×), dérivée, intégrale d\'une voie ou FFT (opérateur « FFT »).',
   bC1: 'Touche 1: allume la voie 1 et ouvre son menu; nouvel appui menu ouvert: l\'éteint.',
   bC2: 'Touche 2: allume la voie 2 et ouvre son menu; nouvel appui menu ouvert: l\'éteint.',
   kV1: 'Sensibilité de la voie 1 (V/div); un appui bascule le réglage fin.', kV2: 'Sensibilité de la voie 2 (V/div); un appui bascule le réglage fin.',
@@ -2197,8 +2264,7 @@ function boucle(ts) {
 function majTouches() {
   document.querySelectorAll('[data-k]').forEach(b => b.classList.toggle('on', S.menu === b.dataset.k || (b.dataset.k === 'trig' && S.menu === 'trigmode') ||
     (b.dataset.k === 'meas' && /^meas/.test(S.menu || '')) || (b.dataset.k === 'save' && ['saveS', 'saveImg', 'saveDat', 'rcl', 'defe'].includes(S.menu))));
-  document.getElementById('bMath').classList.toggle('on', mathTemp() || S.menu === 'math');
-  document.getElementById('bFFT').classList.toggle('on', fftOn());
+  document.getElementById('bMath').classList.toggle('on', mathOn() || S.menu === 'math' || /^fft/.test(S.menu || ''));
   document.getElementById('bC1').classList.toggle('on', S.ch[0].on);
   document.getElementById('bC2').classList.toggle('on', S.ch[1].on);
   document.getElementById('bRun').classList.toggle('stop', !S.run);
@@ -2219,13 +2285,8 @@ document.querySelectorAll('[data-ns]').forEach(b => bouton(b, () => nsim(b.datas
   touche(); majTouches();
 }));
 bouton(document.getElementById('bMath'), () => {
-  if (S.menu === 'math') { if (mathTemp()) S.math.op = 'Non'; ouvrirMenu(null); }
-  else { if (!mathTemp()) { S.math.op = '1+2'; echelleMath(); } ouvrirMenu('math'); }
-  touche(); majTouches();
-});
-bouton(document.getElementById('bFFT'), () => {
-  if (S.menu === 'fft' && fftOn()) { S.math.op = 'Non'; ouvrirMenu(null); }
-  else { if (!fftOn()) { S.math.op = 'FFT'; fftAuto(); } ouvrirMenu('fft'); }
+  if (S.menu === 'math' || /^fft/.test(S.menu || '')) { S.math.op = 'Non'; ouvrirMenu(null); }
+  else { if (!mathOn()) { S.math.op = '1−2'; echelleMath(); } ouvrirMenu('math'); }
   touche(); majTouches();
 });
 bouton(document.getElementById('bRun'), () => { S.run = !S.run; S.single = false; S.fige = false; majTouches(); });
@@ -2236,7 +2297,7 @@ bouton(document.getElementById('bForce'), () => { if (dirty) { rebuild(); dirty 
 bouton(document.getElementById('bBack'), () => { retour(); majTouches(); });
 bouton(document.getElementById('bIntens'), () => { S.intensMode = !S.intensMode; majTouches(); if (S.intensMode) flash('Molette Entry: intensité des traces'); });
 bouton(document.getElementById('bQA'), () => actionRapide());
-bouton(document.getElementById('bUSB'), () => enregistrer());
+bouton(document.getElementById('bWG'), () => flash('Wave Gen: générateur intégré non simulé, utiliser le GBF'));
 document.getElementById('bHelp').addEventListener('click', () => { S.aide = !S.aide; majTouches(); if (S.aide) flash('Aide rapide: appuyer sur une touche ou tourner une molette'); });
 (function () {
   const z = document.getElementById('oSofts');
@@ -2251,6 +2312,20 @@ molette('kV1', d => tournerV(0, d), () => { S.ch[0].fin = !S.ch[0].fin; if (!S.c
 molette('kV2', d => tournerV(1, d), () => { S.ch[1].fin = !S.ch[1].fin; if (!S.ch[1].fin) S.ch[1].vdiv = snapV(1, S.ch[1].vdiv); flash('Réglage fin voie 2: ' + (S.ch[1].fin ? 'oui' : 'non')); }, 'Sensibilité voie 2 (V/div)');
 molette('kP1', d => tournerP(0, d), () => { S.ch[0].pos = 0; flash('Position voie 1: 0 V'); touche(); }, 'Position verticale voie 1', true);
 molette('kP2', d => tournerP(1, d), () => { S.ch[1].pos = 0; flash('Position voie 2: 0 V'); touche(); }, 'Position verticale voie 2', true);
+molette('kMS', d => {
+  const M = S.math, F = S.fft;
+  if (fftOn()) { if (F.unite === 'dBV') F.dbdiv = reglerSel([1, 2, 5, 10, 20], F.dbdiv, d); else F.vdiv = reglerSel(seq125(1e-4, 10), F.vdiv, -d); }
+  else if (mathTemp()) M.vdiv = reglerSel(seq125(1e-9, 1e12), M.vdiv, -d);
+  else { flash('Molette de Math: activer d\'abord la touche Math'); return; }
+  touche();
+}, null, 'Échelle de Math');
+molette('kMP', d => {
+  const M = S.math, F = S.fft;
+  if (fftOn()) { if (F.unite === 'dBV') F.ref = clamp(F.ref + d * 5, -120, 60); else F.ref = +(F.ref + d * F.vdiv / 5).toPrecision(6); }
+  else if (mathTemp()) M.pos = +(M.pos + d * M.vdiv / 25).toPrecision(8);
+  else { flash('Molette de Math: activer d\'abord la touche Math'); return; }
+  touche();
+}, () => { if (mathTemp()) { S.math.pos = 0; touche(); } }, 'Position de Math', true);
 
 /* curseurs à la souris et touches dessinées */
 let glisse = null;
@@ -2296,133 +2371,175 @@ cv.addEventListener('pointermove', e => {
 cv.addEventListener('pointerup', () => { glisse = null; });
 cv.addEventListener('pointercancel', () => { glisse = null; });
 
-/* ========================= GBF ========================= */
-const WPARAMS = { sine: ['freq', 'amp', 'off'], square: ['freq', 'amp', 'off', 'duty'], ramp: ['freq', 'amp', 'off', 'sym'],
-  pulse: ['freq', 'amp', 'off', 'pw', 'pe'], noise: ['nbw', 'amp', 'off'], dc: ['off'], arb: ['freq', 'amp', 'off'] };
-const WNOM = { sine: 'Sinus', square: 'Carré', ramp: 'Rampe', pulse: 'Impulsion', noise: 'Bruit', dc: 'Continu', arb: 'Arb' };
-const WPAGES = [['sine', 'square', 'ramp', 'pulse', 'arb', '+'], ['noise', 'dc', null, null, null, '-']];
+/* ========================= GBF (émulation du Rigol DG1022, voie 1) ========================= */
+const WNOM = { sine: 'Sine', square: 'Square', ramp: 'Ramp', pulse: 'Pulse', noise: 'Noise', dc: 'DC', arb: 'Arb' };
+const TABS = { sine: ['freq', 'amp', 'off', 'phase', 'alig'], square: ['freq', 'amp', 'off', 'duty', 'phase', 'alig'],
+  ramp: ['freq', 'amp', 'off', 'sym', 'phase', 'alig'], pulse: ['freq', 'amp', 'off', 'pw', 'phase'], noise: ['amp', 'off'],
+  arb: ['freq', 'amp', 'off', 'load', 'filt', 'col'], dc: ['off', 'load'] };
+const ALT = { freq: 'per', per: 'freq', amp: 'hi', hi: 'amp', off: 'lo', lo: 'off' };
+const LBL = { freq: 'Freq', per: 'Period', amp: 'Ampl', hi: 'HiLev', off: 'Offset', lo: 'LoLev', phase: 'Phase', duty: 'DtyCyc',
+  sym: 'Symm', pw: 'Width', alig: 'AligPha', load: 'Load', filt: 'Filter', col: 'Column' };
 const Vmax = () => G.load === '50' ? 5 : 10;
-const vppMin = () => G.load === '50' ? 1e-3 : 2e-3;
-const fmax = () => G.wave === 'ramp' ? 200e3 : (G.wave === 'arb' ? Math.min(20e6, 250e6 / ARB.n) : 20e6);
+const vppMin = () => G.load === '50' ? 2e-3 : 4e-3;
+const fmax = () => ({ sine: 20e6, square: 5e6, ramp: 150e3, pulse: 3e6, arb: Math.min(5e6, 100e6 / ARB.n) })[G.wave] || 20e6;
 function ampK() {
   if (G.ampU !== 'Vrms') return 1;
   return { sine: 1 / (2 * Math.SQRT2), square: 0.5, ramp: 1 / (2 * Math.sqrt(3)), pulse: 0.5, noise: 1 / 6.6, dc: 1, arb: ARB.rms / 2 || 0.5 }[G.wave];
 }
+const bas = () => G.offset - G.vpp / 2, haut = () => G.offset + G.vpp / 2;
+/* sig: chiffres significatifs affichés (préfixe automatique); fix: nombre fixe de décimales sans préfixe */
 const GP = {
-  freq: { nom: 'Fréquence', court: 'Fréquence', get: () => G.freq, set: v => { G.freq = v; }, lim: () => [1e-6, fmax()], u: () => 'Hz', pref: 'auto', dec: 6, ce: [-6, 7] },
-  amp: { nom: 'Amplitude', court: 'Amplitude', get: () => G.vpp * ampK(), set: v => { G.vpp = v / ampK(); },
-    lim: () => [vppMin() * ampK(), 2 * (Vmax() - Math.abs(G.offset)) * ampK()], u: () => G.ampU, pref: 'auto', dec: 3, ce: [-3, 1] },
-  off: { nom: 'Décalage', court: 'Décalage', get: () => G.offset, set: v => { G.offset = v; },
-    lim: () => { const m = Vmax() - (G.wave === 'dc' ? 0 : G.vpp / 2); return [-m, m]; }, u: () => 'V', pref: 0, dec: 3, ce: [-3, 0] },
-  duty: { nom: 'Rapport cyclique', court: 'Rapp. cycl.', get: () => G.duty, set: v => { G.duty = v; }, lim: () => [0.1, 99.9], u: () => '%', pref: 0, dec: 1, ce: [-1, 1] },
-  sym: { nom: 'Symétrie', court: 'Symétrie', get: () => G.sym, set: v => { G.sym = v; }, lim: () => [0, 100], u: () => '%', pref: 0, dec: 1, ce: [-1, 1] },
-  pw: { nom: 'Largeur d\'impulsion', court: 'Largeur', get: () => G.pw, set: v => { G.pw = v; }, lim: () => [16e-9, Math.max(16e-9, 0.99 / G.freq)], u: () => 's', pref: 'auto', dec: 3, ce: [-9, 0] },
-  pe: { nom: 'Temps de front', court: 'Front', get: () => G.pe, set: v => { G.pe = v; }, lim: () => [8.4e-9, 1e-6], u: () => 's', pref: 'auto', dec: 1, ce: [-10, -6] },
-  nbw: { nom: 'Bande passante', court: 'Bande pass.', get: () => G.nbw, set: v => { G.nbw = v; }, lim: () => [1e-3, 20e6], u: () => 'Hz', pref: 'auto', dec: 3, ce: [-3, 7] }
+  freq: { get: () => G.freq, set: v => { G.freq = v; }, lim: () => [1e-6, fmax()], u: () => 'Hz', sig: 8, ce: [-6, 7] },
+  per: { get: () => 1 / G.freq, set: v => { G.freq = 1 / v; }, lim: () => [1 / fmax(), 1e6], u: () => 's', sig: 8, ce: [-9, 5] },
+  amp: { get: () => G.vpp * ampK(), set: v => { G.vpp = v / ampK(); },
+    lim: () => [vppMin() * ampK(), 2 * (Vmax() - Math.abs(G.offset)) * ampK()], u: () => G.ampU, sig: 4, ce: [-3, 1] },
+  hi: { get: haut, set: v => { const b = bas(); G.vpp = v - b; G.offset = (v + b) / 2; }, lim: () => [bas() + vppMin(), Vmax()], u: () => 'V', sig: 4, ce: [-3, 0] },
+  off: { get: () => G.offset, set: v => { G.offset = v; },
+    lim: () => { const m = Vmax() - (G.wave === 'dc' ? 0 : G.vpp / 2); return [-m, m]; }, u: () => 'VDC', sig: 4, ce: [-3, 0] },
+  lo: { get: bas, set: v => { const h = haut(); G.vpp = h - v; G.offset = (h + v) / 2; }, lim: () => [-Vmax(), haut() - vppMin()], u: () => 'V', sig: 4, ce: [-3, 0] },
+  phase: { get: () => G.phase, set: v => { G.phase = v; }, lim: () => [0, 360], u: () => '°', fix: 1, ce: [-1, 2] },
+  duty: { get: () => G.duty, set: v => { G.duty = v; }, lim: () => [20, 80], u: () => '%', fix: 1, ce: [-1, 1] },
+  sym: { get: () => G.sym, set: v => { G.sym = v; }, lim: () => [0, 100], u: () => '%', fix: 1, ce: [-1, 1] },
+  pw: { get: () => G.pw, set: v => { G.pw = v; }, lim: () => [20e-9, Math.max(20e-9, 0.99 / G.freq)], u: () => 's', sig: 5, ce: [-9, 0] }
 };
 const PN = { '-9': 'n', '-6': 'µ', '-3': 'm', '0': '', '3': 'k', '6': 'M' };
+/* valeur affichée à la manière du DG1022: « 1.000,000,0kHz » (point décimal, virgules entre groupes de trois décimales) */
 function fmtParam(key) {
-  const p = GP[key], v = p.get(), ce = G.ce[key];
-  let pe;
-  if (p.pref === 'auto') { const a = Math.abs(v) || 1; pe = clamp(Math.floor(Math.log10(a * 1.0000001) / 3) * 3, -9, 6); } else pe = p.pref;
-  const r = ce - pe, dec = Math.max(p.dec, -r, 0);
-  let s = (Math.abs(v) / Math.pow(10, pe)).toFixed(dec);
-  let [ip, fp] = s.split('.');
-  while (ip.length < Math.max(1, r + 1)) ip = '0' + ip;
-  const body = ip + (fp !== undefined ? '.' + fp : '');
-  const idx = r >= 0 ? ip.length - 1 - r : ip.length + (-r);
-  const sign = v < 0 ? '−' : (key === 'off' ? '+' : '');
-  return { sign, body, idx, unit: PN[String(pe)] + p.u() };
+  const p = GP[key], v = p.get(), a = Math.abs(v);
+  const top = a > 0 ? Math.max(Math.floor(Math.log10(a * 1.0000001)), p.fix !== undefined ? 0 : -99) : 0;
+  if (G.ce[key] > top) G.ce[key] = Math.max(top, p.ce[0]);           // le chiffre actif ne dépasse pas le premier chiffre significatif
+  const ce = G.ce[key];
+  let pe = 0, dec;
+  if (p.fix !== undefined) dec = Math.max(p.fix, -ce);
+  else {
+    pe = a > 0 ? clamp(Math.floor(Math.log10(a * 1.0000001) / 3) * 3, -9, 6) : 0;
+    if (key === 'off' || key === 'hi' || key === 'lo') pe = a >= 1 || a === 0 ? 0 : -3;
+    const m = a / Math.pow(10, pe), ni = m >= 1 ? Math.floor(Math.log10(m * 1.0000001)) + 1 : 1;
+    dec = Math.max(0, p.sig - ni, pe - ce);
+  }
+  let [ip, fp] = (a / Math.pow(10, pe)).toFixed(dec).split('.');
+  while (ip.length < ce - pe + 1) ip = '0' + ip;
+  const tok = [];
+  for (let i = 0; i < ip.length; i++) tok.push({ c: ip[i], e: pe + ip.length - 1 - i });
+  if (fp) { tok.push({ c: '.' }); for (let j = 0; j < fp.length; j++) { if (j && j % 3 === 0) tok.push({ c: ',' }); tok.push({ c: fp[j], e: pe - j - 1 }); } }
+  return { sign: v < 0 ? '-' : (key === 'off' || key === 'hi' || key === 'lo' ? '+' : ''), tok, unit: PN[String(pe)] + p.u() };
 }
-function gMsg(t) { G.msg = t; G.msgT = performance.now() + 1600; dessinerG(); setTimeout(dessinerG, 1700); }
+function texteParam(key) { const f = fmtParam(key); return f.sign + f.tok.map(t => t.c).join('') + f.unit; }
+function gMsg(t, ms) { G.msg = t; G.msgT = performance.now() + (ms || 1800); dessinerG(); setTimeout(dessinerG, (ms || 1800) + 100); }
 function apresG() {
   const lo = GP.amp.lim(); if (G.vpp > lo[1] / ampK()) G.vpp = lo[1] / ampK();
   const lf = GP.freq.lim(); G.freq = clamp(G.freq, lf[0], lf[1]);
   const m = Vmax() - (G.wave === 'dc' ? 0 : G.vpp / 2); G.offset = clamp(G.offset, -m, m);
+  G.duty = clamp(G.duty, 20, 80);
   if (G.pw > 0.99 / G.freq) G.pw = 0.99 / G.freq;
   modele(); dessinerG();
 }
 function gTourner(d) {
-  if (G.entry) return;
-  const key = G.sel; if (!key) return;
+  if (G.entry || G.menu !== 'params') return;
+  const key = G.sel; if (!GP[key]) return;
   const p = GP[key]; let v = +(p.get() + d * Math.pow(10, G.ce[key])).toPrecision(12);
   const [a, b] = p.lim(); let lim = false;
   if (v < a) { v = a; lim = true; } if (v > b) { v = b; lim = true; }
+  if (key === 'per' && v <= 0) { v = a; lim = true; }
   p.set(v); if (lim) gMsg('Limite atteinte');
   apresG();
 }
 function gCurseur(d) {
-  const key = G.sel; if (!key || G.entry) return;
+  if (G.entry) { if (d > 0) { G.entry.s = G.entry.s.slice(0, -1); dessinerG(); } return; }   // ◀ efface pendant une saisie
+  const key = G.sel; if (!GP[key] || G.menu !== 'params') return;
   G.ce[key] = clamp(G.ce[key] + d, GP[key].ce[0], GP[key].ce[1]); dessinerG();
 }
 function unites(key) {
   switch (key) {
-    case 'freq': case 'nbw': return [['MHz', 1e6], ['kHz', 1e3], ['Hz', 1], ['mHz', 1e-3], ['µHz', 1e-6]];
-    case 'amp': return G.ampU === 'Vpp' ? [['Vpp', 1], ['mVpp', 1e-3]] : [['Vrms', 1], ['mVrms', 1e-3]];
-    case 'off': return [['V', 1], ['mV', 1e-3]];
+    case 'freq': return [['MHz', 1e6], ['kHz', 1e3], ['Hz', 1], ['mHz', 1e-3], ['µHz', 1e-6]];
+    case 'amp': return [['Vpp', 1], ['mVpp', 1e-3], ['Vrms', 1], ['mVrms', 1e-3]];
+    case 'off': case 'hi': case 'lo': return [['V', 1], ['mV', 1e-3]];
+    case 'phase': return [['°', 1]];
     case 'duty': case 'sym': return [['%', 1]];
     default: return [['s', 1], ['ms', 1e-3], ['µs', 1e-6], ['ns', 1e-9]];
   }
 }
 function gPave(c) {
-  if (!G.sel) return;
-  if (!G.entry) { if (c === '⌫') return; G.entry = { key: G.sel, s: '' }; G.menu = 'entry'; }
+  if (G.menu !== 'params' || !GP[G.sel]) { gMsg('Choisir d\'abord un paramètre'); return; }
+  if (!G.entry) G.entry = { key: G.sel, s: '' };
   const e = G.entry;
-  if (c === '⌫') { e.s = e.s.slice(0, -1); }
-  else if (c === '±') { e.s = e.s.startsWith('-') ? e.s.slice(1) : '-' + e.s; }
+  if (c === '±') { e.s = e.s.startsWith('-') ? e.s.slice(1) : '-' + e.s; }
   else if (c === '.') { if (!e.s.includes('.')) e.s += (e.s === '' || e.s === '-') ? '0.' : '.'; }
   else if (e.s.replace(/[-.]/g, '').length < 12) e.s += c;
   dessinerG();
 }
+function choisirTab(k) {
+  if (k === 'alig') { gMsg('AligPha: phases des voies 1 et 2 réalignées'); return; }
+  if (k === 'load') { G.menu = 'arbsrc'; dessinerG(); return; }
+  if (k === 'filt') { G.arbf = G.arbf === 'pas' ? 'normal' : 'pas'; gMsg('Filtre: ' + (G.arbf === 'pas' ? 'pas (échantillons bloqués)' : 'normal (points reliés)')); apresG(); return; }
+  if (k === 'col') {
+    if (ARB.cols.length < 2) { gMsg('Une seule colonne de tension dans ce fichier'); return; }
+    ARB = arbPreparer(ARB.nom, ARB.t, ARB.cols, ARB.noms, (ARB.col + 1) % ARB.cols.length); ARB.reduit = 1; arbAppliquer(); gMsg('Colonne: ' + ARB.noms[ARB.col]); return;
+  }
+  if (G.sel === k || G.sel === ALT[k]) { if (ALT[G.sel]) G.sel = ALT[G.sel]; }   // second appui: Freq ↔ Period, Ampl ↔ HiLev, Offset ↔ LoLev
+  else G.sel = k;
+  dessinerG();
+}
+function gEtiquettes() {
+  if (G.entry) { const U = unites(G.entry.key).map(u => ({ l: u[0] })); while (U.length < 5) U.push(null); U.push({ l: 'Cancel' }); return U; }
+  if (G.menu === 'util') return [{ l: G.load === '50' ? 'Load 50Ω' : 'Load HighZ', v: true }, { l: G.ampU === 'Vpp' ? 'Unit Vpp' : 'Unit Vrms', v: true }, null, null, null, { l: 'Done' }];
+  if (G.menu === 'store') return [{ l: 'Preset' }, null, null, null, null, { l: 'Done' }];
+  if (G.menu === 'arbsrc') return [{ l: 'File…' }, { l: 'Example' }, { l: 'DC', on: G.wave === 'dc' }, null, null, { l: 'Done' }];
+  const L = TABS[G.wave].map(k => {
+    const cur = G.sel === k || G.sel === ALT[k];
+    let l = LBL[cur ? G.sel : k];
+    if (k === 'filt') l = G.arbf === 'pas' ? 'Filt Step' : 'Filt Norm';
+    if (k === 'col' && ARB.cols.length < 2) return null;
+    return { l, on: cur, alt: !!ALT[k] };
+  });
+  while (L.length < 6) L.push(null); return L;
+}
 function gSoft(i) {
-  if (G.menu === 'entry') {
+  if (G.entry) {
     const U = unites(G.entry.key);
-    if (i === 5 || i >= U.length) { if (i === 5) { G.entry = null; G.menu = 'params'; dessinerG(); } return; }
-    const v = parseFloat(G.entry.s) * U[i][1], key = G.entry.key; G.entry = null; G.menu = 'params';
+    if (i === 5) { G.entry = null; dessinerG(); return; }
+    if (i >= U.length) return;
+    let key = G.entry.key; const x = parseFloat(G.entry.s); G.entry = null;
+    if (key === 'amp') G.ampU = /rms/.test(U[i][0]) ? 'Vrms' : 'Vpp';
+    const v = x * U[i][1];
     if (!isFinite(v)) { gMsg('Valeur non valide'); return; }
     const p = GP[key], [a, b] = p.lim(); let w = v, lim = false;
     if (w < a) { w = a; lim = true; } if (w > b) { w = b; lim = true; }
     p.set(w); if (lim) gMsg('Limite atteinte');
     apresG(); return;
   }
-  if (G.menu === 'waves') {
-    const w = WPAGES[G.wpage][i]; if (!w) return;
-    if (w === '+' || w === '-') { G.wpage = w === '+' ? 1 : 0; dessinerG(); return; }
-    const avant = G.wave;
-    G.wave = w; if (!WPARAMS[w].includes(G.sel)) G.sel = WPARAMS[w][0];
-    if (w === 'arb') { if (avant !== 'arb') arbAppliquer(); G.menu = 'params'; dessinerG(); return; }
-    apresG(); return;
-  }
-  if (G.menu === 'params') {
-    if (G.wave === 'arb' && i >= 3) {
-      if (i === 3) arbChoisir();
-      else if (i === 4) { G.arbf = G.arbf === 'pas' ? 'normal' : 'pas'; apresG(); }
-      else if (i === 5 && ARB.cols.length > 1) { ARB = arbPreparer(ARB.nom, ARB.t, ARB.cols, ARB.noms, (ARB.col + 1) % ARB.cols.length); ARB.reduit = 1; arbAppliquer(); gMsg('Colonne: ' + ARB.noms[ARB.col]); }
-      return;
-    }
-    const k = WPARAMS[G.wave][i]; if (k) { G.sel = k; dessinerG(); } return;
-  }
-  if (G.menu === 'units') { if (i === 0) { G.ampU = G.ampU === 'Vpp' ? 'Vrms' : 'Vpp'; dessinerG(); } return; }
-  if (G.menu === 'sortie') {
+  if (G.menu === 'util') {
     if (i === 0) {
       if (G.load === '50') { G.load = 'HZ'; G.vpp *= 2; G.offset *= 2; } else { G.load = '50'; G.vpp /= 2; G.offset /= 2; }
-      apresG();
-    } else if (i === 1) { const out = G.out; G = defautsGBF(); G.out = out; G.menu = 'sortie'; apresG(); gMsg('Réglages par défaut'); }
+      gMsg(G.load === '50' ? 'Charge 50 Ω: valeurs affichées pour une charge de 50 Ω' : 'Charge High Z: valeurs affichées à vide', 2600); apresG();
+    } else if (i === 1) { G.ampU = G.ampU === 'Vpp' ? 'Vrms' : 'Vpp'; dessinerG(); }
+    else if (i === 5) { G.menu = 'params'; dessinerG(); }
+    return;
   }
+  if (G.menu === 'store') {
+    if (i === 0) { const out = G.out; G = defautsGBF(); G.out = out; apresG(); gMsg('Réglages d\'usine rappelés'); }
+    else if (i === 5) { G.menu = 'params'; dessinerG(); }
+    return;
+  }
+  if (G.menu === 'arbsrc') {
+    if (i === 0) { G.menu = 'params'; arbChoisir(); dessinerG(); }
+    else if (i === 1) { ARB = arbExemple(); arbAppliquer(); gMsg('Forme exemple: triangle échantillonné'); }
+    else if (i === 2) { G.wave = 'dc'; G.sel = 'off'; G.menu = 'params'; apresG(); }
+    else if (i === 5) { G.menu = 'params'; dessinerG(); }
+    return;
+  }
+  const k = TABS[G.wave][i]; if (k) choisirTab(k);
 }
-function gEtiquettes() {
-  if (G.menu === 'entry') { const U = unites(G.entry.key).map(u => ({ l1: u[0], l2: '' })); while (U.length < 5) U.push(null); U.push({ l1: 'Annuler', l2: '' }); return U; }
-  if (G.menu === 'waves') return WPAGES[G.wpage].map(w => !w ? null : (w === '+' ? { l1: 'Autres', l2: '▸' } : (w === '-' ? { l1: '◂ Retour', l2: '' } : { l1: WNOM[w], l2: '', on: w === G.wave })));
-  if (G.menu === 'params') {
-    const L = WPARAMS[G.wave].map(k => ({ l1: GP[k].court, l2: '', on: k === G.sel }));
-    if (G.wave === 'arb') {
-      L.push({ l1: 'Charger', l2: 'fichier…' }, { l1: 'Filtre', l2: G.arbf === 'pas' ? 'Pas' : 'Normal' });
-      L.push(ARB.cols.length > 1 ? { l1: 'Colonne', l2: (ARB.col + 1) + '/' + ARB.cols.length } : null);
-    }
-    while (L.length < 6) L.push(null); return L;
+function choisirForme(w) {
+  G.entry = null;
+  if (w === 'arb') {
+    if (G.wave === 'arb' || G.wave === 'dc') { G.menu = G.menu === 'arbsrc' ? 'params' : 'arbsrc'; dessinerG(); return; }
+    G.menu = 'params'; arbAppliquer(); return;
   }
-  if (G.menu === 'units') return [{ l1: 'Amplitude', l2: G.ampU }, null, null, null, null, null];
-  return [{ l1: 'Charge', l2: G.load === '50' ? '50 Ω' : 'Haute Z' }, { l1: 'Réglages', l2: 'par défaut' }, null, null, null, null];
+  G.menu = 'params'; G.wave = w;
+  const base = TABS[w].filter(k => GP[k]);
+  if (!base.includes(G.sel) && !base.includes(ALT[G.sel])) G.sel = base[0];
+  apresG();
 }
 function forme(ph) {
   ph = ph - Math.floor(ph);
@@ -2468,85 +2585,115 @@ function arbFichier(f) {
   lecteur.onerror = () => gMsg('Lecture impossible');
   lecteur.readAsText(f);
 }
-function dessinerG() {
-  const g = gctx; g.setTransform(dprG, 0, 0, dprG, 0, 0);
-  g.fillStyle = '#0c1522'; g.fillRect(0, 0, 320, 220);
-  g.fillStyle = '#21436a'; g.fillRect(0, 0, 320, 20);
-  g.textBaseline = 'middle'; g.textAlign = 'left'; g.font = 'bold 12px ' + FC;
-  g.fillStyle = '#ffe55c'; g.fillText('Voie 1', 6, 10.5);
-  g.fillStyle = '#fff'; g.fillText(WNOM[G.wave], 54, 10.5);
-  g.font = '12px ' + FC; g.fillStyle = '#cfe0f5'; g.fillText(G.load === '50' ? 'Charge 50 Ω' : 'Charge Haute Z', 140, 10.5);
-  g.fillStyle = G.out ? '#2fcf4a' : '#59616c'; g.fillRect(272, 3, 42, 14);
-  g.fillStyle = G.out ? '#002a07' : '#d0d4da'; g.textAlign = 'center'; g.font = 'bold 11px ' + FC; g.fillText(G.out ? 'ON' : 'OFF', 293, 10.5);
-  // aperçu de la forme
-  g.strokeStyle = '#2b3b52'; g.strokeRect(6.5, 26.5, 114, 90);
-  g.strokeStyle = 'rgba(255,255,255,0.12)'; g.beginPath(); g.moveTo(7, 71.5); g.lineTo(120, 71.5); g.stroke();
-  g.strokeStyle = '#ffe55c'; g.lineWidth = 1.6; g.beginPath();
-  for (let i = 0; i <= 220; i++) {
-    const ph = i / 110; let y;
-    if (G.wave === 'dc') y = 71 - clamp(G.offset / Vmax(), -1, 1) * 36;
-    else y = 71 - forme(ph) * 32;
-    const x = 10 + i * 106 / 220; i ? g.lineTo(x, y) : g.moveTo(x, y);
+/* écran LCD bleu du DG1022 (452 × 128 pixels logiques) */
+const LW = 452, LH = 128, LCD = { fond: '#a9d6f5', encre: '#0b2477', inv: '#d9eefc' };
+function icone(g, x, y, w, h) {
+  g.strokeStyle = LCD.encre; g.lineWidth = 1.6; g.beginPath();
+  for (let i = 0; i <= 80; i++) {
+    const yy = G.wave === 'dc' ? y + h / 2 - clamp(G.offset / Vmax(), -1, 1) * h / 2 : y + h / 2 - forme(i / 80) * h / 2;
+    const xx = x + i * w / 80; i ? g.lineTo(xx, yy) : g.moveTo(xx, yy);
   }
   g.stroke(); g.lineWidth = 1;
-  if (G.wave === 'arb' && !G.entry && !(G.msg && performance.now() < G.msgT)) {
-    g.fillStyle = '#9fb6cf'; g.font = '10px ' + FC; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-    const nm = ARB.nom.length > 22 ? ARB.nom.slice(0, 21) + '…' : ARB.nom;
-    g.fillText(nm, 8, 130); g.fillText(ARB.n + ' points' + (ARB.reduit > 1 ? ' (1 sur ' + ARB.reduit + ')' : ''), 8, 143);
-    if (ARB.cols.length > 1) g.fillText('colonne: ' + ARB.noms[ARB.col].slice(0, 14), 8, 156);
-  }
-  // paramètres
-  let y = 26;
-  for (const key of WPARAMS[G.wave]) {
-    const sel = key === G.sel, f = fmtParam(key);
-    if (sel) { g.fillStyle = 'rgba(70,130,210,0.30)'; g.fillRect(128, y, 186, 30); g.strokeStyle = '#5aa0ff'; g.strokeRect(128.5, y + 0.5, 185, 29); }
-    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-    g.fillStyle = '#9fb6cf'; g.font = '10px ' + FC; g.fillText(GP[key].nom, 133, y + 10);
-    g.fillStyle = '#fff'; g.font = '14px ' + FM;
-    const txt = f.sign + f.body, cw = g.measureText('0').width, x0 = 133;
-    g.fillText(txt, x0, y + 26);
-    if (sel && !G.entry) { const xi = x0 + (f.sign.length + f.idx) * cw; g.fillStyle = '#ffe55c'; g.fillRect(xi, y + 28, cw, 2); }
-    g.fillStyle = '#cfe0f5'; g.font = '12px ' + FC; g.fillText(f.unit, x0 + txt.length * cw + 5, y + 26);
-    y += 31;
-  }
+}
+function dessinerG() {
+  const g = gctx; g.setTransform(dprG, 0, 0, dprG, 0, 0);
+  g.fillStyle = LCD.fond; g.fillRect(0, 0, LW, LH);
+  g.textBaseline = 'middle';
+  // bandeau du haut: forme, charge, voie
+  g.strokeStyle = LCD.encre; g.lineWidth = 1.2; g.strokeRect(4.5, 2.5, 70, 19);
+  g.fillStyle = LCD.encre; g.font = 'bold 15px ' + FC; g.textAlign = 'center'; g.fillText(WNOM[G.wave], 39.5, 12.5);
+  g.setLineDash([1, 2]); g.beginPath(); g.moveTo(75, 21.5); g.lineTo(LW - 4, 21.5); g.stroke(); g.setLineDash([]);
+  g.strokeRect(300.5, 2.5, 66, 19); g.font = '15px ' + FC; g.fillText(G.load === '50' ? '50 Ω' : 'High Z', 333.5, 12.5);
+  g.fillRect(368, 2, 80, 20); g.fillStyle = LCD.inv; g.font = 'bold 15px ' + FC; g.fillText('CH1', 408, 12.5);
+  g.fillStyle = LCD.encre; g.font = '11px ' + FC; g.textAlign = 'left';
+  g.fillText(G.out ? '' : 'Output OFF', 84, 12.5);
+  // zone centrale
+  const msg = G.msg && performance.now() < G.msgT;
   if (G.entry) {
-    g.fillStyle = 'rgba(12,21,34,0.95)'; g.fillRect(6, 122, 116, 58); g.strokeStyle = '#ffe55c'; g.strokeRect(6.5, 122.5, 115, 57);
-    g.fillStyle = '#ffe55c'; g.font = '10px ' + FC; g.textAlign = 'left'; g.fillText('Saisie: ' + GP[G.entry.key].court, 12, 136);
-    g.fillStyle = '#fff'; g.font = '14px ' + FM; g.fillText((G.entry.s || '') + '_', 12, 158);
-    g.fillStyle = '#9fb6cf'; g.font = '10px ' + FC; g.fillText('puis choisir l\'unité', 12, 173);
+    g.font = '13px ' + FC; g.textAlign = 'left'; g.fillText(LBL[G.entry.key] + ' :', 10, 40);
+    g.font = '40px ' + FM; g.fillText((G.entry.s || '') + '_', 70, 66);
+  } else if (G.menu === 'util') {
+    g.font = '14px ' + FC; g.textAlign = 'left';
+    g.fillText('Output Setup — Load: ' + (G.load === '50' ? '50 Ω' : 'High Z (> 10 kΩ)'), 12, 42);
+    g.fillText('Unité d\'amplitude: ' + G.ampU, 12, 62);
+    g.font = '11.5px ' + FC; g.fillText('Résistance de sortie du générateur: 50 Ω (fixe)', 12, 82);
+  } else if (G.menu === 'store') {
+    g.font = '14px ' + FC; g.textAlign = 'left'; g.fillText('Store/Recall: Preset = réglages d\'usine', 12, 52);
+  } else if (G.menu === 'arbsrc') {
+    g.font = '14px ' + FC; g.textAlign = 'left';
+    g.fillText('Arb: choisir la forme (fichier CSV/texte, exemple, DC)', 12, 42);
+    g.font = '12px ' + FC; const nm = ARB.nom.length > 40 ? ARB.nom.slice(0, 39) + '…' : ARB.nom;
+    g.fillText('Actuelle: ' + (G.wave === 'dc' ? 'DC' : nm + ' (' + ARB.n + ' points)'), 12, 64);
+  } else if (G.vue) {
+    g.strokeRect(6.5, 27.5, 150, 68); g.globalAlpha = 0.35; g.beginPath(); g.moveTo(7, 61.5); g.lineTo(156, 61.5); g.stroke(); g.globalAlpha = 1;
+    icone(g, 10, 33, 142, 56);
+    const L = TABS[G.wave].filter(k => GP[k]).map(k => (G.sel === ALT[k] ? G.sel : k));
+    g.font = '13px ' + FM; g.textAlign = 'left';
+    L.slice(0, 4).forEach((k, i) => {
+      const y = 35 + i * 17;
+      if (k === G.sel) { g.fillRect(162, y - 8, 286, 16); g.fillStyle = LCD.inv; }
+      g.fillText(LBL[k], 166, y); g.textAlign = 'right'; g.fillText(texteParam(k), 444, y); g.textAlign = 'left'; g.fillStyle = LCD.encre;
+    });
+  } else if (GP[G.sel]) {
+    icone(g, 8, 32, 50, 30);
+    g.font = '10px ' + FC; g.textAlign = 'center'; g.fillText(G.sel === 'freq' ? '←1/F→' : LBL[G.sel], 33, 74);
+    const f = fmtParam(G.sel), x0 = 72, yb = 64;
+    g.font = '46px ' + FM; g.textAlign = 'left';
+    const cw = g.measureText('0').width, pw = cw * 0.55;
+    let x = x0;
+    if (f.sign) { g.fillText(f.sign, x, yb); x += cw; }
+    for (const t of f.tok) {
+      const w = t.e === undefined ? pw : cw;
+      if (t.e === G.ce[G.sel]) { g.fillRect(x - 1, yb - 25, w + 1, 46); g.fillStyle = LCD.inv; }
+      g.fillText(t.c, t.e === undefined ? x - cw * 0.22 : x, yb);
+      g.fillStyle = LCD.encre; x += w;
+    }
+    g.font = '40px ' + FC; g.fillText(f.unit, x + 4, yb + 1);
   }
-  if (G.msg && performance.now() < G.msgT) {
-    g.fillStyle = '#ffb347'; g.font = 'bold 11px ' + FC; g.textAlign = 'left'; g.fillText(G.msg, 8, G.entry ? 116 : 132);
+  if (msg) {
+    g.font = 'bold 13px ' + FC; const tw = Math.min(LW - 20, g.measureText(G.msg).width + 20);
+    g.fillStyle = LCD.encre; g.fillRect(LW / 2 - tw / 2, 40, tw, 26);
+    g.fillStyle = LCD.inv; g.textAlign = 'center'; g.fillText(G.msg, LW / 2, 53.5, LW - 30); g.fillStyle = LCD.encre;
   }
-  // touches de menu
-  const L = gEtiquettes(), w = 320 / 6;
+  // onglets des touches de menu
+  const L = gEtiquettes(), w = LW / 6, y0 = 103;
+  g.beginPath(); g.moveTo(0, y0 + 0.5); g.lineTo(LW, y0 + 0.5); g.strokeStyle = LCD.encre; g.stroke();
   for (let i = 0; i < 6; i++) {
-    const it = L[i], x = i * w;
-    g.fillStyle = it ? (it.on ? '#2f5d93' : '#1d2a3b') : '#0f1824'; g.fillRect(x + 1.5, 190, w - 3, 28);
-    if (!it) continue;
-    g.strokeStyle = it.on ? '#7fb2ff' : '#34465f'; g.strokeRect(x + 2, 190.5, w - 4, 27);
-    g.fillStyle = '#e8eef6'; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-    g.font = '10.5px ' + FC; g.fillText(it.l1, x + w / 2, it.l2 ? 202 : 208);
-    if (it.l2) { g.font = 'bold 10.5px ' + FC; g.fillText(it.l2, x + w / 2, 214); }
+    const it = L[i], x = i * w; if (!it) continue;
+    if (it.on) { g.fillRect(x + 2, y0, w - 4, LH - y0 - 1); g.fillStyle = LCD.inv; }
+    else { g.strokeRect(x + 2.5, y0 + 0.5, w - 5, LH - y0 - 2); }
+    g.textAlign = 'center'; g.font = (it.l.length > 8 ? '13px ' : '15px ') + FC; g.fillText(it.l, x + w / 2, y0 + 12.5);
+    if (it.alt) { g.beginPath(); g.moveTo(x + w - 13, y0 + 18); g.lineTo(x + w - 5, y0 + 18); g.lineTo(x + w - 9, y0 + 23); g.fill(); }
+    g.fillStyle = LCD.encre;
   }
-  document.querySelectorAll('[data-g]').forEach(b => b.classList.toggle('on', G.menu === b.dataset.g));
-  document.querySelector('#gOut .led').className = 'led ' + (G.out ? 'vert' : '');
+  document.querySelectorAll('.rk.wv[data-w]').forEach(b => b.classList.toggle('on', b.dataset.w === G.wave || (b.dataset.w === 'arb' && G.wave === 'dc')));
+  document.querySelectorAll('[data-gm]').forEach(b => b.classList.toggle('on', G.menu === b.dataset.gm));
+  document.getElementById('gOut').classList.toggle('on', G.out);
 }
 (function () {
   const z = document.getElementById('gSofts');
   for (let i = 0; i < 6; i++) { const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-label', 'Touche de menu du générateur ' + (i + 1)); b.addEventListener('click', () => gSoft(i)); z.appendChild(b); }
   const pad = document.getElementById('gPad');
-  for (const c of ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0', '.', '±']) { const b = document.createElement('button'); b.className = 'tk'; b.type = 'button'; b.textContent = c; b.addEventListener('click', () => gPave(c)); pad.appendChild(b); }
-  document.querySelector('[data-p="⌫"]').addEventListener('click', () => gPave('⌫'));
-  document.querySelectorAll('[data-g]').forEach(b => b.addEventListener('click', () => { if (G.entry) G.entry = null; G.menu = b.dataset.g; dessinerG(); }));
+  for (const c of ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0', '.', '±']) {
+    const b = document.createElement('button'); b.className = 'rk'; b.type = 'button'; b.textContent = c === '±' ? '+/−' : c;
+    b.addEventListener('click', () => gPave(c)); pad.appendChild(b);
+  }
+  document.querySelectorAll('.rk.wv[data-w]').forEach(b => b.addEventListener('click', () => choisirForme(b.dataset.w)));
+  document.querySelectorAll('[data-gm]').forEach(b => b.addEventListener('click', () => {
+    const m = b.dataset.gm; G.entry = null;
+    if (m === 'util' || m === 'store') { G.menu = G.menu === m ? 'params' : m; dessinerG(); }
+    else if (m === 'help') gMsg('Forme (Sine…), puis Freq/Ampl/Offset; molette ou pavé numérique', 3200);
+    else gMsg(m + ': non simulé dans cette émulation');
+  }));
+  document.getElementById('gCH').addEventListener('click', () => gMsg('Seule la voie 1 est reliée au montage', 2400));
+  document.getElementById('gOut2').addEventListener('click', () => gMsg('Voie 2: non reliée au montage', 2400));
+  document.getElementById('gView').addEventListener('click', () => { G.vue = G.vue ? 0 : 1; dessinerG(); });
   document.getElementById('gG').addEventListener('click', () => gCurseur(1));
   document.getElementById('gD').addEventListener('click', () => gCurseur(-1));
   document.getElementById('gOut').addEventListener('click', () => { G.out = !G.out; apresG(); });
-  document.getElementById('gArb').addEventListener('click', () => arbChoisir());
   gcv.addEventListener('pointerdown', e => {
-    const r = gcv.getBoundingClientRect(), x = (e.clientX - r.left) * 320 / r.width, y = (e.clientY - r.top) * 220 / r.height;
-    if (y >= 188) { gSoft(Math.floor(x / (320 / 6))); return; }
-    if (x >= 128 && y >= 26) { const i = Math.floor((y - 26) / 31), k = WPARAMS[G.wave][i]; if (k) { G.sel = k; if (G.menu !== 'entry') G.menu = 'params'; dessinerG(); } }
+    const r = gcv.getBoundingClientRect(), x = (e.clientX - r.left) * LW / r.width, y = (e.clientY - r.top) * LH / r.height;
+    if (y >= 103) gSoft(Math.floor(x / (LW / 6)));
   });
 })();
 molette('gKnob', d => gTourner(d), null, 'Molette du générateur');
