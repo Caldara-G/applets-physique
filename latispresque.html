@@ -789,7 +789,22 @@ class Plot {
         V.xmin = cx - hx; V.xmax = cx + hx; V.ymin = cy - hy; V.ymax = cy + hy;
       }
     }
-    return this.view;
+    return this.clampView(this.view);
+  }
+  // bornes de zoom : évite un intervalle plus fin que la précision des flottants (boucle infinie de la grille)
+  clampView(V) {
+    const fix = (a, b, log) => {
+      let lo = V[a], hi = V[b];
+      if (!isFinite(lo) || !isFinite(hi)) { const B = this.bounds(); lo = B[a]; hi = B[b]; }
+      if (lo > hi) [lo, hi] = [hi, lo];
+      const mid = (lo + hi) / 2, span = hi - lo;
+      const minSpan = Math.max(Math.abs(mid) * 1e-9, 1e-250), maxSpan = log ? 300 : 1e250;
+      if (span < minSpan) { lo = mid - minSpan / 2; hi = mid + minSpan / 2; }
+      else if (span > maxSpan) { lo = mid - maxSpan / 2; hi = mid + maxSpan / 2; }
+      V[a] = lo; V[b] = hi;
+    };
+    fix('xmin', 'xmax', this.logx); fix('ymin', 'ymax'); fix('y2min', 'y2max');
+    return V;
   }
 
   layout() {
@@ -832,20 +847,20 @@ class Plot {
         if (this.grid && (m === 1 || !many)) { ctx.globalAlpha = m === 1 ? 1 : 0.5; ctx.beginPath(); ctx.moveTo(px, B.t); ctx.lineTo(px, B.b); ctx.stroke(); ctx.globalAlpha = 1; }
         if (m === 1) ctx.fillText(fmtVal(Math.pow(10, k), 3), px, B.b + 5);
       }
-    } else for (let v = Math.ceil(V.xmin / xs) * xs; v <= V.xmax + xs * 1e-9; v += xs) {
+    } else for (let k = 0, v = Math.ceil(V.xmin / xs) * xs; v <= V.xmax + xs * 1e-9 && k < 500; v += xs, k++) {
       const px = Math.round(this.X(v)) + 0.5;
       if (this.grid) { ctx.beginPath(); ctx.moveTo(px, B.t); ctx.lineTo(px, B.b); ctx.stroke(); }
       ctx.fillText(fmtNum(Math.abs(v) < xs * 1e-9 ? 0 : v, xs), px, B.b + 5);
     }
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    for (let v = Math.ceil(V.ymin / ys) * ys; v <= V.ymax + ys * 1e-9; v += ys) {
+    for (let k = 0, v = Math.ceil(V.ymin / ys) * ys; v <= V.ymax + ys * 1e-9 && k < 500; v += ys, k++) {
       const py = Math.round(this.Y(v)) + 0.5;
       if (this.grid) { ctx.beginPath(); ctx.moveTo(B.l, py); ctx.lineTo(B.r, py); ctx.stroke(); }
       ctx.fillText(fmtNum(Math.abs(v) < ys * 1e-9 ? 0 : v, ys), B.l - 5, py);
     }
     if (B.hasRight) {
       const y2s = niceStep(V.y2max - V.y2min, (B.b - B.t) / 40); ctx.textAlign = 'left';
-      for (let v = Math.ceil(V.y2min / y2s) * y2s; v <= V.y2max + y2s * 1e-9; v += y2s) ctx.fillText(fmtNum(Math.abs(v) < y2s * 1e-9 ? 0 : v, y2s), B.r + 5, this.Y(v, true));
+      for (let k = 0, v = Math.ceil(V.y2min / y2s) * y2s; v <= V.y2max + y2s * 1e-9 && k < 500; v += y2s, k++) ctx.fillText(fmtNum(Math.abs(v) < y2s * 1e-9 ? 0 : v, y2s), B.r + 5, this.Y(v, true));
     }
     // axes zéro
     ctx.strokeStyle = C.axis;
