@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagramme (P, h) interactif — MP* Malherbe</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px; color: #222; background: #eef0f3;
+}
+#app { display: flex; height: 100vh; }
+#principal { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0;
+  padding: 8px; gap: 8px; }
+.ligne-zones { display: flex; gap: 8px; min-height: 0; }
+.zone { position: relative; flex: 1; min-height: 0; min-width: 0; background: #fff;
+  border: 1px solid #d5d9df; border-radius: 6px; overflow: hidden; }
+.zone canvas { position: absolute; left: 0; top: 0; touch-action: none; }
+#panneau { width: 420px; flex: none; overflow-y: auto; background: #fff;
+  border-left: 1px solid #d5d9df; padding: 10px 14px 20px; }
+#panneau h1 { font-size: 16px; margin: 4px 0 2px; }
+.retour { font-size: 12px; color: #4a6fa5; text-decoration: none; }
+.retour:hover { text-decoration: underline; }
+.section { margin: 8px 0; padding-bottom: 8px; border-bottom: 1px solid #eceef1; }
+.section:last-child { border-bottom: none; }
+.titre { font-weight: 600; margin-bottom: 4px; color: #333; }
+.choix { display: flex; align-items: center; gap: 6px; padding: 1px 0; cursor: pointer;
+  user-select: none; }
+.choix input { margin: 0 2px 0 0; }
+.choix.off { color: #aaa; cursor: default; }
+.curseur { margin: 7px 0; }
+.curseur .tete { display: flex; justify-content: space-between; align-items: center;
+  gap: 6px; }
+.curseur .valeur { display: flex; align-items: center; gap: 2px; flex: none; }
+.saisie { width: 66px; text-align: right; font: inherit; padding: 1px 4px;
+  border: 1px solid #c9cdd3; border-radius: 3px; }
+.pm { width: 20px; height: 20px; padding: 0; border: 1px solid #c9cdd3;
+  background: #f5f6f8; border-radius: 3px; cursor: pointer; line-height: 1; }
+.pm:hover { background: #e6e9ee; }
+input[type=range] { width: 100%; margin: 3px 0 0; accent-color: #3b6fb6; }
+.boutons { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+button.b { padding: 5px 10px; border: 1px solid #b8bec8; background: #f3f4f6;
+  border-radius: 4px; cursor: pointer; font: inherit; }
+button.b:hover { background: #e4e7ec; }
+button.b.actif { background: #dce7f7; border-color: #7f9fcf; }
+.info { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 4px;
+  padding: 6px 8px; line-height: 1.5; }
+.note { font-size: 11.5px; color: #666; font-style: italic; line-height: 1.4; }
+.dialogue { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: none;
+  align-items: center; justify-content: center; z-index: 10; }
+.dialogue .boite { background: #fff; border-radius: 8px; padding: 16px 20px;
+  min-width: 340px; box-shadow: 0 6px 30px rgba(0,0,0,0.25); }
+.dialogue table td { padding: 3px 6px; }
+.dialogue input[type=text] { width: 80px; font: inherit; padding: 2px 4px; }
+.erreur { color: #c62828; }
+@media (max-width: 900px) {
+  #app { flex-direction: column; height: auto; }
+  #principal { height: 75vh; }
+  #panneau { width: 100%; border-left: none; border-top: 1px solid #d5d9df; }
+}
+.haut { display: flex; justify-content: space-between; align-items: center; }
+.etiquette { font-size: 11.5px; font-weight: 600; color: #fff; background: #3b5f96;
+  border-radius: 10px; padding: 2px 9px; letter-spacing: 0.02em; }
+.filigrane { position: absolute; right: 16px; bottom: 14px; z-index: 5; pointer-events: none;
+  font-size: 13px; font-weight: 700; color: #3b5f96; background: rgba(255,255,255,0.82);
+  border: 1px solid rgba(59,95,150,0.35); border-radius: 12px; padding: 3px 11px; }
+.etapes { display: flex; flex-direction: column; gap: 3px; margin-bottom: 4px; }
+button.b.etape { text-align: left; padding: 4px 8px; }
+button.b:disabled { opacity: 0.45; cursor: default; }
+.explication { line-height: 1.55; }
+.tab { border-collapse: collapse; font-size: 11px; width: 100%; }
+.tab select { font-size: 11px !important; max-width: 92px; }
+.tab th, .tab td { border-bottom: 1px solid #e6e8ec; padding: 2px 4px; text-align: right; white-space: nowrap; }
+.tab th { background: #f3f5f8; font-weight: 600; text-align: center; }
+.tab td:first-child { text-align: center; }
+select { max-width: 100%; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="principal">
+    <div class="zone" id="z_vue" data-mt-nom="Diagramme (P, h)" style="flex: 1"></div>
+  </div>
+  <div id="panneau"></div>
+</div>
+<script src="thermo_ph.js"></script>
+<script>
+"use strict";
+// ---------------------------------------------------------------- DOM
+function el(tag, attrs, parent) {
+  const e = document.createElement(tag);
+  if (attrs) {
+    for (const k in attrs) {
+      const v = attrs[k];
+      if (k === "text") e.textContent = v;
+      else if (k === "html") e.innerHTML = v;
+      else if (k === "class") e.className = v;
+      else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v);
+    }
+  }
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+/** Nombre écrit avec une virgule décimale. */
+function fmt(v, d) {
+  if (v === Infinity) return "∞";
+  if (v === -Infinity) return "−∞";
+  if (!isFinite(v)) return "—";
+  let s = v.toFixed(d);
+  if (/^-0(\.0*)?$/.test(s)) s = s.slice(1);
+  return s.replace(".", ",").replace("-", "−");
+}
+
+function section(parent, titre) {
+  const s = el("div", { class: "section" }, parent);
+  if (titre) el("div", { class: "titre", html: titre }, s);
+  return s;
+}
+
+/** Curseur avec boutons −/+, saisie au clavier et molette.
+    o = {label, min, max, val, pas, dec, onchange} */
+function curseur(parent, o) {
+  const ligne = el("div", { class: "curseur" }, parent);
+  const tete = el("div", { class: "tete" }, ligne);
+  el("span", { html: o.label }, tete);
+  const zone = el("span", { class: "valeur" }, tete);
+  const moins = el("button", { class: "pm", text: "−", title: "diminuer" }, zone);
+  const saisie = el("input", { type: "text", class: "saisie" }, zone);
+  const plus = el("button", { class: "pm", text: "+", title: "augmenter" }, zone);
+  const r = el("input", { type: "range", min: o.min, max: o.max, step: "any" }, ligne);
+  const dec = o.dec !== undefined ? o.dec
+    : Math.max(0, -Math.floor(Math.log10(o.pas) + 1e-9));
+  let v = o.val;
+  function borne(x) {
+    x = Math.min(Math.max(x, o.min), o.max);
+    return +(o.min + Math.round((x - o.min) / o.pas) * o.pas).toFixed(10);
+  }
+  function afficher() { r.value = v; saisie.value = fmt(v, dec); }
+  function regler(x, silencieux) {
+    x = borne(x);
+    const change = Math.abs(x - v) > 1e-12;
+    v = x;
+    afficher();
+    if (change && !silencieux && o.onchange) o.onchange(v);
+  }
+  r.addEventListener("input", () => regler(parseFloat(r.value)));
+  saisie.addEventListener("change", () => {
+    const x = parseFloat(saisie.value.replace(",", ".").replace("−", "-"));
+    if (isFinite(x)) regler(x); else afficher();
+  });
+  saisie.addEventListener("keydown", (e) => { if (e.key === "Enter") saisie.blur(); });
+  moins.addEventListener("click", () => regler(v - o.pas));
+  plus.addEventListener("click", () => regler(v + o.pas));
+  r.addEventListener("keydown", (e) => {
+    const sauts = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1,
+                    PageUp: 10, PageDown: -10 };
+    if (e.key in sauts) { e.preventDefault(); regler(v + sauts[e.key] * o.pas); }
+  });
+  ligne.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    regler(v + (e.deltaY < 0 ? 1 : -1) * o.pas * (e.shiftKey ? 10 : 1));
+  }, { passive: false });
+  afficher();
+  return {
+    get: () => v,
+    set: (x, silencieux) => regler(x, silencieux),
+    ligne,
+    montrer: (b) => { ligne.style.display = b ? "" : "none"; },
+  };
+}
+
+/** Groupe de boutons radio. onchange(valeur, indice). */
+function radios(parent, titre, options, actif, onchange) {
+  const s = section(parent, titre);
+  const nom = "r" + Math.random().toString(36).slice(2);
+  const items = options.map((opt, i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "radio", name: nom }, lab);
+    el("span", { html: opt }, lab);
+    if (i === actif) inp.checked = true;
+    inp.addEventListener("change", () => {
+      if (inp.checked && onchange) onchange(opt, i);
+    });
+    return { inp, lab };
+  });
+  return {
+    indice: () => items.findIndex((o) => o.inp.checked),
+    valeur: () => options[items.findIndex((o) => o.inp.checked)],
+    set: (i, silencieux) => {
+      items[i].inp.checked = true;
+      if (!silencieux && onchange) onchange(options[i], i);
+    },
+    desactiver: (i, b) => {
+      items[i].inp.disabled = b;
+      items[i].lab.classList.toggle("off", b);
+    },
+    section: s,
+  };
+}
+
+/** Cases à cocher. options = [[libellé, coché], ...]. onchange(indice, état). */
+function cases(parent, titre, options, onchange) {
+  const s = section(parent, titre);
+  const items = options.map(([texte, coche], i) => {
+    const lab = el("label", { class: "choix" }, s);
+    const inp = el("input", { type: "checkbox" }, lab);
+    inp.checked = coche;
+    el("span", { html: texte }, lab);
+    inp.addEventListener("change", () => onchange && onchange(i, inp.checked));
+    return inp;
+  });
+  return {
+    get: (i) => items[i].checked,
+    set: (i, b, silencieux) => {
+      items[i].checked = b;
+      if (!silencieux && onchange) onchange(i, b);
+    },
+    section: s,
+  };
+}
+
+function boutons(parent) { return el("div", { class: "boutons" }, parent); }
+function bouton(parent, texte, onclick) {
+  return el("button", { class: "b", html: texte, onclick }, parent);
+}
+
+/** En-tête du panneau de commandes. */
+function entete(panneau, titre) {
+  const haut = el("div", { class: "haut" }, panneau);
+  el("a", { class: "retour", href: "index.html", text: "← Sommaire" }, haut);
+  el("span", { class: "etiquette", text: "MP* Malherbe" }, haut);
+  // filigrane visible en permanence sur la zone de simulation
+  const principal = document.getElementById("principal");
+  if (principal) el("div", { class: "filigrane", text: "MP* Malherbe" }, principal);
+  el("h1", { html: titre }, panneau);
+}
+
+// ---------------------------------------------------------------- canvas
+/** Canvas qui remplit son conteneur et se redessine quand il change de taille. */
+function canevas(conteneur, dessiner) {
+  const cv = el("canvas", null, conteneur);
+  const ctx = cv.getContext("2d");
+  const obj = { cv, ctx, w: 1, h: 1, dessiner };
+  function taille() {
+    const r = conteneur.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    obj.w = Math.max(10, Math.floor(r.width));
+    obj.h = Math.max(10, Math.floor(r.height));
+    cv.width = Math.round(obj.w * dpr);
+    cv.height = Math.round(obj.h * dpr);
+    cv.style.width = obj.w + "px";
+    cv.style.height = obj.h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (obj.dessiner) obj.dessiner(obj);
+  }
+  obj.effacer = (fond) => {
+    ctx.fillStyle = fond || "#fff";
+    ctx.fillRect(0, 0, obj.w, obj.h);
+  };
+  new ResizeObserver(taille).observe(conteneur);
+  taille();
+  return obj;
+}
+
+// ====================================================================== applet
+/* Diagramme (P, h) interactif: fluides réels, réseaux de courbes, exemples de cycles,
+   cycle dessiné à la souris et bilan énergétique (travaux, transferts thermiques, efficacité). */
+
+const COULSEG = { adiabatique: "#7b2d8e", isenthalpe: "#00897b", chaud: "#c62828", froid: "#1565c0", isobare: "#555" };
+const etat = { F: null, V: null, mode: "explorer", points: [], types: [], ferme: false, survol: null,
+  aimant: true, exemple: 0, params: {}, prevision: null, glisse: null, pan: null };
+
+// ---------------------------------------------------------------- exemples
+const FRIGO = (Tev, Tco, surch, sref, eta) => [
+  ["Tev", "T<sub>évap</sub> (°C)", Tev[0], Tev[1], Tev[2], 1],
+  ["Tco", "T<sub>cond</sub> (°C)", Tco[0], Tco[1], Tco[2], 1],
+  ["surch", "Surchauffe (K)", 0, 20, surch, 1],
+  ["sref", "Sous-refroidissement (K)", 0, 15, sref, 1],
+  ["eta", "Rendement isentropique du compresseur", 0.4, 1, eta, 0.01]];
+function cycleFrigo(F, p) {
+  const PB = F.Psat(p.Tev), PH = F.Psat(p.Tco);
+  const h1 = p.surch > 0 ? F.hPT(PB, p.Tev + p.surch) : F.sat(PB).hV;
+  const s1 = F.etat(PB, h1).s, h2s = F.hPs(PH, s1), h2 = h1 + (h2s - h1) / p.eta;
+  const h3 = p.sref > 0 ? F.hPT(PH, p.Tco - p.sref) : F.sat(PH).hL;
+  return { points: [[PB, h1], [PH, h2], [PH, h3], [PB, h3]], types: ["adiabatique", "isobare", "isenthalpe", "isobare"] };
+}
+const EXEMPLES = [
+  { nom: "Machine frigorifique (R134a)", fluide: "R134a",
+    texte: "Cycle à compression de vapeur: compresseur (1→2), condenseur (2→3), détendeur (3→4), évaporateur (4→1).",
+    params: FRIGO([-40, 20, -10], [20, 70, 40], 5, 3, 0.75), cycle: cycleFrigo },
+  { nom: "Cycle frigorifique idéal (R134a)", fluide: "R134a",
+    texte: "Vapeur saturante à l'aspiration, liquide saturant en sortie de condenseur, compression isentropique.",
+    params: FRIGO([-40, 20, -10], [20, 70, 40], 0, 0, 1), cycle: cycleFrigo },
+  { nom: "Réfrigérateur domestique (R600a)", fluide: "R600a",
+    texte: "L'isobutane a remplacé les CFC et HFC dans les réfrigérateurs: faible effet de serre.",
+    params: FRIGO([-40, 10, -25], [20, 60, 40], 8, 2, 0.6), cycle: cycleFrigo },
+  { nom: "Pompe à chaleur air-eau (R290)", fluide: "R290",
+    texte: "Même cycle qu'un réfrigérateur, mais on utilise le transfert thermique cédé au condenseur (chauffage d'une maison).",
+    params: FRIGO([-25, 15, -5], [25, 70, 50], 5, 3, 0.7), cycle: cycleFrigo },
+  { nom: "Climatiseur (R22)", fluide: "R22",
+    texte: "Évaporation vers 5 °C dans la pièce, condensation à l'extérieur vers 45 °C.",
+    params: FRIGO([-20, 20, 5], [25, 65, 45], 5, 3, 0.7), cycle: cycleFrigo },
+  { nom: "Froid industriel (R717, ammoniac)", fluide: "R717",
+    texte: "L'ammoniac a une très grande enthalpie de vaporisation: on le retrouve dans les entrepôts frigorifiques et les patinoires.",
+    params: FRIGO([-45, 0, -30], [20, 50, 35], 5, 3, 0.75), cycle: cycleFrigo },
+  { nom: "Pompe à chaleur au CO₂ transcritique (R744)", fluide: "R744",
+    texte: "La haute pression dépasse la pression critique (73,8 bar): il n'y a plus de condensation mais un refroidissement du gaz supercritique (refroidisseur de gaz).",
+    params: [["Tev", "T<sub>évap</sub> (°C)", -40, 20, -5, 1], ["PH", "Haute pression (bar)", 75, 140, 100, 1],
+      ["T3", "Sortie du refroidisseur de gaz (°C)", 10, 50, 30, 1], ["surch", "Surchauffe (K)", 0, 20, 5, 1],
+      ["eta", "Rendement isentropique du compresseur", 0.4, 1, 0.7, 0.01]],
+    cycle: (F, p) => {
+      const PB = F.Psat(p.Tev), h1 = p.surch > 0 ? F.hPT(PB, p.Tev + p.surch) : F.sat(PB).hV;
+      const s1 = F.etat(PB, h1).s, h2 = h1 + (F.hPs(p.PH, s1) - h1) / p.eta, h3 = F.hPT(p.PH, p.T3);
+      return { points: [[PB, h1], [p.PH, h2], [p.PH, h3], [PB, h3]], types: ["adiabatique", "isobare", "isenthalpe", "isobare"] };
+    } },
+  { nom: "Cycle de Rankine (eau)", fluide: "R718",
+    texte: "Moteur à vapeur: pompe (1→2), chaudière (2→3, chauffage puis vaporisation), turbine (3→4), condenseur (4→1).",
+    params: [["Tco", "T<sub>cond</sub> (°C)", 10, 100, 30, 1], ["PH", "Pression de la chaudière (bar)", 5, 200, 60, 1],
+      ["eta", "Rendement isentropique de la turbine", 0.5, 1, 1, 0.01]],
+    cycle: (F, p) => {
+      const PB = F.Psat(p.Tco), h1 = F.sat(PB).hL, s1 = F.etat(PB, h1).s, h2 = F.hPs(p.PH, s1);
+      const h3 = F.sat(p.PH).hV, s3 = F.etat(p.PH, h3).s, h4 = h3 - p.eta * (h3 - F.hPs(PB, s3));
+      return { points: [[PB, h1], [p.PH, h2], [p.PH, h3], [PB, h4]], types: ["adiabatique", "isobare", "adiabatique", "isobare"] };
+    } },
+  { nom: "Cycle de Hirn (eau, vapeur surchauffée)", fluide: "R718",
+    texte: "Cycle de Rankine avec surchauffe de la vapeur avant la turbine: meilleur rendement et vapeur plus sèche en sortie de turbine.",
+    params: [["Tco", "T<sub>cond</sub> (°C)", 10, 100, 30, 1], ["PH", "Pression de la chaudière (bar)", 5, 200, 60, 1],
+      ["T3", "Température d'entrée de la turbine (°C)", 300, 650, 500, 5], ["eta", "Rendement isentropique de la turbine", 0.5, 1, 0.85, 0.01]],
+    cycle: (F, p) => {
+      const PB = F.Psat(p.Tco), h1 = F.sat(PB).hL, s1 = F.etat(PB, h1).s, h2 = F.hPs(p.PH, s1);
+      const Ts = F.etat(p.PH, F.sat(p.PH).hV).T, h3 = F.hPT(p.PH, Math.max(p.T3, Ts + 1)), s3 = F.etat(p.PH, h3).s;
+      const h4 = h3 - p.eta * (h3 - F.hPs(PB, s3));
+      return { points: [[PB, h1], [p.PH, h2], [p.PH, h3], [PB, h4]], types: ["adiabatique", "isobare", "adiabatique", "isobare"] };
+    } },
+  { nom: "Cycle de Hirn à resurchauffe (eau)", fluide: "R718",
+    texte: "Détente en deux temps avec une seconde surchauffe à pression intermédiaire: cycle des centrales thermiques.",
+    params: [["Tco", "T<sub>cond</sub> (°C)", 10, 100, 30, 1], ["PH", "Pression de la chaudière (bar)", 50, 250, 150, 5],
+      ["PI", "Pression de resurchauffe (bar)", 5, 60, 30, 1], ["T3", "Température de surchauffe (°C)", 400, 650, 550, 5],
+      ["eta", "Rendement isentropique des turbines", 0.5, 1, 0.85, 0.01]],
+    cycle: (F, p) => {
+      const PB = F.Psat(p.Tco), PI = Math.min(p.PI, p.PH * 0.8), h1 = F.sat(PB).hL, s1 = F.etat(PB, h1).s, h2 = F.hPs(p.PH, s1);
+      const h3 = F.hPT(p.PH, p.T3), s3 = F.etat(p.PH, h3).s, h4 = h3 - p.eta * (h3 - F.hPs(PI, s3));
+      const h5 = F.hPT(PI, p.T3), s5 = F.etat(PI, h5).s, h6 = h5 - p.eta * (h5 - F.hPs(PB, s5));
+      return { points: [[PB, h1], [p.PH, h2], [p.PH, h3], [PI, h4], [PI, h5], [PB, h6]],
+        types: ["adiabatique", "isobare", "adiabatique", "isobare", "adiabatique", "isobare"] };
+    } },
+];
+
+// ---------------------------------------------------------------- interface
+const panneau = document.getElementById("panneau");
+entete(panneau, "Diagramme (P, h) interactif");
+const sFl = section(panneau, "Fluide");
+const selFl = el("select", { style: "width:100%;font:inherit;padding:3px" }, sFl);
+PH.FLUIDES.forEach(([c, n]) => el("option", { value: c, text: n }, selFl));
+selFl.addEventListener("change", () => changerFluide(selFl.value, true));
+
+const sAff = section(panneau, "Courbes");
+const LIGNES = [["T", "Isothermes", PH.COUL.T], ["x", "Isotitres", PH.COUL.x], ["s", "Isentropes", PH.COUL.s], ["v", "Isochores", PH.COUL.v]];
+const casesAff = {};
+LIGNES.forEach(([g, n, c]) => {
+  const lab = el("label", { class: "choix" }, sAff); const inp = el("input", { type: "checkbox" }, lab);
+  inp.checked = g === "T" || g === "x";
+  el("span", { html: "<span style='display:inline-block;width:18px;height:3px;background:" + c + ";vertical-align:middle;margin-right:4px'></span>" + n }, lab);
+  inp.addEventListener("change", () => { etat.V.aff[g] = inp.checked; demander(); });
+  casesAff[g] = inp;
+});
+const ligDens = el("div", { class: "choix", style: "margin-top:4px;cursor:default" }, sAff);
+el("span", { text: "Densité:" }, ligDens);
+const selDens = el("select", { style: "font:inherit" }, ligDens);
+["normale", "dense", "très dense"].forEach((d) => el("option", { value: d, text: d }, selDens));
+selDens.value = "dense";
+selDens.addEventListener("change", () => { etat.V.densite = selDens.value; demander(); });
+const bv = boutons(sAff);
+bouton(bv, "Vue complète", () => { etat.V.reinit(); demander(); });
+bouton(bv, "Cadrer sur le cycle", () => { cadrer(); demander(); });
+el("div", { class: "note", html: "Molette: zoom. Glisser (mode « Explorer ») ou clic droit glissé: déplacer la vue. Double-clic: vue complète." }, sAff);
+
+const sMode = section(panneau, "Mode");
+const rMode = radios(sMode, null, ["Explorer (lecture du diagramme)", "Dessiner un cycle"], 0, (o, i) => {
+  etat.mode = i === 0 ? "explorer" : "dessin"; majAideDessin(); demander(); });
+rMode.section.style.border = "none"; rMode.section.style.margin = "0";
+const aideDessin = el("div", { class: "note" }, sMode);
+const lAim = el("label", { class: "choix" }, sMode); const cAim = el("input", { type: "checkbox" }, lAim); cAim.checked = true;
+el("span", { text: "Aimantation (isobare, isenthalpe, isentrope, saturation)" }, lAim);
+cAim.addEventListener("change", () => { etat.aimant = cAim.checked; });
+const bd = boutons(sMode);
+bouton(bd, "↶ Dernier point", () => { if (etat.ferme) etat.ferme = false; else { etat.points.pop(); etat.types.pop(); } majCycle(); });
+bouton(bd, "Fermer le cycle", () => { if (etat.points.length >= 3) { etat.ferme = true; majCycle(); } });
+bouton(bd, "Effacer", () => { etat.points = []; etat.types = []; etat.ferme = false; rMode.set(1); majCycle(); });
+function majAideDessin() {
+  aideDessin.innerHTML = etat.mode === "dessin"
+    ? "Cliquer pour placer les points successifs; cliquer sur le point 1 pour fermer le cycle. Les points se déplacent à la souris."
+    : "Survoler le diagramme pour lire l'état du fluide. Les points du cycle se déplacent à la souris.";
+}
+majAideDessin();
+
+const sEx = section(panneau, "Exemples de cycles");
+const selEx = el("select", { style: "width:100%;font:inherit;padding:3px" }, sEx);
+EXEMPLES.forEach((e, i) => el("option", { value: i, text: e.nom }, selEx));
+el("option", { value: -1, text: "Cycle libre (dessiné)" }, selEx);
+selEx.addEventListener("change", () => { const i = +selEx.value; if (i >= 0) chargerExemple(i); });
+const texteEx = el("div", { class: "note", style: "margin:4px 0" }, sEx);
+const zoneParams = el("div", null, sEx);
+
+const sCyc = section(panneau, "Points du cycle");
+const tabPts = el("div", { style: "overflow-x:auto" }, sCyc);
+const sSeg = section(panneau, "Transformations");
+const tabSeg = el("div", { style: "overflow-x:auto" }, sSeg);
+el("div", { class: "note", html: "Régime permanent, Δe<sub>c</sub> et Δe<sub>p</sub> négligés: w<sub>u</sub> + q = h<sub>sortie</sub> − h<sub>entrée</sub>. " +
+  "Isobare: w<sub>u</sub> = 0 (échangeur); isenthalpe: détendeur (w<sub>u</sub> = q = 0); adiabatique: q = 0 (compresseur, pompe, turbine)." }, sSeg);
+const sBil = section(panneau, "Bilan");
+const bilan = el("div", { class: "info" }, sBil);
+
+// ---------------------------------------------------------------- fluide et exemples
+function changerFluide(cle, effacer, apres) {
+  PH.charger(cle, (F) => {
+    const anc = etat.V;
+    etat.F = F; etat.V = PH.Vue(F);
+    if (anc) { etat.V.aff = anc.aff; etat.V.densite = anc.densite; } else { etat.V.densite = selDens.value; }
+    etat.V.marges = { g: 60, d: 14, h: 10, b: 40 };
+    selFl.value = cle;
+    if (effacer) { etat.points = []; etat.types = []; etat.ferme = false; selEx.value = -1; zoneParams.innerHTML = ""; texteEx.innerHTML = ""; }
+    if (apres) apres(); else majCycle();
+    demander();
+  });
+}
+function chargerExemple(i) {
+  const E = EXEMPLES[i]; etat.exemple = i; selEx.value = i;
+  changerFluide(E.fluide, false, () => {
+    texteEx.innerHTML = E.texte; zoneParams.innerHTML = ""; etat.params = {};
+    E.params.forEach(([k, lab, a, b, v, pas]) => {
+      etat.params[k] = v;
+      curseur(zoneParams, { label: lab, min: a, max: b, val: v, pas, dec: pas < 1 ? 2 : 0,
+        onchange: (x) => { etat.params[k] = x; construireExemple(); } });
+    });
+    construireExemple(); cadrer();
+  });
+}
+function construireExemple() {
+  const E = EXEMPLES[etat.exemple];
+  try {
+    const C = E.cycle(etat.F, etat.params);
+    if (C.points.some(([P, h]) => !isFinite(P) || !isFinite(h))) throw new Error("hors domaine");
+    etat.points = C.points.map(([P, h]) => ({ P, h })); etat.types = C.types.slice(); etat.ferme = true;
+  } catch (e) { bilan.innerHTML = "<span class='erreur'>Réglages hors du domaine du diagramme.</span>"; }
+  majCycle();
+}
+function cadrer() {
+  const F = etat.F, V = etat.V;
+  if (etat.points.length < 2) { V.reinit(); return; }
+  let h0 = Infinity, h1 = -Infinity, p0 = Infinity, p1 = -Infinity;
+  etat.points.forEach(({ P, h }) => { h0 = Math.min(h0, h); h1 = Math.max(h1, h); p0 = Math.min(p0, P); p1 = Math.max(p1, P); });
+  const S = F.sat(p0); if (S) { h0 = Math.min(h0, S.hL); h1 = Math.max(h1, S.hV); }
+  const dh = h1 - h0;
+  const r = Math.min(Math.pow(p1 / p0, 0.25), 3);
+  V.cadrer(Math.max(F.hmin, h0 - 0.2 * dh), Math.min(F.hmax, h1 + 0.2 * dh), Math.max(F.Pmin, p0 / r), Math.min(F.Pmax, Math.max(p1 * r, F.Pc * 1.25)));
+}
+
+// ---------------------------------------------------------------- calculs sur le cycle
+function typeAuto(A, B) {
+  const F = etat.F;
+  if (Math.abs(Math.log(B.P / A.P)) < 0.004) return "isobare";
+  if (Math.abs(B.h - A.h) < 0.003 * (F.hmax - F.hmin)) return "isenthalpe";
+  return "adiabatique";
+}
+function segments() {
+  const n = etat.points.length, S = [];
+  const nb = etat.ferme ? n : n - 1;
+  for (let i = 0; i < nb; i++) {
+    const A = etat.points[i], B = etat.points[(i + 1) % n];
+    const type = etat.types[i] && etat.types[i] !== "auto" ? etat.types[i] : typeAuto(A, B);
+    S.push({ i, A, B, type });
+  }
+  return S;
+}
+/** Chemin d'une transformation, en points (h, P). */
+function chemin(seg) {
+  const F = etat.F, { A, B, type } = seg, N = 60, pts = [];
+  if (type === "isobare" || type === "isenthalpe" || Math.abs(Math.log(B.P / A.P)) < 1e-6) {
+    for (let i = 0; i <= N; i++) { const t = i / N; pts.push([A.h + (B.h - A.h) * t, Math.exp(Math.log(A.P) + Math.log(B.P / A.P) * t)]); }
+    return pts;
+  }
+  // adiabatique: isentrope de A, dilatée pour arriver en B (rendement isentropique)
+  const sA = F.etat(A.P, A.h).s, hBs = F.hPs(B.P, sA), den = hBs - A.h;
+  for (let i = 0; i <= N; i++) {
+    const t = i / N, P = Math.exp(Math.log(A.P) + Math.log(B.P / A.P) * t);
+    let h;
+    if (isFinite(hBs) && Math.abs(den) > 1e-6) { const hs = F.hPs(P, sA); h = A.h + (hs - A.h) * (B.h - A.h) / den; }
+    else h = A.h + (B.h - A.h) * t;
+    if (!isFinite(h)) h = A.h + (B.h - A.h) * t;
+    pts.push([h, P]);
+  }
+  return pts;
+}
+function nomOrgane(seg, q, moteur) {
+  const F = etat.F;
+  if (seg.type === "isenthalpe") return "détendeur";
+  if (seg.type === "adiabatique") {
+    if (seg.B.P > seg.A.P) return F.etat(seg.A.P, seg.A.h).zone === "L" ? "pompe" : "compresseur";
+    return "turbine";
+  }
+  if (q > 0) return moteur ? "chaudière" : "évaporateur";
+  if (q < 0) return seg.A.P > F.Pc ? "refroid. de gaz" : "condenseur";
+  return "—";
+}
+function calculer() {
+  const F = etat.F, segs = segments();
+  const E = etat.points.map(({ P, h }) => F.etat(P, h));
+  const moteur = segs.some((sg) => (sg.type === "adiabatique") && sg.B.P < sg.A.P && F.etat(sg.A.P, sg.A.h).zone !== "L");
+  const res = segs.map((sg) => {
+    const dh = sg.B.h - sg.A.h, sA = F.etat(sg.A.P, sg.A.h).s, sB = F.etat(sg.B.P, sg.B.h).s;
+    let w = 0, q = 0;
+    if (sg.type === "isobare") q = dh; else if (sg.type === "adiabatique") w = dh;
+    // températures extrêmes le long de l'échange
+    let Tmin = Infinity, Tmax = -Infinity;
+    if (sg.type === "isobare") chemin(sg).forEach(([h, P]) => { const T = F.etat(P, h).T; Tmin = Math.min(Tmin, T); Tmax = Math.max(Tmax, T); });
+    return { ...sg, dh, w, q, ds: sB - sA, Tmin, Tmax, organe: nomOrgane(sg, q, moteur) };
+  });
+  return { E, res };
+}
+
+// ---------------------------------------------------------------- tableaux
+function majCycle() {
+  const F = etat.F; if (!F) return;
+  const { E, res } = calculer();
+  // points
+  let t = "<table class='tab'><tr><th>n°</th><th>P (bar)</th><th>T (°C)</th><th>h (kJ/kg)</th><th>s (kJ/(kg·K))</th><th>v (m³/kg)</th><th>x</th></tr>";
+  E.forEach((e, i) => {
+    t += "<tr><td><b>" + (i + 1) + "</b></td><td>" + PH.fmtS(e.P, 3) + "</td><td>" + PH.fmt(e.T, 1) + "</td><td>" + PH.fmt(e.h, 1) +
+      "</td><td>" + PH.fmt(e.s, 3) + "</td><td>" + PH.fmtS(e.v, 3) + "</td><td>" + (e.zone === "LV" ? PH.fmt(e.x, 2) : e.zone === "L" ? "liq." : e.zone === "V" ? "vap." : "sc") + "</td></tr>";
+  });
+  tabPts.innerHTML = E.length ? t + "</table>" : "<i>Aucun point.</i>";
+  // transformations
+  tabSeg.innerHTML = "";
+  if (res.length) {
+    const T = el("table", { class: "tab" }, tabSeg);
+    el("tr", { html: "<th></th><th>type</th><th>organe</th><th>w<sub>u</sub></th><th>q</th><th>Δs</th>" }, T);
+    res.forEach((r) => {
+      const tr = el("tr", null, T);
+      el("td", { html: "<b>" + (r.i + 1) + "→" + ((r.i + 1) % etat.points.length + 1) + "</b>" }, tr);
+      const td = el("td", null, tr), sel = el("select", { style: "font:inherit;font-size:11.5px" }, td);
+      [["auto", "auto: " + typeAuto(r.A, r.B).slice(0, 6) + "."], ["isobare", "isobare"], ["isenthalpe", "isenthalpe"], ["adiabatique", "adiabatique"]]
+        .forEach(([v, n]) => el("option", { value: v, text: n }, sel));
+      sel.value = etat.types[r.i] || "auto";
+      sel.addEventListener("change", () => { etat.types[r.i] = sel.value; majCycle(); });
+      el("td", { text: r.organe }, tr);
+      el("td", { text: r.type === "adiabatique" ? PH.fmt(r.w, 1) : "0" }, tr);
+      el("td", { text: r.type === "isobare" ? PH.fmt(r.q, 1) : "0" }, tr);
+      const ds = el("td", { text: PH.fmt(r.ds, 3) }, tr);
+      if (r.type === "adiabatique" && r.ds < -0.002) { ds.className = "erreur"; ds.title = "Adiabatique avec diminution d'entropie: impossible (second principe)"; }
+    });
+    el("div", { class: "note", text: "w_u et q en kJ/kg, Δs en kJ/(kg·K)." }, tabSeg);
+  }
+  // bilan
+  if (!etat.ferme || res.length < 2) { bilan.innerHTML = "<i>Fermer le cycle pour obtenir le bilan.</i>"; demander(); return; }
+  const W = res.reduce((a, r) => a + r.w, 0);
+  const recu = res.filter((r) => r.q > 1e-9), cede = res.filter((r) => r.q < -1e-9);
+  const Qr = recu.reduce((a, r) => a + r.q, 0), Qc = cede.reduce((a, r) => a + r.q, 0);
+  const autre = res.filter((r) => r.type === "isenthalpe").reduce((a, r) => a + Math.abs(r.dh), 0);
+  let h = "w<sub>u</sub> total = " + PH.fmt(W, 1) + " kJ/kg; q reçu = " + PH.fmt(Qr, 1) + " kJ/kg; q cédé = " + PH.fmt(Qc, 1) + " kJ/kg<br>";
+  h += "Premier principe: w<sub>u</sub> + q<sub>reçu</sub> + q<sub>cédé</sub> = " + PH.fmt(W + Qr + Qc, 2) + " kJ/kg" + (autre > 0.5 ? " (écart dû aux isenthalpes forcées)" : "") + "<br>";
+  const K = 273.15;
+  const impossible = res.some((r) => r.type === "adiabatique" && r.ds < -0.002);
+  if (W > 1e-6 && Qr > 0) {
+    const Tf = Math.max(...recu.map((r) => r.Tmax)), Tc = Math.min(...cede.map((r) => r.Tmin));
+    h += "<b>Machine réceptrice</b> (le fluide reçoit du travail)<br>";
+    h += "Réfrigérateur: <b>e = q<sub>f</sub> / w<sub>u</sub> = " + PH.fmt(Qr / W, 2) + "</b><br>";
+    h += "Pompe à chaleur: <b>e<sub>PAC</sub> = |q<sub>c</sub>| / w<sub>u</sub> = " + PH.fmt(-Qc / W, 2) + "</b><br>";
+    if (isFinite(Tf) && isFinite(Tc) && Tc > Tf) {
+      const eC = (Tf + K) / (Tc - Tf), eP = (Tc + K) / (Tc - Tf);
+      h += "<span class='note'>Sources les plus favorables compatibles avec les échanges: T<sub>f</sub> = " + PH.fmt(Tf, 1) + " °C, T<sub>c</sub> = " + PH.fmt(Tc, 1) +
+        " °C. Carnot: e = " + PH.fmt(eC, 2) + ", e<sub>PAC</sub> = " + PH.fmt(eP, 2) + ".</span>";
+    }
+  } else if (W < -1e-6 && Qr > 0) {
+    const Tc = Math.max(...recu.map((r) => r.Tmax)), Tf = Math.min(...cede.map((r) => r.Tmin));
+    h += "<b>Moteur</b> (le fluide fournit du travail)<br>";
+    h += "Rendement: <b>η = −w<sub>u</sub> / q<sub>reçu</sub> = " + PH.fmt(-W / Qr, 3) + "</b><br>";
+    if (isFinite(Tf) && isFinite(Tc) && Tc > Tf)
+      h += "<span class='note'>Carnot entre T<sub>c</sub> = " + PH.fmt(Tc, 1) + " °C (température maximale atteinte) et T<sub>f</sub> = " + PH.fmt(Tf, 1) +
+        " °C: η<sub>C</sub> = " + PH.fmt(1 - (Tf + K) / (Tc + K), 3) + ".</span>";
+  } else h += "<i>Cycle sans échange de travail ou de chaleur exploitable.</i>";
+  if (impossible) h += "<br><span class='erreur'>Une transformation adiabatique fait diminuer l'entropie: elle est impossible (second principe).</span>";
+  bilan.innerHTML = h;
+  demander();
+}
+
+// ---------------------------------------------------------------- dessin
+const zone = document.getElementById("z_vue");
+let besoin = true;
+function demander() { besoin = true; }
+const cv = canevas(zone, () => demander());
+function fleche(ctx, x1, y1, x2, y2, coul) {
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  ctx.save(); ctx.fillStyle = coul; ctx.beginPath(); ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - 13 * Math.cos(a - 0.4), y2 - 13 * Math.sin(a - 0.4)); ctx.lineTo(x2 - 13 * Math.cos(a + 0.4), y2 - 13 * Math.sin(a + 0.4));
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function couleurSeg(r) {
+  if (r.type === "adiabatique") return COULSEG.adiabatique;
+  if (r.type === "isenthalpe") return COULSEG.isenthalpe;
+  return r.q > 0 ? COULSEG.froid : r.q < 0 ? COULSEG.chaud : COULSEG.isobare;
+}
+function dessiner() {
+  const ctx = cv.ctx; cv.effacer("#fafbfc");
+  if (!etat.F) return;
+  const V = etat.V; V.rect = { x: 0, y: 0, w: cv.w, h: cv.h };
+  V.dessinerFond(ctx, cv.w, cv.h);
+  const z = V.zone();
+  ctx.save(); ctx.beginPath(); ctx.rect(z.x0, z.y0, z.x1 - z.x0, z.y1 - z.y0); ctx.clip();
+  const { res } = calculer();
+  res.forEach((r) => {
+    const pts = chemin(r), c = couleurSeg(r);
+    V.trace(ctx, pts, "#fff", 6); V.trace(ctx, pts, c, 3.2);
+    const m = Math.floor(pts.length * 0.55), [a, b] = V.Q(...pts[m - 3]), [a2, b2] = V.Q(...pts[m]);
+    if (Math.hypot(a2 - a, b2 - b) > 1) fleche(ctx, a, b, a2, b2, c);
+  });
+  // prévision du segment en cours de dessin
+  if (etat.mode === "dessin" && etat.prevision && etat.points.length && !etat.ferme) {
+    const A = etat.points[etat.points.length - 1], B = etat.prevision;
+    const r = { A, B, type: typeAuto(A, B) };
+    V.trace(ctx, chemin(r), "#555", 1.5, [5, 4]);
+  }
+  etat.points.forEach(({ P, h }, i) => {
+    const [a, b] = V.Q(h, P);
+    ctx.fillStyle = etat.survol === i ? "#ffeb3b" : "#fff"; ctx.strokeStyle = "#111"; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(a, b, 8.5, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#111"; ctx.font = "bold 11px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(String(i + 1), a, b + 0.5);
+  });
+  if (etat.prevision && etat.mode === "dessin" && !etat.ferme) {
+    const [a, b] = V.Q(etat.prevision.h, etat.prevision.P);
+    ctx.strokeStyle = "#111"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(a, b, 5, 0, 2 * Math.PI); ctx.stroke();
+    if (etat.prevision.aim) { ctx.font = "11px system-ui"; ctx.fillStyle = "#333"; ctx.textAlign = "left"; ctx.fillText(etat.prevision.aim, a + 9, b - 9); }
+  }
+  ctx.restore();
+  // lecture au survol
+  if (etat.lecture) {
+    const L = etat.lecture, e = etat.F.etat(L.P, L.h);
+    const lignes = ["P = " + PH.fmtS(L.P, 3) + " bar", "h = " + PH.fmt(L.h, 1) + " kJ/kg", "T = " + PH.fmt(e.T, 1) + " °C",
+      "s = " + PH.fmt(e.s, 3) + " kJ/(kg·K)", "v = " + PH.fmtS(e.v, 3) + " m³/kg",
+      e.zone === "LV" ? "x = " + PH.fmt(e.x, 3) : e.zone === "L" ? "liquide" : e.zone === "V" ? "vapeur sèche" : "fluide supercritique"];
+    ctx.save(); ctx.font = "12px system-ui"; const w = Math.max(...lignes.map((l) => ctx.measureText(l).width)) + 14, hh = lignes.length * 16 + 8;
+    let x = L.px + 16, y = L.py + 16; if (x + w > z.x1) x = L.px - w - 12; if (y + hh > z.y1) y = L.py - hh - 12;
+    ctx.fillStyle = "rgba(255,255,255,0.94)"; ctx.strokeStyle = "#8a96a6"; ctx.fillRect(x, y, w, hh); ctx.strokeRect(x, y, w, hh);
+    ctx.fillStyle = "#222"; ctx.textAlign = "left"; ctx.textBaseline = "top"; lignes.forEach((l, i) => ctx.fillText(l, x + 7, y + 6 + 16 * i));
+    ctx.restore();
+  }
+}
+
+// ---------------------------------------------------------------- souris
+function posSouris(ev) { const r = cv.cv.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; }
+function pointProche(px, py) {
+  let k = null, d = 13;
+  etat.points.forEach(({ P, h }, i) => { const [a, b] = etat.V.Q(h, P); const dd = Math.hypot(a - px, b - py); if (dd < d) { d = dd; k = i; } });
+  return k;
+}
+/** Position aimantée à partir du point de référence (point précédent). */
+function aimanter(px, py, ref, autres) {
+  const V = etat.V, F = etat.F; let { h, P } = V.inv(px, py), aim = "";
+  if (!etat.aimant) return { h, P, aim };
+  const tol = 9;
+  const cands = [];
+  (autres || []).forEach((B) => {
+    cands.push({ d: Math.abs(V.Y(B.P) - py), f: () => { P = B.P; aim = aim || "isobare"; } });
+    cands.push({ d: Math.abs(V.X(B.h) - px), f: () => { h = B.h; aim = aim || "isenthalpe"; } });
+  });
+  // une seule correction par direction: la plus proche
+  let bestP = null, bestH = null;
+  (autres || []).forEach((B, j) => {
+    const dy = Math.abs(V.Y(B.P) - py), dx = Math.abs(V.X(B.h) - px);
+    if (dy < tol && (!bestP || dy < bestP.d)) bestP = { d: dy, P: B.P, nom: j === 0 ? "isobare" : "même P que " + B.n };
+    if (dx < tol && (!bestH || dx < bestH.d)) bestH = { d: dx, h: B.h, nom: j === 0 ? "isenthalpe" : "même h que " + B.n };
+  });
+  if (bestP) { P = bestP.P; aim = bestP.nom; }
+  if (bestH) { h = bestH.h; aim = aim ? aim + ", " + bestH.nom : bestH.nom; }
+  if (!bestH) {
+    // isentrope du point précédent
+    if (ref && !bestP) {
+      const s = F.etat(ref.P, ref.h).s, hs = F.hPs(P, s);
+      if (isFinite(hs) && Math.abs(V.X(hs) - px) < tol) { h = hs; aim = "isentrope"; }
+    }
+    // courbe de saturation
+    const S = P < F.Pc ? F.sat(P) : null;
+    if (S && aim.indexOf("isentrope") < 0) {
+      if (Math.abs(V.X(S.hL) - px) < tol) { h = S.hL; aim = (aim ? aim + ", " : "") + "liquide saturant"; }
+      else if (Math.abs(V.X(S.hV) - px) < tol) { h = S.hV; aim = (aim ? aim + ", " : "") + "vapeur saturante"; }
+    }
+  }
+  return { h, P, aim };
+}
+function voisins(i) {   // points dont on cherche à reprendre P ou h: précédent, puis suivant et le premier
+  const n = etat.points.length, L = [];
+  const prec = i > 0 ? etat.points[i - 1] : etat.ferme ? etat.points[n - 1] : null;
+  if (prec) L.push({ ...prec, n: "" });
+  const suiv = i < n - 1 ? etat.points[i + 1] : etat.ferme ? etat.points[0] : null;
+  if (suiv) L.push({ ...suiv, n: "le point " + ((i + 1) % n + 1) });
+  return [prec, L];
+}
+cv.cv.addEventListener("contextmenu", (e) => e.preventDefault());
+cv.cv.addEventListener("pointerdown", (ev) => {
+  if (!etat.F) return;
+  const [px, py] = posSouris(ev);
+  cv.cv.setPointerCapture(ev.pointerId);
+  if (ev.button === 2 || ev.button === 1) { etat.pan = [px, py]; return; }
+  const k = pointProche(px, py);
+  if (etat.mode === "dessin" && !etat.ferme && k === 0 && etat.points.length >= 3) { etat.ferme = true; selEx.value = -1; majCycle(); return; }
+  if (k !== null) { etat.glisse = k; selEx.value = -1; return; }
+  if (etat.mode === "dessin" && !etat.ferme && etat.V.dedans(px, py)) {
+    const n = etat.points.length;
+    const ref = n ? etat.points[n - 1] : null;
+    const autres = ref ? [{ ...ref, n: "" }] : [];
+    if (n >= 2) autres.push({ ...etat.points[0], n: "le point 1" });
+    const q = aimanter(px, py, ref, autres);
+    etat.points.push({ P: q.P, h: q.h }); etat.types.push("auto"); selEx.value = -1; zoneParams.innerHTML = ""; texteEx.innerHTML = "";
+    majCycle(); return;
+  }
+  if (etat.mode === "explorer") etat.pan = [px, py];
+});
+cv.cv.addEventListener("pointermove", (ev) => {
+  if (!etat.F) return;
+  const [px, py] = posSouris(ev), V = etat.V;
+  if (etat.pan) { V.deplacer(px - etat.pan[0], py - etat.pan[1]); etat.pan = [px, py]; demander(); return; }
+  if (etat.glisse !== null) {
+    const [ref, autres] = voisins(etat.glisse);
+    const q = aimanter(px, py, ref, autres);
+    etat.points[etat.glisse] = { P: Math.min(etat.F.Pmax, Math.max(etat.F.Pmin, q.P)), h: q.h };
+    majCycle(); return;
+  }
+  etat.survol = pointProche(px, py);
+  if (V.dedans(px, py)) {
+    const { h, P } = V.inv(px, py);
+    etat.lecture = { h, P, px, py };
+    if (etat.mode === "dessin" && !etat.ferme && etat.points.length) {
+      const n = etat.points.length, ref = etat.points[n - 1], autres = [{ ...ref, n: "" }];
+      if (n >= 2) autres.push({ ...etat.points[0], n: "le point 1" });
+      etat.prevision = aimanter(px, py, ref, autres);
+      etat.lecture = { h: etat.prevision.h, P: etat.prevision.P, px, py };
+    } else etat.prevision = null;
+  } else { etat.lecture = null; etat.prevision = null; }
+  cv.cv.style.cursor = etat.survol !== null ? "grab" : etat.mode === "dessin" ? "crosshair" : "default";
+  demander();
+});
+const fin = () => { etat.pan = null; etat.glisse = null; };
+cv.cv.addEventListener("pointerup", fin);
+cv.cv.addEventListener("pointercancel", fin);
+cv.cv.addEventListener("pointerleave", () => { etat.lecture = null; etat.prevision = null; demander(); });
+cv.cv.addEventListener("wheel", (ev) => {
+  if (!etat.F) return; ev.preventDefault();
+  const [px, py] = posSouris(ev); etat.V.zoom(px, py, ev.deltaY > 0 ? 1.15 : 1 / 1.15); demander();
+}, { passive: false });
+cv.cv.addEventListener("dblclick", () => { if (etat.mode === "explorer") { etat.V.reinit(); demander(); } });
+
+// ---------------------------------------------------------------- démarrage
+function boucleDessin() { if (besoin) { besoin = false; dessiner(); } requestAnimationFrame(boucleDessin); }
+requestAnimationFrame(boucleDessin);
+chargerExemple(0);
+
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

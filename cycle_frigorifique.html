@@ -18,7 +18,7 @@ body {
 .zone { position: relative; flex: 1; min-height: 0; min-width: 0; background: #fff;
   border: 1px solid #d5d9df; border-radius: 6px; overflow: hidden; }
 .zone canvas { position: absolute; left: 0; top: 0; touch-action: none; }
-#panneau { width: 340px; flex: none; overflow-y: auto; background: #fff;
+#panneau { width: 370px; flex: none; overflow-y: auto; background: #fff;
   border-left: 1px solid #d5d9df; padding: 10px 14px 20px; }
 #panneau h1 { font-size: 16px; margin: 4px 0 2px; }
 .retour { font-size: 12px; color: #4a6fa5; text-decoration: none; }
@@ -70,6 +70,10 @@ button.b.actif { background: #dce7f7; border-color: #7f9fcf; }
 button.b.etape { text-align: left; padding: 4px 8px; }
 button.b:disabled { opacity: 0.45; cursor: default; }
 .explication { line-height: 1.55; }
+.tab { border-collapse: collapse; font-size: 11px; width: 100%; }
+.tab th, .tab td { border-bottom: 1px solid #e6e8ec; padding: 2px 4px; text-align: right; white-space: nowrap; }
+.tab th { background: #f3f5f8; font-weight: 600; text-align: center; }
+.tab td:first-child { text-align: center; }
 </style>
 </head>
 <body>
@@ -79,6 +83,7 @@ button.b:disabled { opacity: 0.45; cursor: default; }
   </div>
   <div id="panneau"></div>
 </div>
+<script src="thermo_ph.js"></script>
 <script>
 "use strict";
 /* ======================================================================
@@ -280,8 +285,9 @@ function boucle(pas) {
 }
 
 // ====================================================================== applet
-/* Cycle frigorifique à compression de vapeur dans le diagramme (P, h): lecture du diagramme,
-   puis construction transformation par transformation, synchronisée avec le schéma de la machine. */
+/* Cycle frigorifique à compression de vapeur dans le diagramme (P, h) d'un fluide réel (thermo_ph.js):
+   lecture du diagramme, puis construction transformation par transformation, synchronisée avec le
+   schéma de la machine; réglages du cycle et valeurs numériques. */
 
 const COUL = { BP: "#1565c0", HP: "#c62828", dome: "#222", iso: "#e67e22", titre: "#7b8794", s: "#2e7d32",
   w: "#7b2d8e", q: "#d84315", liq: "#0d3b8c", vap: "#9ec5f0" };
@@ -299,8 +305,8 @@ const ETAPES = [
     "se lit par le théorème des moments: x<sub>V</sub> = (h − h<sub>L</sub>) / (h<sub>V</sub> − h<sub>L</sub>)." },
   { seg: 0, titre: "1 → 2: compression", texte:
     "Le compresseur aspire de la vapeur (légèrement surchauffée) à basse pression <span style='color:" + COUL.BP + "'>P<sub>BP</sub></span> " +
-    "et la refoule à haute pression <span style='color:" + COUL.HP + "'>P<sub>HP</sub></span>. Compression supposée " +
-    "<b>adiabatique réversible</b>: on suit l'<span style='color:" + COUL.s + "'>isentrope</span> passant par 1.<br>" +
+    "et la refoule à haute pression <span style='color:" + COUL.HP + "'>P<sub>HP</sub></span>. Compression " +
+    "<b>adiabatique</b>; si elle est réversible, on suit l'<span style='color:" + COUL.s + "'>isentrope</span> passant par 1 (sinon h<sub>2</sub> = h<sub>1</sub> + (h<sub>2s</sub> − h<sub>1</sub>)/η).<br>" +
     "Premier principe industriel (q = 0, Δe<sub>c</sub> et Δe<sub>p</sub> négligés): <b>w<sub>u</sub> = h<sub>2</sub> − h<sub>1</sub> &gt; 0</b>." },
   { seg: 1, titre: "2 → 3: condenseur", texte:
     "Dans le condenseur, la transformation est <b>isobare</b> (P<sub>HP</sub>) et sans travail utile. Le fluide se refroidit " +
@@ -333,10 +339,44 @@ bouton(bt, "⟲ Rejouer", () => aller(p.etape));
 const bSuiv = bouton(bt, "Suivante ▶", () => aller(p.etape + 1));
 const explication = el("div", { class: "info explication" }, section(panneau, "Raisonnement"));
 const etat = el("div", { class: "info" }, section(panneau, "État du fluide"));
-cases(panneau, "Affichage", [["Isothermes", false], ["Lignes d'isotitre", false]], (i, v) => { if (i === 0) p.isoT = v; else p.isoX = v; });
-const sReg = section(panneau, "Réglages");
+
+// fluide et réglages du cycle
+const sFl = section(panneau, "Fluide frigorigène");
+const selFl = el("select", { style: "width:100%;font:inherit;padding:3px" }, sFl);
+PH.FLUIDES.filter(([c]) => c !== "R718").forEach(([c, n]) => el("option", { value: c, text: n }, selFl));
+selFl.addEventListener("change", () => chargerFluide(selFl.value));
+const sCy = section(panneau, "Réglages du cycle");
+const cyc = { Tev: -10, Tco: 40, surch: 5, sref: 3, eta: 1 };
+const cTev = curseur(sCy, { label: "T<sub>évap</sub> (°C)", min: -40, max: 15, val: cyc.Tev, pas: 1, onchange: (v) => { cyc.Tev = v; calculerCycle(); } });
+const cTco = curseur(sCy, { label: "T<sub>cond</sub> (°C)", min: 20, max: 70, val: cyc.Tco, pas: 1, onchange: (v) => { cyc.Tco = v; calculerCycle(); } });
+curseur(sCy, { label: "Surchauffe à l'aspiration (K)", min: 0, max: 20, val: cyc.surch, pas: 1, onchange: (v) => { cyc.surch = v; calculerCycle(); } });
+curseur(sCy, { label: "Sous-refroidissement (K)", min: 0, max: 15, val: cyc.sref, pas: 1, onchange: (v) => { cyc.sref = v; calculerCycle(); } });
+curseur(sCy, { label: "Rendement isentropique du compresseur", min: 0.4, max: 1, val: cyc.eta, pas: 0.01, dec: 2, onchange: (v) => { cyc.eta = v; calculerCycle(); } });
+el("div", { class: "note", html: "Rendement 1: compression isentrope (cas du cours). Rendement &lt; 1: h<sub>2</sub> = h<sub>1</sub> + (h<sub>2s</sub> − h<sub>1</sub>)/η." }, sCy);
+
+const sAff = section(panneau, "Courbes du diagramme");
+const LIGNES = [["T", "Isothermes", PH.COUL.T], ["x", "Isotitres", PH.COUL.x], ["s", "Isentropes", PH.COUL.s], ["v", "Isochores", PH.COUL.v]];
+const aff = { T: true, x: true, s: false, v: false };
+LIGNES.forEach(([g, n, c]) => {
+  const lab = el("label", { class: "choix" }, sAff); const inp = el("input", { type: "checkbox" }, lab);
+  inp.checked = aff[g];
+  el("span", { html: "<span style='display:inline-block;width:18px;height:3px;background:" + c + ";vertical-align:middle;margin-right:4px'></span>" + n }, lab);
+  inp.addEventListener("change", () => { aff[g] = inp.checked; });
+});
+const ligD = el("div", { class: "choix", style: "margin-top:4px;cursor:default" }, sAff);
+el("span", { text: "Densité:" }, ligD);
+const selD = el("select", { style: "font:inherit" }, ligD);
+["normale", "dense", "très dense"].forEach((d) => el("option", { value: d, text: d }, selD));
+selD.value = "dense";
+const bz = boutons(sAff);
+bouton(bz, "Cadrer sur le cycle", () => cadrer());
+bouton(bz, "Vue complète", () => { if (V) V.reinit(); });
+el("div", { class: "note", html: "Molette sur le diagramme: zoom; glisser: déplacer la vue." }, sAff);
+
+const sVal = section(panneau, "Valeurs");
+const valeurs = el("div", null, sVal);
+const sReg = section(panneau, "Animation");
 curseur(sReg, { label: "Vitesse de l'animation", min: 0.2, max: 2, val: 1, pas: 0.1, onchange: (v) => { p.vitesse = v; } });
-el("div", { class: "note", html: "Diagramme qualitatif: allure de la cloche et des courbes, sans valeurs numériques." }, sReg);
 
 function majBoutons() {
   boutonsEt.forEach((b, k) => b.classList.toggle("actif", k === p.etape));
@@ -345,26 +385,61 @@ function majBoutons() {
 }
 function aller(k) { if (k < 0 || k >= ETAPES.length) return; p.etape = k; p.tau = 0; majBoutons(); }
 
-// ---------------------------------------------------------------- modèle qualitatif
-// y = ln P réduit (0: bas du diagramme, 1: point critique), h réduit
-const hL = (y) => 0.47 - 0.30 * Math.pow(Math.max(0, 1 - y), 0.5);
-const hV = (y) => 0.47 + 0.36 * Math.pow(Math.max(0, 1 - y), 0.42) - 0.12 * (1 - y);
-const YB = 0.28, YH = 0.74;                      // pressions basse et haute
-const H1 = hV(YB) + 0.035, H3 = hL(YH), H4 = H3;
-const H2 = H1 + 0.17;
-const isentrope = (u) => [H1 + (H2 - H1) * Math.pow(u, 1.25), YB + (YH - YB) * u];
-/** Point du cycle sur la transformation k ∈ {0,1,2,3} au paramètre u ∈ [0,1]. */
-function pointCycle(k, u) {
-  if (k === 0) return isentrope(u);
-  if (k === 1) return [H2 + (H3 - H2) * u, YH];
-  if (k === 2) return [H3, YH + (YB - YH) * u];
-  return [H4 + (H1 - H4) * u, YB];
+// ---------------------------------------------------------------- modèle: fluide réel
+let F = null, V = null, CY = null;
+function chargerFluide(cle) {
+  PH.charger(cle, (f) => {
+    const anc = V; F = f; V = PH.Vue(F); V.aff = { ...aff }; V.densite = selD.value; V.marges = { g: 56, d: 12, h: 10, b: 62 };
+    // bornes des curseurs selon le fluide
+    const Tc = F.Tc;
+    calculerCycle(); cadrer();
+  });
 }
-function phase(h, y) {
-  const a = hL(y), b = hV(y);
-  if (h <= a) return { nom: "liquide", x: 0 };
-  if (h >= b) return { nom: "vapeur sèche (surchauffée)", x: 1 };
-  return { nom: "mélange liquide-vapeur", x: (h - a) / (b - a) };
+function calculerCycle() {
+  if (!F) return;
+  const Tco = Math.min(cyc.Tco, F.Tc - 3), Tev = Math.min(cyc.Tev, Tco - 10);
+  const PB = F.Psat(Tev), PH_ = F.Psat(Tco);
+  const h1 = cyc.surch > 0 ? F.hPT(PB, Tev + cyc.surch) : F.sat(PB).hV;
+  const s1 = F.etat(PB, h1).s, h2s = F.hPs(PH_, s1), h2 = h1 + (h2s - h1) / cyc.eta;
+  const h3 = cyc.sref > 0 ? F.hPT(PH_, Tco - cyc.sref) : F.sat(PH_).hL;
+  CY = { PB, PH: PH_, H1: h1, H2: h2, H2s: h2s, H3: h3, H4: h3, s1, Tev, Tco };
+  const E = [[PB, h1], [PH_, h2], [PH_, h3], [PB, h3]].map(([P, h]) => F.etat(P, h));
+  const wu = h2 - h1, qc = h3 - h2, qf = h1 - h3;
+  let t = "<table class='tab'><tr><th>état</th><th>P (bar)</th><th>T (°C)</th><th>h (kJ/kg)</th><th>s (kJ/(kg·K))</th><th>x</th></tr>";
+  E.forEach((e, i) => { t += "<tr><td><b>" + (i + 1) + "</b></td><td>" + PH.fmtS(e.P, 3) + "</td><td>" + PH.fmt(e.T, 1) + "</td><td>" + PH.fmt(e.h, 1) +
+    "</td><td>" + PH.fmt(e.s, 3) + "</td><td>" + (e.zone === "LV" ? PH.fmt(e.x, 2) : e.zone === "L" ? "liq." : "vap.") + "</td></tr>"; });
+  t += "</table>";
+  const K = 273.15;
+  t += "<div class='info' style='margin-top:6px'>w<sub>u</sub> = h<sub>2</sub> − h<sub>1</sub> = " + PH.fmt(wu, 1) + " kJ/kg<br>" +
+    "q<sub>c</sub> = h<sub>3</sub> − h<sub>2</sub> = " + PH.fmt(qc, 1) + " kJ/kg<br>q<sub>f</sub> = h<sub>1</sub> − h<sub>4</sub> = " + PH.fmt(qf, 1) + " kJ/kg<br>" +
+    "<b>e = q<sub>f</sub> / w<sub>u</sub> = " + PH.fmt(qf / wu, 2) + "</b> (Carnot entre T<sub>évap</sub> et T<sub>cond</sub>: " + PH.fmt((Tev + K) / (Tco - Tev), 2) + ")<br>" +
+    "<b>e<sub>PAC</sub> = −q<sub>c</sub> / w<sub>u</sub> = " + PH.fmt(-qc / wu, 2) + "</b> (Carnot: " + PH.fmt((Tco + K) / (Tco - Tev), 2) + ")</div>";
+  if (Tco !== cyc.Tco || Tev !== cyc.Tev) t += "<div class='note erreur'>Températures ramenées dans le domaine du fluide (T<sub>c</sub> = " + PH.fmt(F.Tc, 1) + " °C).</div>";
+  valeurs.innerHTML = t;
+}
+function cadrer() {
+  if (!F || !CY) return;
+  const S = F.sat(CY.PB), h0 = Math.min(S.hL, CY.H3), h1 = Math.max(S.hV, CY.H2), dh = h1 - h0;
+  V.cadrer(Math.max(F.hmin, h0 - 0.35 * dh), Math.min(F.hmax, h1 + 0.25 * dh), Math.max(F.Pmin, CY.PB / 2.2), Math.min(F.Pmax, Math.max(CY.PH * 2.2, F.Pc * 1.15)));
+}
+/** Isentrope de 1 dilatée pour arriver en 2 (rendement isentropique). */
+function compression(u) {
+  const P = Math.exp(Math.log(CY.PB) + Math.log(CY.PH / CY.PB) * u);
+  const hs = F.hPs(P, CY.s1);
+  return [CY.H1 + (hs - CY.H1) * (CY.H2 - CY.H1) / (CY.H2s - CY.H1), P];
+}
+/** Point du cycle sur la transformation k ∈ {0,1,2,3} au paramètre u ∈ [0,1]: [h, P]. */
+function pointCycle(k, u) {
+  if (k === 0) return compression(u);
+  if (k === 1) return [CY.H2 + (CY.H3 - CY.H2) * u, CY.PH];
+  if (k === 2) return [CY.H3, Math.exp(Math.log(CY.PH) + Math.log(CY.PB / CY.PH) * u)];
+  return [CY.H4 + (CY.H1 - CY.H4) * u, CY.PB];
+}
+function phase(h, P) {
+  const e = F.etat(P, h);
+  if (e.zone === "L") return { nom: "liquide", x: 0, e };
+  if (e.zone === "LV") return { nom: "mélange liquide-vapeur", x: e.x, e };
+  return { nom: "vapeur sèche (surchauffée)", x: 1, e };
 }
 
 // ---------------------------------------------------------------- dessin: outils
@@ -426,7 +501,7 @@ function schema(ctx, R, k, u) {
   ctx.save(); ctx.fillStyle = actif(0) ? "#f3e5f5" : "#f7f7f7"; ctx.strokeStyle = actif(0) ? COUL.w : "#888"; ctx.lineWidth = 2.5;
   ctx.beginPath(); ctx.arc(d, yc, r, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(d - r * 0.7, yc + r * 0.55); ctx.lineTo(d + r * 0.7, yc + r * 0.55); ctx.lineTo(d, yc - r * 0.75); ctx.closePath(); ctx.stroke(); ctx.restore();
-  txt(ctx, d + r + 6, yc + 5, "compresseur", "#444", "13px system-ui", "g");
+  txt(ctx, d, yc + r + 18, "compresseur", "#444", "13px system-ui");
   // détendeur (vanne en nœud papillon)
   ctx.save(); ctx.fillStyle = actif(2) ? "#e0f2f1" : "#f7f7f7"; ctx.strokeStyle = actif(2) ? "#00897b" : "#888"; ctx.lineWidth = 2.5;
   ctx.beginPath(); ctx.moveTo(g - 14, yc - 16); ctx.lineTo(g + 14, yc - 16); ctx.lineTo(g - 14, yc + 16); ctx.lineTo(g + 14, yc + 16); ctx.closePath();
@@ -438,7 +513,7 @@ function schema(ctx, R, k, u) {
   // échanges
   if (k === 1 || k === 4) { fleche(ctx, (g + d) / 2, hh - 44, (g + d) / 2, y + h * 0.1, COUL.q, 3); txt(ctx, (g + d) / 2 + 14, hh - 50, "|q_c|", COUL.q, "bold 14px system-ui", "g"); }
   if (k === 3 || k === 4) { fleche(ctx, (g + d) / 2, y + h * 0.94, (g + d) / 2, bb + 44, COUL.q, 3); txt(ctx, (g + d) / 2 + 14, bb + 62, "q_f", COUL.q, "bold 14px system-ui", "g"); }
-  if (k === 0 || k === 4) { fleche(ctx, d + r + 50, yc + 24, d + r + 4, yc + 14, COUL.w, 3); txt(ctx, d + r + 30, yc + 44, "w_u", COUL.w, "bold 14px system-ui"); }
+  if (k === 0 || k === 4) { fleche(ctx, d + r + 50, yc + 24, d + r + 4, yc + 14, COUL.w, 3); txt(ctx, d + r + 54, yc + 30, "w_u", COUL.w, "bold 14px system-ui", "g"); }
   // numéros des états
   const num = (n, xx, yy) => { ctx.save(); ctx.fillStyle = "#fff"; ctx.strokeStyle = "#222"; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(xx, yy, 11, 0, 2 * Math.PI); ctx.fill(); ctx.stroke(); ctx.restore(); txt(ctx, xx, yy + 5, n, "#222", "bold 13px system-ui"); };
@@ -451,92 +526,65 @@ function schema(ctx, R, k, u) {
     else if (kk === 1) P = [d + (g - d) * uu, hh];
     else if (kk === 2) P = [g, hh + (bb - hh) * uu];
     else P = [g + (d - g) * uu, bb];
-    const [hc, yc2] = pointCycle(kk, uu), ph = phase(hc, yc2);
+    const [hc, Pc2] = pointCycle(kk, uu), ph = phase(hc, Pc2);
     ctx.save(); ctx.fillStyle = couleurFluide(ph.x); ctx.strokeStyle = "#111"; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(P[0], P[1], 9, 0, 2 * Math.PI); ctx.fill(); ctx.stroke(); ctx.restore();
   }
 }
 
 // ---------------------------------------------------------------- diagramme (P, h)
-const HMIN = 0.08, HMAX = 1.02, YMIN = -0.08, YMAX = 1.22;
 function diagramme(ctx, R, k, u) {
-  const m = { g: 52, d: 16, h: 24, b: 66 };
-  const x0 = R.x + m.g, x1 = R.x + R.w - m.d, y0 = R.y + m.h, y1 = R.y + R.h - m.b;
-  const X = (hh) => x0 + (hh - HMIN) / (HMAX - HMIN) * (x1 - x0), Y = (yy) => y1 - (yy - YMIN) / (YMAX - YMIN) * (y1 - y0);
-  const Q = ([hh, yy]) => [X(hh), Y(yy)];
-  // axes
-  ctx.save(); ctx.strokeStyle = "#333"; ctx.lineWidth = 1.5; ctx.strokeRect(x0, y0, x1 - x0, y1 - y0); ctx.restore();
-  txt(ctx, x1 - 4, y1 + 18, "h", "#222", "italic bold 16px 'Times New Roman', serif", "d");
-  ctx.save(); ctx.translate(x0 - 30, y0 + 40); ctx.rotate(-Math.PI / 2); txt(ctx, 0, 0, "P (échelle log)", "#222", "italic 15px 'Times New Roman', serif", "d"); ctx.restore();
-  // zones colorées
-  const N = 80, cloche = [];
-  for (let i = 0; i <= N; i++) cloche.push([hL(YMIN + (1 - YMIN) * i / N), YMIN + (1 - YMIN) * i / N]);
-  for (let i = N; i >= 0; i--) cloche.push([hV(YMIN + (1 - YMIN) * i / N), YMIN + (1 - YMIN) * i / N]);
-  ctx.save(); ctx.beginPath(); cloche.forEach((P, i) => { const [a, b] = Q(P); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); });
-  ctx.closePath(); ctx.fillStyle = "#f1f6fc"; ctx.fill(); ctx.restore();
-  txt(ctx, X(0.17), Y(0.55), "L", COUL.liq, "bold 18px system-ui");
-  txt(ctx, X(0.53), Y(0.12), "L + V", "#5577aa", "bold 17px system-ui");
-  txt(ctx, X(0.93), Y(0.55), "V", "#5a8fd0", "bold 18px system-ui");
-  // isotitres
-  if (p.isoX || p.etape === 1) for (const xv of [0.2, 0.4, 0.6, 0.8]) {
-    const pts = []; for (let i = 0; i <= 60; i++) { const yy = YMIN + (1 - YMIN) * i / 60; pts.push(Q([hL(yy) + xv * (hV(yy) - hL(yy)), yy])); }
-    trace(ctx, pts, COUL.titre, 1, [4, 4]);
-    const [a, b] = Q([hL(0.02) + xv * (hV(0.02) - hL(0.02)), 0.02]); txt(ctx, a, b + 2, "x=" + xv.toString().replace(".", ","), COUL.titre, "11px system-ui");
-  }
-  // isothermes
-  if (p.isoT || p.etape === 1) for (const yT of [0.1, 0.35, 0.6, 0.85]) {
-    const a = hL(yT), b = hV(yT), c = 0.05 + 0.1 * yT, pts = [];
-    for (let i = 0; i <= 20; i++) { const yy = YMAX - (YMAX - yT) * i / 20; pts.push(Q([a - 0.012 * (YMAX - yy), yy])); }
-    pts.push(Q([b, yT]));
-    for (let i = 1; i <= 40; i++) { const yy = yT - (yT - YMIN) * i / 40; pts.push(Q([b + c * (1 - Math.exp(-(yT - yy) * 5)), yy])); }
-    trace(ctx, pts, COUL.iso, 1.6);
+  V.rect = R; V.densite = selD.value;
+  V.aff = { ...aff }; if (p.etape === 1) { V.aff.T = true; V.aff.x = true; }
+  V.dessinerFond(ctx, cv.w, cv.h);
+  const z = V.zone(), Q = ([h, P]) => V.Q(h, P), X = V.X, Y = V.Y;
+  ctx.save(); ctx.beginPath(); ctx.rect(z.x0, z.y0, z.x1 - z.x0, z.y1 - z.y0); ctx.clip();
+  const S = F.sat(Math.sqrt(CY.PB * CY.PH)), Pm = S.P;
+  // zones
+  txt(ctx, X(S.hL) - 30, Y(Pm * 1.3), "L", COUL.liq, "bold 18px system-ui");
+  txt(ctx, (X(S.hL) + X(S.hV)) / 2, Y(CY.PB) + 34, "L + V", "#5577aa", "bold 17px system-ui");
+  txt(ctx, X(S.hV) + 40, Y(Pm * 1.3), "V", "#5a8fd0", "bold 18px system-ui");
+  const [cx, cy] = V.Q(F.hc, F.Pc); txt(ctx, cx, cy - 8, "C", COUL.dome, "bold 14px system-ui");
+  if (p.etape === 0) {
+    txt(ctx, X(S.hL) - 8, Y(Pm), "courbe d'ébullition", COUL.dome, "13px system-ui", "d");
+    txt(ctx, X(S.hV) + 8, Y(Pm), "courbe de rosée", COUL.dome, "13px system-ui", "g");
   }
   if (p.etape === 1) {
-    txt(ctx, X(hV(0.6) + 0.1), Y(0.62), "isotherme T", COUL.iso, "bold 13px system-ui", "g");
-    // moments
-    const yy = 0.35, a = hL(yy), b = hV(yy), hm = a + 0.62 * (b - a);
-    ctx.save(); ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(X(hm), Y(yy), 5, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
-    txt(ctx, X(hm), Y(yy) - 10, "M", "#222", "bold 13px system-ui");
-    txt(ctx, X(a) - 4, Y(yy) - 8, "L", COUL.liq, "bold 13px system-ui", "d"); txt(ctx, X(b) + 4, Y(yy) - 8, "V", "#3d6fb3", "bold 13px system-ui", "g");
-    trace(ctx, [[X(a), Y(yy) + 14], [X(hm), Y(yy) + 14]], "#555", 1.2); trace(ctx, [[X(hm), Y(yy) + 18], [X(b), Y(yy) + 18]], "#999", 1.2);
-    txt(ctx, (X(a) + X(b)) / 2, Y(yy) + 40, "x_V = LM / LV", "#222", "bold 14px 'Times New Roman', serif");
+    const hm = S.hL + 0.62 * (S.hV - S.hL), yy = Y(Pm);
+    V.trace(ctx, [[S.hL, Pm], [S.hV, Pm]], COUL.iso, 2.5);
+    ctx.save(); ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(X(hm), yy, 5, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
+    txt(ctx, X(hm), yy - 10, "M", "#222", "bold 13px system-ui");
+    txt(ctx, X(S.hL) - 4, yy - 8, "L", COUL.liq, "bold 13px system-ui", "d"); txt(ctx, X(S.hV) + 4, yy - 8, "V", "#3d6fb3", "bold 13px system-ui", "g");
+    trace(ctx, [[X(S.hL), yy + 14], [X(hm), yy + 14]], "#555", 1.5); trace(ctx, [[X(hm), yy + 18], [X(S.hV), yy + 18]], "#999", 1.5);
+    txt(ctx, (X(S.hL) + X(S.hV)) / 2, yy + 40, "x_V = LM / LV", "#222", "bold 14px 'Times New Roman', serif");
+    txt(ctx, (X(S.hL) + X(S.hV)) / 2, yy - 24, "isotherme T = " + PH.fmt(S.T, 1) + " °C: palier", COUL.iso, "bold 13px system-ui");
   }
-  // cloche
-  const gauche = [], droite = [];
-  for (let i = 0; i <= N; i++) { const yy = YMIN + (1 - YMIN) * i / N; gauche.push(Q([hL(yy), yy])); droite.push(Q([hV(yy), yy])); }
-  trace(ctx, gauche, COUL.dome, 2.5); trace(ctx, droite, COUL.dome, 2.5);
-  const [cx, cy] = Q([hL(1), 1]);
-  ctx.save(); ctx.fillStyle = COUL.dome; ctx.beginPath(); ctx.arc(cx, cy, 4.5, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
-  txt(ctx, cx, cy - 10, "C", COUL.dome, "bold 14px system-ui");
-  if (p.etape === 0) {
-    txt(ctx, X(hL(0.45)) - 8, Y(0.45), "courbe d'ébullition", COUL.dome, "13px system-ui", "d");
-    txt(ctx, X(hV(0.45)) + 8, Y(0.45), "courbe de rosée", COUL.dome, "13px system-ui", "g");
-  }
+  ctx.restore();
   if (k < 0) return;
+  ctx.save(); ctx.beginPath(); ctx.rect(z.x0 - 60, z.y0, z.x1 - z.x0 + 60, z.y1 - z.y0 + 60); ctx.clip();
   // pressions
-  for (const [yy, nom, coul] of [[YB, "P_{BP}", COUL.BP], [YH, "P_{HP}", COUL.HP]]) {
-    trace(ctx, [[x0, Y(yy)], [x1, Y(yy)]], coul, 0.8, [3, 5]); txt(ctx, x0 - 4, Y(yy) + 5, nom, coul, "bold 13px system-ui", "d");
+  for (const [P, nom, coul] of [[CY.PB, "P_{BP}", COUL.BP], [CY.PH, "P_{HP}", COUL.HP]]) {
+    trace(ctx, [[z.x0, Y(P)], [z.x1, Y(P)]], coul, 0.8, [3, 5]);
+    txt(ctx, z.x1 - 4, Y(P) - 5, nom + " = " + PH.fmtS(P, 3) + " bar", coul, "bold 12px system-ui", "d");
   }
   // isentrope
   if (k === 0) {
-    const pts = []; for (let i = -10; i <= 30; i++) pts.push(Q(isentrope(i / 20)));
-    trace(ctx, pts, COUL.s, 1.5, [6, 4]); const [a, b] = Q(isentrope(1.35)); txt(ctx, a + 6, b, "s = cte", COUL.s, "bold 13px system-ui", "g");
+    const pts = []; for (let i = -6; i <= 26; i++) { const P = Math.exp(Math.log(CY.PB) + Math.log(CY.PH / CY.PB) * i / 20); const h = F.hPs(P, CY.s1); if (isFinite(h)) pts.push([h, P]); }
+    V.trace(ctx, pts, COUL.s, 1.8, [6, 4]); const [a, b] = Q(pts[pts.length - 1]); txt(ctx, a + 6, b + 4, "s = s_1", COUL.s, "bold 13px system-ui", "g");
   }
-  // segments du cycle déjà parcourus
   const nb = k === 4 ? 4 : k;
   const coulSeg = [COUL.w, COUL.HP, "#00897b", COUL.BP];
   for (let j = 0; j < 4; j++) {
     if (j > nb) break;
     const fin = j < nb ? 1 : (k === 4 ? 1 : Math.min(1, u)), pts = [];
-    for (let i = 0; i <= 50; i++) pts.push(Q(pointCycle(j, fin * i / 50)));
-    trace(ctx, pts, coulSeg[j], 3.5);
+    for (let i = 0; i <= 50; i++) pts.push(pointCycle(j, fin * i / 50));
+    V.trace(ctx, pts, "#fff", 6); V.trace(ctx, pts, coulSeg[j], 3.5);
     if (fin > 0.55) { const A = Q(pointCycle(j, 0.45)), B = Q(pointCycle(j, 0.55)); fleche(ctx, A[0], A[1], B[0], B[1], coulSeg[j], 3); }
   }
-  // points
-  const pts4 = [[H1, YB, "1", 14, 18], [H2, YH, "2", 14, -8], [H3, YH, "3", -14, -8], [H4, YB, "4", -14, 18]];
-  pts4.forEach(([hh, yy, n, dx, dy], j) => {
+  const pts4 = [[CY.H1, CY.PB, "1", 14, 20], [CY.H2, CY.PH, "2", 14, -8], [CY.H3, CY.PH, "3", -14, -8], [CY.H4, CY.PB, "4", -14, 20]];
+  pts4.forEach(([hh, P, n, dx, dy], j) => {
     if (j > nb + 1 && !(k === 4) && !(j === 0)) return;
-    const [a, b] = Q([hh, yy]); ctx.save(); ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(a, b, 4.5, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
+    const [a, b] = Q([hh, P]); ctx.save(); ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(a, b, 4.5, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
     txt(ctx, a + dx, b + dy, n, "#222", "bold 15px system-ui");
   });
   // point mobile
@@ -544,34 +592,37 @@ function diagramme(ctx, R, k, u) {
   const M = pointCycle(kk, uu), ph = phase(M[0], M[1]), [mx, my] = Q(M);
   ctx.save(); ctx.fillStyle = couleurFluide(ph.x); ctx.strokeStyle = "#111"; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.arc(mx, my, 7, 0, 2 * Math.PI); ctx.fill(); ctx.stroke(); ctx.restore();
-  etat.innerHTML = "<b>" + ph.nom + "</b>" + (ph.x > 0 && ph.x < 1 ? "<br>titre en vapeur x<sub>V</sub> ≈ " + Math.round(ph.x * 100) + " %" : "") +
-    "<br>pression: " + (M[1] > (YB + YH) / 2 ? "<span style='color:" + COUL.HP + "'>haute</span>" : "<span style='color:" + COUL.BP + "'>basse</span>");
-  // lecture des échanges sur l'axe h
+  etat.innerHTML = "<b>" + ph.nom + "</b>" + (ph.e.zone === "LV" ? " — titre en vapeur x<sub>V</sub> = " + PH.fmt(ph.e.x, 2) : "") +
+    "<br>P = " + PH.fmtS(M[1], 3) + " bar, T = " + PH.fmt(ph.e.T, 1) + " °C, h = " + PH.fmt(M[0], 1) + " kJ/kg, s = " + PH.fmt(ph.e.s, 3) + " kJ/(kg·K)";
+  // lecture des échanges sur l'axe des h
+  const yb = z.y1;
   if (k >= 1) {
-    const reperes = [[H3, "h_3 = h_4"], [H1, "h_1"], [H2, "h_2"]];
-    reperes.forEach(([hh, n], j) => { if (k === 1 && j === 1) return;
-      trace(ctx, [[X(hh), Y(j === 0 ? YH : j === 1 ? YB : YH)], [X(hh), y1]], "#888", 1, [2, 4]);
-      txt(ctx, X(hh), y1 + 16, k === 1 && j === 0 ? "h_3" : n, "#222", "13px system-ui"); });
+    const reperes = [[CY.H3, "h_3 = h_4", CY.PH], [CY.H1, "h_1", CY.PB], [CY.H2, "h_2", CY.PH]];
+    reperes.forEach(([hh, n, P], j) => { if (k === 1 && j === 1) return;
+      trace(ctx, [[X(hh), Y(P)], [X(hh), yb]], "#888", 1, [2, 4]);
+      txt(ctx, X(hh), yb + 48, (k === 1 && j === 0 ? "h_3" : n), "#222", "12px system-ui"); });
   }
-  const accol = (ha, hb, niv, n, coul) => {
-    const yy = y1 - 14 - 22 * niv; fleche(ctx, X(ha), yy, X(hb), yy, coul, 2.5);
-    txt(ctx, (X(ha) + X(hb)) / 2, yy - 6, n, coul, "bold 14px system-ui");
+  const accol = (ha, hb, niv, n, val, coul) => {
+    const yy = yb - 14 - 24 * niv; fleche(ctx, X(ha), yy, X(hb), yy, coul, 2.5);
+    txt(ctx, (X(ha) + X(hb)) / 2, yy - 6, n + " = " + PH.fmt(val, 1) + " kJ/kg", coul, "bold 13px system-ui");
   };
-  if (k === 0 && u >= 1) accol(H1, H2, 0, "w_u", COUL.w);
-  if (k === 1 && u >= 1) accol(H2, H3, 0, "q_c", COUL.q);
-  if (k === 3 && u >= 1) accol(H4, H1, 0, "q_f", COUL.q);
-  if (k === 4) { accol(H4, H1, 0, "q_f", COUL.BP); accol(H1, H2, 0, "w_u", COUL.w); accol(H2, H3, 1, "q_c", COUL.HP); }
+  if (k === 0 && u >= 1) accol(CY.H1, CY.H2, 0, "w_u", CY.H2 - CY.H1, COUL.w);
+  if (k === 1 && u >= 1) accol(CY.H2, CY.H3, 0, "q_c", CY.H3 - CY.H2, COUL.q);
+  if (k === 3 && u >= 1) accol(CY.H4, CY.H1, 0, "q_f", CY.H1 - CY.H4, COUL.q);
+  if (k === 4) { accol(CY.H4, CY.H1, 0, "q_f", CY.H1 - CY.H4, COUL.BP); accol(CY.H1, CY.H2, 1, "w_u", CY.H2 - CY.H1, COUL.w); accol(CY.H2, CY.H3, 2, "q_c", CY.H3 - CY.H2, COUL.HP); }
+  ctx.restore();
 }
 
 // ---------------------------------------------------------------- dessin général
 function dessiner() {
   const ctx = cv.ctx; cv.effacer("#fff");
+  if (!F || !CY) return;
   const k = ETAPES[p.etape].seg;
   const u = k === 4 ? (p.t * 0.12) % 1 : Math.min(1, p.tau);
   if (k < 0) etat.innerHTML = "<i>Le cycle commence à l'étape 3.</i>";
   const cote = cv.w > cv.h * 1.15;
   let A, B;
-  if (cote) { A = { x: 0, y: 0, w: cv.w * 0.38, h: cv.h }; B = { x: cv.w * 0.38, y: 0, w: cv.w * 0.62, h: cv.h }; }
+  if (cote) { A = { x: 0, y: 0, w: cv.w * 0.32, h: cv.h }; B = { x: cv.w * 0.32, y: 0, w: cv.w * 0.68, h: cv.h }; }
   else { A = { x: 0, y: 0, w: cv.w, h: cv.h * 0.42 }; B = { x: 0, y: cv.h * 0.42, w: cv.w, h: cv.h * 0.58 }; }
   schema(ctx, A, k, u);
   diagramme(ctx, B, k, u);
@@ -602,6 +653,17 @@ function tickEnch(ts) {
 requestAnimationFrame(tickEnch);
 
 boucle((dt) => { p.t += dt * p.vitesse; p.tau += dt * 0.35 * p.vitesse; dessiner(); });
+// zoom et déplacement sur le diagramme
+{
+  const pos = (ev) => { const r = cv.cv.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
+  let pan = null;
+  cv.cv.addEventListener("wheel", (ev) => { if (!V) return; const [x, y] = pos(ev); if (!V.dedans(x, y)) return;
+    ev.preventDefault(); V.zoom(x, y, ev.deltaY > 0 ? 1.15 : 1 / 1.15); }, { passive: false });
+  cv.cv.addEventListener("pointerdown", (ev) => { if (!V) return; const [x, y] = pos(ev); if (V.dedans(x, y)) { pan = [x, y]; cv.cv.setPointerCapture(ev.pointerId); } });
+  cv.cv.addEventListener("pointermove", (ev) => { if (!pan) return; const [x, y] = pos(ev); V.deplacer(x - pan[0], y - pan[1]); pan = [x, y]; });
+  cv.cv.addEventListener("pointerup", () => { pan = null; });
+}
+chargerFluide("R134a");
 
 </script>
 <script src="mobile.js"></script>
