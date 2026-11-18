@@ -126,8 +126,9 @@ const PH = (() => {
       const a = iso[i], b = iso[i + 1];
       const S = P < Pc ? sat(P) : null;
       let r;
-      if (S && h > S.hL && h < S.hV) {
-        const x = (h - S.hL) / (S.hV - S.hL);
+      const eps = 1e-3;   // kJ/kg: un point de la courbe de saturation est un état saturé (x = 0 ou 1)
+      if (S && h >= S.hL - eps && h <= S.hV + eps) {
+        const x = Math.min(1, Math.max(0, (h - S.hL) / (S.hV - S.hL)));
         return { P, h, T: S.T, s: lin(S.sL, S.sV, x), v: lin(S.vL, S.vV, x), x, zone: "LV" };
       }
       if (S && a.sat && b.sat) {
@@ -257,7 +258,7 @@ const PH = (() => {
 
   function cloche(F) {
     if (F.courbes._cloche) return F.courbes._cloche;
-    const G = [], Dr = [], N = 300, l0 = Math.log(F.Pmin), l1 = Math.log(F.Pc);
+    const G = [], Dr = [], N = 900, l0 = Math.log(F.Pmin), l1 = Math.log(F.Pc);
     for (let i = 0; i < N; i++) {
       const t = 1 - Math.pow(1 - i / N, 2);
       const S = F.sat(Math.exp(lin(l0, l1, t)));

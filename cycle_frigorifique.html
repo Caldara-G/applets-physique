@@ -304,13 +304,13 @@ const ETAPES = [
     "lorsque celle-ci tend vers le gaz parfait (h ne dépend que de T).<br>Sous la cloche, le <span style='color:" + COUL.titre + "'><b>titre en vapeur</b></span> " +
     "se lit par le théorème des moments: x<sub>V</sub> = (h − h<sub>L</sub>) / (h<sub>V</sub> − h<sub>L</sub>)." },
   { seg: 0, titre: "1 → 2: compression", texte:
-    "Le compresseur aspire de la vapeur (légèrement surchauffée) à basse pression <span style='color:" + COUL.BP + "'>P<sub>BP</sub></span> " +
+    "Le compresseur aspire de la vapeur (saturante, ou légèrement surchauffée si on règle une surchauffe) à basse pression <span style='color:" + COUL.BP + "'>P<sub>BP</sub></span> " +
     "et la refoule à haute pression <span style='color:" + COUL.HP + "'>P<sub>HP</sub></span>. Compression " +
     "<b>adiabatique</b>; si elle est réversible, on suit l'<span style='color:" + COUL.s + "'>isentrope</span> passant par 1 (sinon h<sub>2</sub> = h<sub>1</sub> + (h<sub>2s</sub> − h<sub>1</sub>)/η).<br>" +
     "Premier principe industriel (q = 0, Δe<sub>c</sub> et Δe<sub>p</sub> négligés): <b>w<sub>u</sub> = h<sub>2</sub> − h<sub>1</sub> &gt; 0</b>." },
   { seg: 1, titre: "2 → 3: condenseur", texte:
     "Dans le condenseur, la transformation est <b>isobare</b> (P<sub>HP</sub>) et sans travail utile. Le fluide se refroidit " +
-    "(vapeur surchauffée), puis se liquéfie sur le palier, jusqu'au liquide saturant en 3.<br>" +
+    "(vapeur surchauffée), puis se liquéfie sur le palier, jusqu'au liquide saturant en 3 (ou un peu au-delà, liquide sous-refroidi, si on règle un sous-refroidissement).<br>" +
     "<b>q<sub>c</sub> = h<sub>3</sub> − h<sub>2</sub> &lt; 0</b>: le fluide cède de la chaleur à la <span style='color:" + COUL.HP + "'>source chaude</span>." },
   { seg: 2, titre: "3 → 4: détendeur", texte:
     "Le détendeur (vanne, capillaire) est <b>calorifugé</b> et ne comporte pas de partie mobile: q = 0 et w<sub>u</sub> = 0, d'où " +
@@ -346,13 +346,13 @@ const selFl = el("select", { style: "width:100%;font:inherit;padding:3px" }, sFl
 PH.FLUIDES.filter(([c]) => c !== "R718").forEach(([c, n]) => el("option", { value: c, text: n }, selFl));
 selFl.addEventListener("change", () => chargerFluide(selFl.value));
 const sCy = section(panneau, "Réglages du cycle");
-const cyc = { Tev: -10, Tco: 40, surch: 5, sref: 3, eta: 1 };
+const cyc = { Tev: -10, Tco: 40, surch: 0, sref: 0, eta: 1 };
 const cTev = curseur(sCy, { label: "T<sub>évap</sub> (°C)", min: -40, max: 15, val: cyc.Tev, pas: 1, onchange: (v) => { cyc.Tev = v; calculerCycle(); } });
 const cTco = curseur(sCy, { label: "T<sub>cond</sub> (°C)", min: 20, max: 70, val: cyc.Tco, pas: 1, onchange: (v) => { cyc.Tco = v; calculerCycle(); } });
 curseur(sCy, { label: "Surchauffe à l'aspiration (K)", min: 0, max: 20, val: cyc.surch, pas: 1, onchange: (v) => { cyc.surch = v; calculerCycle(); } });
 curseur(sCy, { label: "Sous-refroidissement (K)", min: 0, max: 15, val: cyc.sref, pas: 1, onchange: (v) => { cyc.sref = v; calculerCycle(); } });
 curseur(sCy, { label: "Rendement isentropique du compresseur", min: 0.4, max: 1, val: cyc.eta, pas: 0.01, dec: 2, onchange: (v) => { cyc.eta = v; calculerCycle(); } });
-el("div", { class: "note", html: "Rendement 1: compression isentrope (cas du cours). Rendement &lt; 1: h<sub>2</sub> = h<sub>1</sub> + (h<sub>2s</sub> − h<sub>1</sub>)/η." }, sCy);
+el("div", { class: "note", html: "Surchauffe et sous-refroidissement nuls: 1 est une vapeur saturante et 3 un liquide saturant (cas du cours); sinon 1 est à droite de la courbe de rosée et 3 à gauche de la courbe d'ébullition.<br>Rendement 1: compression isentrope (cas du cours). Rendement &lt; 1: h<sub>2</sub> = h<sub>1</sub> + (h<sub>2s</sub> − h<sub>1</sub>)/η." }, sCy);
 
 const sAff = section(panneau, "Courbes du diagramme");
 const LIGNES = [["T", "Isothermes", PH.COUL.T], ["x", "Isotitres", PH.COUL.x], ["s", "Isentropes", PH.COUL.s], ["v", "Isochores", PH.COUL.v]];
@@ -438,6 +438,8 @@ function pointCycle(k, u) {
 function phase(h, P) {
   const e = F.etat(P, h);
   if (e.zone === "L") return { nom: "liquide", x: 0, e };
+  if (e.zone === "LV" && e.x <= 1e-6) return { nom: "liquide saturant", x: 0, e };
+  if (e.zone === "LV" && e.x >= 1 - 1e-6) return { nom: "vapeur saturante", x: 1, e };
   if (e.zone === "LV") return { nom: "mélange liquide-vapeur", x: e.x, e };
   return { nom: "vapeur sèche (surchauffée)", x: 1, e };
 }
