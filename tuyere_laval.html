@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tuyère de Laval — MP* Malherbe</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px; color: #222; background: #eef0f3;
+}
+#app { display: flex; height: 100vh; }
+#principal { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0;
+  padding: 8px; gap: 8px; }
+.ligne-zones { display: flex; gap: 8px; min-height: 0; }
+.zone { position: relative; flex: 1; min-height: 0; min-width: 0; background: #fff;
+  border: 1px solid #d5d9df; border-radius: 6px; overflow: hidden; }
+.zone canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; touch-action: none; }
+#z_tuyere canvas { cursor: ew-resize; }
+#panneau { width: 340px; flex: none; overflow-y: auto; background: #fff;
+  border-left: 1px solid #d5d9df; padding: 10px 14px 20px; }
+#panneau h1 { font-size: 16px; margin: 4px 0 2px; }
+.retour { font-size: 12px; color: #4a6fa5; text-decoration: none; }
+.retour:hover { text-decoration: underline; }
+.section { margin: 8px 0; padding-bottom: 8px; border-bottom: 1px solid #eceef1; }
+.section:last-child { border-bottom: none; }
+.titre { font-weight: 600; margin-bottom: 4px; color: #333; }
+.choix { display: flex; align-items: center; gap: 6px; padding: 1px 0; cursor: pointer; user-select: none; }
+.choix input { margin: 0 2px 0 0; }
+.curseur { margin: 7px 0; }
+.curseur .tete { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.curseur .val { font-weight: 600; font-variant-numeric: tabular-nums; }
+input[type=range] { width: 100%; margin: 3px 0 0; accent-color: #3b6fb6; }
+select { width: 100%; font: inherit; padding: 3px 4px; border: 1px solid #c9cdd3; border-radius: 3px; background: #fff; }
+.info { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 4px; padding: 6px 8px; line-height: 1.5; }
+.info.attention { background: #fff5ee; border-color: #f0d4c2; }
+.note { font-size: 11.5px; color: #666; font-style: italic; line-height: 1.4; }
+table.val { width: 100%; border-collapse: collapse; }
+table.val td { padding: 2px 2px; border-bottom: 1px solid #f0f1f3; }
+table.val td:last-child { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.explication { line-height: 1.55; }
+.explication p { margin: 4px 0; }
+.eq { font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif; white-space: nowrap; }
+@media (max-width: 900px) {
+  #app { flex-direction: column; height: auto; }
+  #principal { height: 85vh; }
+  #panneau { width: 100%; border-left: none; border-top: 1px solid #d5d9df; }
+}
+.haut { display: flex; justify-content: space-between; align-items: center; }
+.etiquette { font-size: 11.5px; font-weight: 600; color: #fff; background: #3b5f96;
+  border-radius: 10px; padding: 2px 9px; letter-spacing: 0.02em; }
+.filigrane { position: absolute; right: 16px; bottom: 14px; z-index: 5; pointer-events: none;
+  font-size: 13px; font-weight: 700; color: #3b5f96; background: rgba(255,255,255,0.82);
+  border: 1px solid rgba(59,95,150,0.35); border-radius: 12px; padding: 3px 11px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="principal">
+    <div class="zone" id="z_tuyere" data-mt-nom="Tuyère" style="flex: 1.15"><canvas id="c_tuyere"></canvas></div>
+    <div class="ligne-zones" style="flex: 1">
+      <div class="zone" id="z_f" data-mt-nom="Débit f(ψ)"><canvas id="c_f"></canvas></div>
+      <div class="zone" id="z_profils" data-mt-nom="Profils"><canvas id="c_profils"></canvas></div>
+    </div>
+    <div class="filigrane">MP* Malherbe</div>
+  </div>
+  <div id="panneau">
+    <div class="haut">
+      <a class="retour" href="index.html">← Sommaire</a>
+      <span class="etiquette">MP* Malherbe</span>
+    </div>
+    <h1>Tuyère convergente-divergente</h1>
+    <div class="note">Écoulement stationnaire isentropique d'un gaz parfait dans une tuyère de Laval adaptée.</div>
+
+    <div class="section">
+      <div class="titre">Gaz</div>
+      <select id="gaz">
+        <option value="air">Air (γ = 1,40, M = 29 g/mol)</option>
+        <option value="he">Hélium (γ = 1,67, M = 4 g/mol)</option>
+        <option value="co2">CO₂ (γ = 1,29, M = 44 g/mol)</option>
+        <option value="h2o">Vapeur d'eau (γ = 1,33, M = 18 g/mol)</option>
+        <option value="fusee">Gaz de combustion H₂/O₂ (γ = 1,20, M = 13,5 g/mol)</option>
+        <option value="perso">Personnalisé</option>
+      </select>
+      <div class="curseur"><div class="tete"><span>γ = c<sub>p</sub>/c<sub>v</sub></span><span class="val" id="v_gamma"></span></div>
+        <input id="r_gamma" type="range" min="1.05" max="1.67" step="0.01"></div>
+      <div class="curseur"><div class="tete"><span>Masse molaire M</span><span class="val" id="v_M"></span></div>
+        <input id="r_M" type="range" min="2" max="60" step="0.5"></div>
+      <div class="curseur"><div class="tete"><span>Température génératrice T<sub>0</sub></span><span class="val" id="v_T0"></span></div>
+        <input id="r_T0" type="range" min="250" max="4000" step="10"></div>
+    </div>
+
+    <div class="section">
+      <div class="titre">Détente</div>
+      <div class="curseur"><div class="tete"><span>ψ<sub>s</sub> = P<sub>s</sub>/P<sub>0</sub> en sortie</span><span class="val" id="v_psi"></span></div>
+        <input id="r_psi" type="range" min="0" max="1000" step="1"></div>
+      <div class="note">La tuyère est dessinée pour que le gaz sorte exactement à la pression P<sub>s</sub> (tuyère adaptée).</div>
+      <label class="choix" style="margin-top:6px"><input type="checkbox" id="anim" checked> Animer l'écoulement</label>
+      <div id="regime" class="info" style="margin-top:6px"></div>
+    </div>
+
+    <div class="section">
+      <div class="titre">Au curseur <span style="font-weight:400;color:#777">(faire glisser sur la tuyère)</span></div>
+      <table class="val" id="t_local"></table>
+    </div>
+
+    <div class="section">
+      <div class="titre">Valeurs caractéristiques</div>
+      <table class="val" id="t_global"></table>
+    </div>
+
+    <div class="section explication">
+      <div class="titre">À retenir</div>
+      <p>Premier principe industriel et loi de Laplace:
+        <span class="eq">v² = 2γ/(γ−1) · P<sub>0</sub>/ρ<sub>0</sub> · (1 − ψ<sup>(γ−1)/γ</sup>)</span>.</p>
+      <p>Débit massique: <span class="eq">D<sub>m</sub> = S α f(ψ)</span>, avec
+        <span class="eq">f(ψ) = √(ψ<sup>2/γ</sup> − ψ<sup>(γ+1)/γ</sup>)</span>.</p>
+      <p>En régime stationnaire, <span class="eq">S f(ψ) = cte</span>: la section est minimale (col) là où f est maximale,
+        pour <span class="eq">ψ* = (2/(γ+1))<sup>γ/(γ−1)</sup></span>; le gaz y atteint la vitesse du son.
+        Au-delà, la détente supersonique exige une section croissante: la tuyère est <b>convergente</b> puis <b>divergente</b>.</p>
+      <p>Relation d'Hugoniot: <span class="eq">dS/S = (Ma² − 1) dv/v</span>.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+(() => {
+  const R = 8.314;
+  const presets = {
+    air:  {g: 1.40, M: 29,   T0: 300},
+    he:   {g: 1.67, M: 4,    T0: 300},
+    co2:  {g: 1.29, M: 44,   T0: 300},
+    h2o:  {g: 1.33, M: 18,   T0: 600},
+    fusee:{g: 1.20, M: 13.5, T0: 3500}
+  };
+  const $ = id => document.getElementById(id);
+
+  /** Nombre écrit avec une virgule décimale (et espaces fines pour les milliers). */
+  function fmt(v, d) {
+    if (!isFinite(v)) return "—";
+    let s = v.toFixed(d);
+    if (/^-0(\.0*)?$/.test(s)) s = s.slice(1);
+    let [ent, dec] = s.split(".");
+    const neg = ent.startsWith("-"); if (neg) ent = ent.slice(1);
+    if (ent.length > 4) ent = ent.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    return (neg ? "−" : "") + ent + (dec ? "," + dec : "");
+  }
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  // ψ_s : curseur logarithmique de 0,002 à 0,99
+  const PMIN = 0.002, PMAX = 0.99;
+  const versPsi = s => Math.exp(Math.log(PMIN) + (Math.log(PMAX) - Math.log(PMIN)) * s / 1000);
+  const versCurseur = p => Math.round(1000 * (Math.log(p) - Math.log(PMIN)) / (Math.log(PMAX) - Math.log(PMIN)));
+
+  const st = {g: 1.4, M: 29, T0: 300, psis: 0.1};
+  let mod = null, xc = 0.32;
+
+  // ------------------------------------------------ relations isentropiques
+  const psiEtoile = g => Math.pow(2 / (g + 1), g / (g - 1));
+  const fpsi = (p, g) => Math.sqrt(Math.max(0, Math.pow(p, 2 / g) - Math.pow(p, (g + 1) / g)));
+  const machDePsi = (p, g) => Math.sqrt(Math.max(0, (2 / (g - 1)) * (Math.pow(p, -(g - 1) / g) - 1)));
+  const psiDeMach = (Ma, g) => Math.pow(1 + (g - 1) / 2 * Ma * Ma, -g / (g - 1));
+  const rapportSections = (Ma, g) => (1 / Ma) * Math.pow((2 / (g + 1)) * (1 + (g - 1) / 2 * Ma * Ma), (g + 1) / (2 * (g - 1)));
+  function machDeSection(A, g, supersonique) {   // A = S/S* >= 1, bissection
+    let lo = supersonique ? 1 : 1e-7, hi = supersonique ? 60 : 1;
+    for (let i = 0; i < 80; i++) {
+      const m = 0.5 * (lo + hi), a = rapportSections(m, g);
+      if (supersonique ? a < A : a > A) lo = m; else hi = m;
+    }
+    return 0.5 * (lo + hi);
+  }
+
+  function construire() {
+    const g = st.g, N = 500, ps = psiEtoile(g), Mm = st.M / 1000;
+    const cp = g * R / ((g - 1) * Mm);
+    const laval = st.psis < ps;
+    const xt = laval ? 0.32 : 1;
+    const MaS = machDePsi(st.psis, g);
+    const As = rapportSections(MaS, g);
+    const Ae = Math.max(rapportSections(0.15, g), 1.6 * As);   // section d'entrée
+    const rt = 1, re = Math.sqrt(Ae), rs = Math.sqrt(As);
+    const pts = [];
+    for (let i = 0; i <= N; i++) {
+      const x = i / N;
+      let r, sup;
+      if (laval) {
+        if (x <= xt) { r = rt + (re - rt) * (1 + Math.cos(Math.PI * x / xt)) / 2; sup = false; }
+        else { r = rt + (rs - rt) * (1 - Math.cos(Math.PI * (x - xt) / (1 - xt))) / 2; sup = true; }
+      } else {
+        r = rs + (re - rs) * (1 + Math.cos(Math.PI * x)) / 2; sup = false;
+      }
+      const A = r * r;
+      const Ma = (laval && Math.abs(x - xt) < 1e-9) ? 1 : machDeSection(Math.max(A, 1 + 1e-7), g, sup);
+      const psi = psiDeMach(Ma, g), T = 1 / (1 + (g - 1) / 2 * Ma * Ma), rho = Math.pow(psi, 1 / g);
+      const c = Math.sqrt(g * R * st.T0 * T / Mm);
+      pts.push({x, r, A, Ma, psi, T, rho, c, v: Ma * c});
+    }
+    const fin = pts[N];
+    mod = {g, ps, cp, laval, xt, As, rmax: Math.max(re, rs), pts,
+           vlim: Math.sqrt(2 * cp * st.T0), cet: Math.sqrt(g * R * st.T0 * (2 / (g + 1)) / Mm),
+           vS: fin.v, MaS: fin.Ma, TS: fin.T * st.T0, psiE: pts[0].psi};
+  }
+  function echantillon(x) {
+    const P = mod.pts, N = P.length - 1;
+    const f = Math.min(N, Math.max(0, x * N));
+    const i = Math.min(N - 1, Math.floor(f)), t = f - i, a = P[i], b = P[i + 1], o = {};
+    for (const k of ["x", "r", "A", "Ma", "psi", "T", "rho", "v", "c"]) o[k] = lerp(a[k], b[k], t);
+    return o;
+  }
+  function couleurMach(Ma, al = 1) {          // bleu (subsonique) → violet (Ma = 1) → rouge
+    const t = Math.max(0, Math.min(1, Ma / 2));
+    const c1 = [47, 111, 196], c2 = [122, 63, 194], c3 = [205, 62, 44];
+    const c = t < 0.5 ? c1.map((v, i) => lerp(v, c2[i], t / 0.5)) : c2.map((v, i) => lerp(v, c3[i], (t - 0.5) / 0.5));
+    return `rgba(${c.map(Math.round).join(",")},${al})`;
+  }
+
+  // ------------------------------------------------ canvas
+  function prep(cv) {
+    const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+    if (w < 10 || h < 10) return null;           // zone masquée (mode téléphone)
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    }
+    const ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    return {ctx, w, h};
+  }
+  function legende(ctx, x, y, items) {
+    ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    let X = x, W = ctx.canvas.clientWidth;
+    for (const [txt, col, pointille] of items) {
+      const larg = 21 + ctx.measureText(txt).width;
+      if (X > x && X + larg > W - 8) { X = x; y += 16; }
+      ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.setLineDash(pointille ? [4, 3] : []);
+      ctx.beginPath(); ctx.moveTo(X, y); ctx.lineTo(X + 16, y); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = "#444"; ctx.fillText(txt, X + 21, y);
+      X += 21 + ctx.measureText(txt).width + 16;
+    }
+    ctx.textBaseline = "alphabetic";
+  }
+  function axes(ctx, w, h, pad, xr, yr, xl, yl, xt, yt, dx, dy) {
+    const X = x => pad.l + (x - xr[0]) / (xr[1] - xr[0]) * (w - pad.l - pad.r);
+    const Y = y => h - pad.b - (y - yr[0]) / (yr[1] - yr[0]) * (h - pad.t - pad.b);
+    ctx.font = "11px system-ui, sans-serif"; ctx.fillStyle = "#555"; ctx.lineWidth = 1;
+    ctx.strokeStyle = "#eceef1";
+    ctx.textAlign = "center";
+    for (const v of xt) { ctx.beginPath(); ctx.moveTo(X(v), Y(yr[0])); ctx.lineTo(X(v), Y(yr[1])); ctx.stroke(); ctx.fillText(fmt(v, dx), X(v), h - pad.b + 14); }
+    ctx.textAlign = "right";
+    for (const v of yt) { ctx.beginPath(); ctx.moveTo(X(xr[0]), Y(v)); ctx.lineTo(X(xr[1]), Y(v)); ctx.stroke(); ctx.fillText(fmt(v, dy), pad.l - 5, Y(v) + 4); }
+    ctx.strokeStyle = "#555"; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(X(xr[0]), Y(yr[1])); ctx.lineTo(X(xr[0]), Y(yr[0])); ctx.lineTo(X(xr[1]), Y(yr[0])); ctx.stroke();
+    ctx.fillStyle = "#222"; ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(xl, (pad.l + w - pad.r) / 2, h - pad.b + 30);
+    ctx.save(); ctx.translate(14, (pad.t + h - pad.b) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(yl, 0, 0); ctx.restore();
+    return {X, Y};
+  }
+
+  // ------------------------------------------------ particules
+  let particules = [];
+  for (let i = 0; i < 170; i++) particules.push({x: Math.random(), y: (Math.random() * 2 - 1) * 0.92});
+
+  // ------------------------------------------------ tuyère
+  const cT = $("c_tuyere");
+  function geomTuyere(w, h) {
+    const padL = 42, padR = 24, padT = w < 620 ? 64 : 46, padB = 40;
+    const W = w - padL - padR, H = h - padT - padB, yc = padT + H / 2;
+    return {padL, padR, padT, padB, W, H, yc, sc: (H / 2) / (mod.rmax * 1.05), X: x => padL + x * W};
+  }
+  function dessinerTuyere() {
+    const z = prep(cT); if (!z) return;
+    const {ctx, w, h} = z, G = geomTuyere(w, h), P = mod.pts;
+    ctx.fillStyle = "#222"; ctx.font = "600 13px system-ui, sans-serif"; ctx.textAlign = "left";
+    ctx.fillText("Profil de la tuyère et écoulement", 12, 20);
+    legende(ctx, 12, 36, [["subsonique (Ma < 1)", "#2f6fc4"], ["supersonique (Ma > 1)", "#cd3e2c"], ["col: Ma = 1", "#7a3fc2", true]]);
+    for (let i = 0; i < P.length - 1; i++) {
+      const a = P[i], b = P[i + 1];
+      ctx.fillStyle = couleurMach(0.5 * (a.Ma + b.Ma), 0.15);
+      ctx.beginPath();
+      ctx.moveTo(G.X(a.x), G.yc - a.r * G.sc); ctx.lineTo(G.X(b.x), G.yc - b.r * G.sc);
+      ctx.lineTo(G.X(b.x), G.yc + b.r * G.sc); ctx.lineTo(G.X(a.x), G.yc + a.r * G.sc);
+      ctx.closePath(); ctx.fill();
+    }
+    for (const p of particules) {
+      const s = echantillon(p.x);
+      ctx.fillStyle = couleurMach(s.Ma, 0.85);
+      ctx.beginPath(); ctx.arc(G.X(p.x), G.yc - p.y * s.r * G.sc, 2.1, 0, 2 * Math.PI); ctx.fill();
+    }
+    ctx.lineWidth = 4; ctx.strokeStyle = "#3b4252"; ctx.lineCap = "round";
+    for (const sg of [-1, 1]) {
+      ctx.beginPath();
+      P.forEach((p, i) => { const X = G.X(p.x), Y = G.yc + sg * p.r * G.sc; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
+      ctx.stroke();
+    }
+    ctx.setLineDash([6, 5]); ctx.lineWidth = 1; ctx.strokeStyle = "#9aa3b5";
+    ctx.beginPath(); ctx.moveTo(G.padL - 10, G.yc); ctx.lineTo(w - G.padR + 5, G.yc); ctx.stroke(); ctx.setLineDash([]);
+    if (mod.laval) {
+      const Xt = G.X(mod.xt);
+      ctx.strokeStyle = "#7a3fc2"; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(Xt, G.yc - G.sc - 6); ctx.lineTo(Xt, G.yc + G.sc + 6); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = "#7a3fc2"; ctx.font = "600 12px system-ui, sans-serif"; ctx.textAlign = "center";
+      ctx.fillText("col", Xt, G.yc + G.sc + 20);
+    }
+    ctx.font = "12px system-ui, sans-serif"; ctx.fillStyle = "#555";
+    const etroit = w < 620;
+    ctx.textAlign = "left"; ctx.fillText(etroit ? "entrée" : "entrée: P₀, T₀, v ≈ 0", G.padL, h - 10);
+    ctx.textAlign = "right"; ctx.fillText(etroit ? "sortie" : "sortie: Pₛ", w - G.padR - (etroit ? 120 : 150), h - 10);
+    ctx.strokeStyle = "#555"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(8, G.yc); ctx.lineTo(30, G.yc); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(32, G.yc); ctx.lineTo(25, G.yc - 4); ctx.lineTo(25, G.yc + 4); ctx.closePath(); ctx.fillStyle = "#555"; ctx.fill();
+    const s = echantillon(xc), Xc = G.X(xc);
+    ctx.strokeStyle = "#222"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(Xc, G.padT - 2); ctx.lineTo(Xc, h - G.padB + 6); ctx.stroke();
+    ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(Xc, G.padT - 2, 5, 0, 2 * Math.PI); ctx.fill();
+    ctx.font = "600 12px system-ui, sans-serif"; ctx.textAlign = xc > 0.75 ? "right" : "left";
+    ctx.fillText(`Ma = ${fmt(s.Ma, 2)}`, Xc + (xc > 0.75 ? -9 : 9), G.padT + 10);
+  }
+
+  // ------------------------------------------------ f(ψ)
+  const cF = $("c_f");
+  function dessinerF() {
+    const z = prep(cF); if (!z) return;
+    const {ctx, w, h} = z, g = mod.g, fmax = fpsi(mod.ps, g);
+    ctx.fillStyle = "#222"; ctx.font = "600 13px system-ui, sans-serif"; ctx.textAlign = "left";
+    ctx.fillText("Débit surfacique: Dₘ = S α f(ψ)", 12, 20);
+    legende(ctx, 12, 36, [["f(ψ)/f(ψ*)", "#8a93a8"], ["états parcourus", "#3b6fb6"]]);
+    const pad = {l: 46, r: 16, t: 52, b: 42};
+    const {X, Y} = axes(ctx, w, h, pad, [0, 1], [0, 1.08], "ψ = P/P₀", "f(ψ)/f(ψ*)", [0, 0.2, 0.4, 0.6, 0.8, 1], [0, 0.25, 0.5, 0.75, 1], 1, 2);
+    ctx.strokeStyle = "#8a93a8"; ctx.lineWidth = 2; ctx.beginPath();
+    for (let i = 0; i <= 400; i++) { const p = i / 400, y = fpsi(p, g) / fmax; i ? ctx.lineTo(X(p), Y(y)) : ctx.moveTo(X(p), Y(y)); }
+    ctx.stroke();
+    ctx.setLineDash([4, 4]); ctx.strokeStyle = "#7a3fc2"; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.moveTo(X(mod.ps), Y(0)); ctx.lineTo(X(mod.ps), Y(1)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = "#7a3fc2"; ctx.font = "600 12px system-ui, sans-serif"; ctx.textAlign = "left";
+    ctx.fillText(`ψ* = ${fmt(mod.ps, 3)}`, X(mod.ps) + 5, Y(1.045));
+    const p0 = mod.psiE, p1 = st.psis;
+    ctx.strokeStyle = "#3b6fb6"; ctx.lineWidth = 5; ctx.globalAlpha = 0.75; ctx.beginPath();
+    for (let i = 0; i <= 200; i++) { const p = lerp(p0, p1, i / 200), y = fpsi(p, g) / fmax; i ? ctx.lineTo(X(p), Y(y)) : ctx.moveTo(X(p), Y(y)); }
+    ctx.stroke(); ctx.globalAlpha = 1;
+    const s = echantillon(xc);
+    ctx.fillStyle = couleurMach(s.Ma); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(X(s.psi), Y(fpsi(s.psi, g) / fmax), 6, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#222"; ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "left";
+    ctx.fillText(`au curseur: S/S* = f(ψ*)/f(ψ) = ${fmt(s.A, 2)}`, pad.l + 8, h - pad.b - 8);
+  }
+
+  // ------------------------------------------------ profils
+  const cP = $("c_profils");
+  function dessinerProfils() {
+    const z = prep(cP); if (!z) return;
+    const {ctx, w, h} = z;
+    ctx.fillStyle = "#222"; ctx.font = "600 13px system-ui, sans-serif"; ctx.textAlign = "left";
+    ctx.fillText("Évolution le long de la tuyère", 12, 20);
+    legende(ctx, 12, 36, [["P/P₀ = ψ", "#2f6fc4"], ["T/T₀", "#e08a1e"], ["ρ/ρ₀", "#1f8a4c"], ["Ma (droite)", "#cd3e2c"]]);
+    const pad = {l: 46, r: 40, t: 52, b: 42};
+    const {X, Y} = axes(ctx, w, h, pad, [0, 1], [0, 1.05], "position le long de la tuyère (unité arbitraire)", "P/P₀, T/T₀, ρ/ρ₀", [0, 0.25, 0.5, 0.75, 1], [0, 0.25, 0.5, 0.75, 1], 2, 2);
+    const MaMax = Math.max(1.2, Math.ceil(mod.MaS * 1.1 * 2) / 2);
+    const YM = m => h - pad.b - m / MaMax * (h - pad.t - pad.b);
+    ctx.fillStyle = "#cd3e2c"; ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "left";
+    const pas = MaMax > 3 ? 1 : 0.5;
+    for (let m = 0; m <= MaMax + 1e-9; m += pas) ctx.fillText(fmt(m, pas < 1 ? 1 : 0), w - pad.r + 5, YM(m) + 4);
+    ctx.setLineDash([4, 4]); ctx.strokeStyle = "rgba(205,62,44,0.5)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(X(0), YM(1)); ctx.lineTo(X(1), YM(1)); ctx.stroke(); ctx.setLineDash([]);
+    for (const [k, col, YY] of [["psi", "#2f6fc4", Y], ["T", "#e08a1e", Y], ["rho", "#1f8a4c", Y], ["Ma", "#cd3e2c", YM]]) {
+      ctx.strokeStyle = col; ctx.lineWidth = 2.2; ctx.beginPath();
+      mod.pts.forEach((p, i) => { const xx = X(p.x), yy = YY(p[k]); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); });
+      ctx.stroke();
+    }
+    if (mod.laval) {
+      ctx.setLineDash([4, 4]); ctx.strokeStyle = "#7a3fc2"; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.moveTo(X(mod.xt), Y(0)); ctx.lineTo(X(mod.xt), Y(1.05)); ctx.stroke(); ctx.setLineDash([]);
+    }
+    ctx.strokeStyle = "#222"; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(X(xc), Y(0)); ctx.lineTo(X(xc), Y(1.05)); ctx.stroke();
+  }
+
+  // ------------------------------------------------ panneau
+  function tableau(id, lignes) {
+    $(id).innerHTML = lignes.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("");
+  }
+  function majPanneau() {
+    const s = echantillon(xc);
+    const reg = s.Ma > 1.0005 ? '<span style="color:#cd3e2c">supersonique</span>'
+      : s.Ma > 0.9995 ? '<span style="color:#7a3fc2">sonique</span>' : '<span style="color:#2f6fc4">subsonique</span>';
+    tableau("t_local", [
+      ["Régime", reg], ["S/S*", fmt(s.A, 3)], ["ψ = P/P₀", fmt(s.psi, 3)], ["T", fmt(s.T * st.T0, 0) + " K"],
+      ["ρ/ρ₀", fmt(s.rho, 3)], ["vitesse v", fmt(s.v, 0) + " m/s"], ["vitesse du son c", fmt(s.c, 0) + " m/s"],
+      ["nombre de Mach v/c", fmt(s.Ma, 3)]
+    ]);
+    tableau("t_global", [
+      ["ψ* = (2/(γ+1))<sup>γ/(γ−1)</sup>", fmt(mod.ps, 3)],
+      ["T*/T₀ = 2/(γ+1)", fmt(2 / (mod.g + 1), 3)],
+      [mod.laval ? "vitesse au col v* = c*" : "v* = c* (non atteinte)", fmt(mod.cet, 0) + " m/s"],
+      ["S<sub>s</sub>/S<sub>col</sub>", mod.laval ? fmt(mod.As, 2) : "— (pas de col)"],
+      ["vitesse d'éjection v<sub>s</sub>", fmt(mod.vS, 0) + " m/s"],
+      ["Mach de sortie", fmt(mod.MaS, 2)],
+      ["T de sortie", fmt(mod.TS, 0) + " K"],
+      ["v<sub>lim</sub> = √(2c<sub>p</sub>T₀) (ψ → 0)", fmt(mod.vlim, 0) + " m/s"],
+      ["c<sub>p</sub> massique", fmt(mod.cp, 0) + " J·kg⁻¹·K⁻¹"]
+    ]);
+    const m = $("regime");
+    if (mod.laval) {
+      m.className = "info";
+      m.innerHTML = `ψ<sub>s</sub> = ${fmt(st.psis, 3)} &lt; ψ* = ${fmt(mod.ps, 3)}: la détente dépasse l'état sonique. Il faut une partie <b>divergente</b> après le col, où l'écoulement est supersonique.`;
+    } else {
+      m.className = "info attention";
+      m.innerHTML = `ψ<sub>s</sub> = ${fmt(st.psis, 3)} &gt; ψ* = ${fmt(mod.ps, 3)}: une tuyère <b>seulement convergente</b> suffit, l'écoulement reste subsonique. Diminuer ψ<sub>s</sub> sous ψ* pour faire apparaître le col.`;
+    }
+  }
+  function majLibelles() {
+    $("v_gamma").textContent = fmt(st.g, 2);
+    $("v_M").textContent = fmt(st.M, 1) + " g/mol";
+    $("v_T0").textContent = fmt(st.T0, 0) + " K";
+    $("v_psi").textContent = fmt(st.psis, 3);
+  }
+  function toutDessiner() { dessinerTuyere(); dessinerF(); dessinerProfils(); majPanneau(); }
+  function maj() { majLibelles(); construire(); toutDessiner(); }
+
+  function appliquer(k) {
+    const p = presets[k]; if (!p) return;
+    st.g = p.g; st.M = p.M; st.T0 = p.T0;
+    $("r_gamma").value = p.g; $("r_M").value = p.M; $("r_T0").value = p.T0;
+  }
+  $("gaz").addEventListener("change", () => { appliquer($("gaz").value); maj(); });
+  $("r_gamma").addEventListener("input", e => { st.g = +e.target.value; $("gaz").value = "perso"; maj(); });
+  $("r_M").addEventListener("input", e => { st.M = +e.target.value; $("gaz").value = "perso"; maj(); });
+  $("r_T0").addEventListener("input", e => { st.T0 = +e.target.value; maj(); });
+  $("r_psi").addEventListener("input", e => { st.psis = versPsi(+e.target.value); maj(); });
+
+  // curseur déplaçable sur la tuyère
+  let glisse = false;
+  function placer(e) {
+    const r = cT.getBoundingClientRect(), G = geomTuyere(r.width, r.height);
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    xc = Math.max(0, Math.min(1, (cx - r.left - G.padL) / G.W));
+    toutDessiner();
+  }
+  cT.addEventListener("mousedown", e => { glisse = true; placer(e); });
+  window.addEventListener("mousemove", e => { if (glisse) placer(e); });
+  window.addEventListener("mouseup", () => { glisse = false; });
+  cT.addEventListener("touchstart", e => { glisse = true; placer(e); e.preventDefault(); }, {passive: false});
+  cT.addEventListener("touchmove", e => { if (glisse) { placer(e); e.preventDefault(); } }, {passive: false});
+  cT.addEventListener("touchend", () => { glisse = false; });
+  new ResizeObserver(() => { if (mod) toutDessiner(); }).observe($("principal"));
+
+  // animation
+  let avant = performance.now();
+  function boucle(t) {
+    const dt = Math.min(0.05, (t - avant) / 1000); avant = t;
+    if ($("anim").checked && mod) {
+      const vref = Math.max(mod.vS, 1);
+      for (const p of particules) {
+        p.x += dt * 0.35 * Math.max(0.03, echantillon(p.x).v / vref);
+        if (p.x > 1) { p.x -= 1; p.y = (Math.random() * 2 - 1) * 0.92; }
+      }
+      dessinerTuyere();
+    }
+    requestAnimationFrame(boucle);
+  }
+
+  appliquer("air");
+  $("r_psi").value = versCurseur(0.1); st.psis = versPsi(+$("r_psi").value);
+  maj();
+  requestAnimationFrame(boucle);
+})();
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>
