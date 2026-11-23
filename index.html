@@ -19,44 +19,46 @@ a.carte:hover { border-color: #7f9fcf; box-shadow: 0 3px 14px rgba(40, 70, 120, 
 .carte span { font-size: 13px; color: #555; line-height: 1.45; }
 footer { margin-top: 32px; font-size: 12px; color: #777; line-height: 1.5; }
 </style>
+<link rel="stylesheet" href="domaines.css">
 </head>
 <body>
 <main>
   <h1>Applets de physique <span style="color:#3b5f96">— MP* Malherbe</span></h1>
   <p class="sous">Simulations interactives: elles s'ouvrent dans le navigateur, sans installation ni connexion internet.</p>
+  <nav class="legende"><a data-domaine="mesures" href="#mesures">Mesures</a><a data-domaine="signal" href="#signal">Signal</a><a data-domaine="meca" href="#meca">Mécanique</a><a data-domaine="em" href="#em">Électromagnétisme</a><a data-domaine="ondes" href="#ondes">Ondes</a><a data-domaine="thermo" href="#thermo">Thermodynamique</a><a data-domaine="chimie" href="#chimie">Chimie</a><a data-domaine="optique" href="#optique">Optique</a><a data-domaine="quantique" href="#quantique">Quantique</a><a data-domaine="stat" href="#stat">Physique statistique</a></nav>
 
-  <h2>Animations pas à pas</h2>
-  <div class="grille">
+  <h2 data-domaine="outils" id="outils">Animations pas à pas</h2>
+  <div class="grille" data-domaine="outils">
     <a class="carte" href="animations.html"><b>Animations pas à pas du cours</b>
       <span>Des raisonnements délicats du cours construits étape par étape: référentiel tournant, symétries et invariances, induction et loi de Lenz, onde stationnaire, système ouvert, cycle (P, h), Michelson, cohérence…</span></a>
   </div>
 
-  <h2>Révision du cours</h2>
-  <div class="grille">
+  <h2 data-domaine="outils">Révision du cours</h2>
+  <div class="grille" data-domaine="outils">
     <a class="carte" href="qcm.html"><b>QCM de révision du cours de physique-chimie MP</b>
       <span>Plus de 640 questions de cours de physique et de chimie (MP et révisions de première année), tirées au hasard chapitre par chapitre, avec correction expliquée et suivi des questions ratées.</span></a>
   </div>
 
-  <h2>Traitement de données expérimentales</h2>
-  <div class="grille">
+  <h2 data-domaine="outils">Traitement de données expérimentales</h2>
+  <div class="grille" data-domaine="outils">
     <a class="carte" href="latispresque.html"><b>LaboAnalyse (latispresque)</b>
       <span>Le traitement de Latis-Pro sans la carte d'acquisition: import CSV, Excel ou Regressi, générateur de courbes, feuille de calcul, modélisation, Fourier (amplitude et phase), filtres numériques, échantillonnage, diagramme de Bode; pointage vidéo à la main ou automatique, repère incliné, vecteurs vitesse et accélération.</span></a>
   </div>
 
-  <h2>Programmation</h2>
-  <div class="grille">
+  <h2 data-domaine="outils">Programmation</h2>
+  <div class="grille" data-domaine="outils">
     <a class="carte" href="python.html"><b>Python en ligne</b>
       <span>Un éditeur et une console comme Spyder, dans le navigateur: numpy, scipy, matplotlib, sympy, pandas; figures dans des fenêtres séparées, fichiers de données, exemples du programme (solve_ivp, Euler, FFT, régression et incertitudes…). Connexion internet nécessaire.</span></a>
   </div>
 
-  <h2>Mesures et incertitudes</h2>
-  <div class="grille">
+  <h2 data-domaine="mesures" id="mesures">Mesures et incertitudes</h2>
+  <div class="grille" data-domaine="mesures">
     <a class="carte" href="incertitudes.html"><b>Calcul d'incertitudes</b>
       <span>Types A et B, somme ou produit, formule quelconque par Monte-Carlo, régression linéaire avec validation; écart normalisé et code Python.</span></a>
   </div>
 
-  <h2>Signal et électronique</h2>
-  <div class="grille">
+  <h2 data-domaine="signal" id="signal">Signal et électronique</h2>
+  <div class="grille" data-domaine="signal">
     <a class="carte" href="oscilloscope.html"><b>Oscilloscope et GBF</b>
       <span>Oscilloscope type Keysight DSO-X 2002A (avec son générateur Wave Gen) et GBF Rigol DG1022, reliés par un filtre RC, RL ou RLC: déclenchement complet (holdoff, Ext, impulsion), mesures et statistiques, curseurs, XY, FFT, export CSV, BIN, PNG.</span></a>
     <a class="carte" href="echantillonnage.html"><b>Échantillonnage et repliement</b>
@@ -67,8 +69,8 @@ footer { margin-top: 32px; font-size: 12px; color: #777; line-height: 1.5; }
       <span>Sommes partielles de signaux usuels, spectre, phénomène de Gibbs, moyenne de Fejér.</span></a>
   </div>
 
-  <h2>Mécanique</h2>
-  <div class="grille">
+  <h2 data-domaine="meca" id="meca">Mécanique</h2>
+  <div class="grille" data-domaine="meca">
     <a class="carte" href="pendule.html"><b>Pendule simple non linéaire</b>
       <span>Portrait de phase et séparatrice, comparaison au pendule linéarisé, période en fonction de l'amplitude.</span></a>
     <a class="carte" href="oscillateur.html"><b>Oscillateur amorti et forcé</b>
@@ -81,8 +83,8 @@ footer { margin-top: 32px; font-size: 12px; color: #777; line-height: 1.5; }
       <span>Modes propres, battements, transfert d'énergie entre deux oscillateurs.</span></a>
   </div>
 
-  <h2>Électromagnétisme</h2>
-  <div class="grille">
+  <h2 data-domaine="em" id="em">Électromagnétisme</h2>
+  <div class="grille" data-domaine="em">
     <a class="carte" href="carte_champ.html"><b>Carte de champ électrostatique</b>
       <span>Charges placées à la souris: lignes de champ, équipotentielles, potentiel, sonde.</span></a>
     <a class="carte" href="champ_magnetique.html"><b>Carte de champ magnétique</b>
@@ -93,8 +95,8 @@ footer { margin-top: 32px; font-size: 12px; color: #777; line-height: 1.5; }
       <span>Dipôle induit dans une molécule par une onde: amplitude et déphasage, résonance, puissance diffusée, domaine de Rayleigh et bleu du ciel.</span></a>
   </div>
 
-  <h2>Ondes</h2>
-  <div class="grille">
+  <h2 data-domaine="ondes" id="ondes">Ondes</h2>
+  <div class="grille" data-domaine="ondes">
     <a class="carte" href="paquet_onde.html"><b>Propagation d'un paquet d'ondes</b>
       <span>Dispersion et étalement dans le vide, un plasma, un conducteur ohmique, une chaîne d'atomes et pour une particule libre; impulsion émise par une source ou paquet initial localisé.</span></a>
     <a class="carte" href="cuve_ondes.html"><b>Cuve à ondes</b>
@@ -107,8 +109,8 @@ footer { margin-top: 32px; font-size: 12px; color: #777; line-height: 1.5; }
       <span>Lumière polarisée ou naturelle, polariseur puis lame λ/2 ou λ/4, loi de Malus.</span></a>
   </div>
 
-  <h2>Thermodynamique</h2>
-  <div class="grille">
+  <h2 data-domaine="thermo" id="thermo">Thermodynamique</h2>
+  <div class="grille" data-domaine="thermo">
     <a class="carte" href="diffusion.html"><b>Diffusion thermique 1D</b>
       <span>Crank-Nicolson, conditions aux limites (température, flux nul, Biot), ailette, carte espace-temps.</span></a>
     <a class="carte" href="resistances_thermiques.html"><b>Résistances thermiques</b>
@@ -119,14 +121,14 @@ footer { margin-top: 32px; font-size: 12px; color: #777; line-height: 1.5; }
       <span>Écoulement isentropique d'un gaz parfait dans une tuyère convergente-divergente: profil calculé pour une détente ψ = P/P<sub>0</sub> donnée, débit S α f(ψ), col sonique en ψ*, Mach, pression, température et vitesse le long de la tuyère.</span></a>
   </div>
 
-  <h2>Chimie</h2>
-  <div class="grille">
+  <h2 data-domaine="chimie" id="chimie">Chimie</h2>
+  <div class="grille" data-domaine="chimie">
     <a class="carte" href="titrage.html"><b>Titrage pH-métrique</b>
       <span>Acides et bases forts ou faibles, polyacides, distribution des espèces, indicateurs colorés.</span></a>
   </div>
 
-  <h2>Optique ondulatoire</h2>
-  <div class="grille">
+  <h2 data-domaine="optique" id="optique">Optique ondulatoire</h2>
+  <div class="grille" data-domaine="optique">
     <a class="carte" href="michelson.html"><b>Interféromètre de Michelson</b>
       <span>Lame d'air et coin d'air, lumière blanche ou doublet du sodium, chariotage motorisé et enregistrement.</span></a>
     <a class="carte" href="young_trous_fentes.html"><b>Fentes et trous d'Young</b>
@@ -135,16 +137,16 @@ footer { margin-top: 32px; font-size: 12px; color: #777; line-height: 1.5; }
       <span>Ordres, spectres de lampes, pouvoir de résolution (doublet du sodium), incidence oblique.</span></a>
   </div>
 
-  <h2>Physique quantique</h2>
-  <div class="grille">
+  <h2 data-domaine="quantique" id="quantique">Physique quantique</h2>
+  <div class="grille" data-domaine="quantique">
     <a class="carte" href="effet_tunnel.html"><b>Effet tunnel et paquets d'ondes</b>
       <span>Marche, barrière, double barrière; onde plane ou paquet, coefficients R et T, mesure quantique.</span></a>
     <a class="carte" href="etats_lies.html"><b>États quantiques liés</b>
       <span>Puits carré, harmonique, Coulomb; deux puits et bandes; superpositions et évolution temporelle.</span></a>
   </div>
 
-  <h2>Physique statistique</h2>
-  <div class="grille">
+  <h2 data-domaine="stat" id="stat">Physique statistique</h2>
+  <div class="grille" data-domaine="stat">
     <a class="carte" href="fluctuations.html"><b>Fluctuations et taille du système</b>
       <span>N particules à deux niveaux au contact d'un thermostat: tirages, histogramme de l'énergie, fluctuations relatives en 1/√N.</span></a>
     <a class="carte" href="second_principe.html"><b>Billes dans deux cases: aspect probabiliste du second principe</b>

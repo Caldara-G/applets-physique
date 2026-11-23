@@ -1,0 +1,50 @@
+@charset "utf-8";
+/* domaines.css — code couleur par domaine, commun aux applets MP* Malherbe.
+   --dom      : teinte foncée (texte blanc lisible dessus)
+   --dom-vif  : teinte vive (bandeaux, liserés)
+   --nom      : nom du domaine affiché dans l'étiquette des applets
+   Usage: <html data-domaine="meca"> dans une applet ; data-domaine sur une section des pages de liste. */
+
+[data-domaine="outils"]    { --dom: #334155; --dom-vif: #64748b; --nom: "Outils"; }
+[data-domaine="mesures"]   { --dom: #0f766e; --dom-vif: #14b8a6; --nom: "Mesures"; }
+[data-domaine="signal"]    { --dom: #a16207; --dom-vif: #eab308; --nom: "Signal"; }
+[data-domaine="meca"]      { --dom: #b91c1c; --dom-vif: #ef4444; --nom: "Mécanique"; }
+[data-domaine="em"]        { --dom: #1d4ed8; --dom-vif: #3b82f6; --nom: "Électromagnétisme"; }
+[data-domaine="ondes"]     { --dom: #0e7490; --dom-vif: #06b6d4; --nom: "Ondes"; }
+[data-domaine="thermo"]    { --dom: #c2410c; --dom-vif: #f97316; --nom: "Thermodynamique"; }
+[data-domaine="chimie"]    { --dom: #15803d; --dom-vif: #22c55e; --nom: "Chimie"; }
+[data-domaine="optique"]   { --dom: #6d28d9; --dom-vif: #8b5cf6; --nom: "Optique"; }
+[data-domaine="quantique"] { --dom: #be185d; --dom-vif: #ec4899; --nom: "Quantique"; }
+[data-domaine="stat"]      { --dom: #7c4a1e; --dom-vif: #b45309; --nom: "Physique statistique"; }
+
+/* ---------- dans les applets ---------- */
+html[data-domaine] body::before {
+  content: ""; position: fixed; left: 0; right: 0; top: 0; height: 6px; z-index: 100000;
+  background: var(--dom-vif); pointer-events: none;
+}
+html[data-domaine] .etiquette { background: var(--dom); }
+html[data-domaine] a.retour { color: var(--dom); }
+html[data-domaine] .filigrane { color: color-mix(in srgb, var(--dom) 45%, transparent); }
+
+/* ---------- pages de liste (index.html, animations.html) ---------- */
+h2[data-domaine] {
+  display: inline-block; background: var(--dom); color: #fff;
+  padding: 5px 14px; border-radius: 6px; letter-spacing: 0.06em;
+}
+.grille[data-domaine] a.carte {
+  background: color-mix(in srgb, var(--dom-vif) 11%, #fff);
+  border: 1px solid color-mix(in srgb, var(--dom-vif) 40%, #fff);
+  border-left: 7px solid var(--dom-vif);
+}
+.grille[data-domaine] a.carte:hover {
+  border-color: var(--dom-vif);
+  box-shadow: 0 3px 14px color-mix(in srgb, var(--dom) 30%, transparent);
+}
+.grille[data-domaine] .carte b { color: var(--dom); }
+
+nav.legende { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 8px; }
+nav.legende a {
+  background: var(--dom); color: #fff; text-decoration: none; font-size: 13px; font-weight: 600;
+  padding: 4px 11px; border-radius: 14px; border-bottom: 3px solid var(--dom-vif);
+}
+nav.legende a:hover { filter: brightness(1.15); }

@@ -19,21 +19,23 @@ a.carte:hover { border-color: #7f9fcf; box-shadow: 0 3px 14px rgba(40, 70, 120, 
 .carte span { font-size: 13px; color: #555; line-height: 1.45; }
 footer { margin-top: 32px; font-size: 12px; color: #777; line-height: 1.5; }
 </style>
+<link rel="stylesheet" href="domaines.css">
 </head>
 <body>
 <main>
   <p style="margin:0 0 10px"><a href="index.html" style="color:#3b5f96;text-decoration:none;font-size:14px">← Toutes les applets</a></p>
   <h1>Animations du cours <span style="color:#3b5f96">— MP* Malherbe</span></h1>
   <p class="sous">Des animations pas à pas qui construisent les raisonnements délicats du cours. Elles s'ouvrent dans le navigateur, sans installation.</p>
+  <nav class="legende"><a data-domaine="mesures" href="#mesures">Mesures</a><a data-domaine="meca" href="#meca">Mécanique</a><a data-domaine="em" href="#em">Électromagnétisme</a><a data-domaine="ondes" href="#ondes">Ondes</a><a data-domaine="thermo" href="#thermo">Thermodynamique</a><a data-domaine="chimie" href="#chimie">Chimie</a><a data-domaine="optique" href="#optique">Optique</a><a data-domaine="quantique" href="#quantique">Quantique</a><a data-domaine="stat" href="#stat">Physique statistique</a></nav>
 
-  <h2>Mesures et incertitudes</h2>
-  <div class="grille">
+  <h2 data-domaine="mesures" id="mesures">Mesures et incertitudes</h2>
+  <div class="grille" data-domaine="mesures">
     <a class="carte" href="monte_carlo.html"><b>Incertitudes par Monte-Carlo</b>
       <span>Grandeur composée, lois normale et uniforme, tirages, histogramme et incertitude-type comparée à la propagation, régression linéaire, écart normalisé. Outil de calcul: page d'accueil.</span></a>
   </div>
 
-  <h2>Mécanique</h2>
-  <div class="grille">
+  <h2 data-domaine="meca" id="meca">Mécanique</h2>
+  <div class="grille" data-domaine="meca">
     <a class="carte" href="composition_referentiels.html"><b>Changement de référentiel</b>
       <span>Point coïncident, composition des vitesses et des accélérations (entraînement, Coriolis), mêmes mouvements vus dans R et dans R'; cas d'une translation.</span></a>
     <a class="carte" href="referentiel_tournant.html"><b>Référentiel tournant: le manège</b>
@@ -42,8 +44,8 @@ footer { margin-top: 32px; font-size: 12px; color: #777; line-height: 1.5; }
       <span>Lois de Coulomb et cône de frottement, équilibre puis mise en mouvement, plan incliné, freinage et bilan énergétique, stick-slip simulé.</span></a>
   </div>
 
-  <h2>Électromagnétisme</h2>
-  <div class="grille">
+  <h2 data-domaine="em" id="em">Électromagnétisme</h2>
+  <div class="grille" data-domaine="em">
     <a class="carte" href="theoreme_gauss.html"><b>Théorème de Gauss</b>
       <span>Flux sortant et charge intérieure, méthode (symétries, invariances, surface de Gauss), sphère, cylindre infini, plan infini, condensateur plan.</span></a>
     <a class="carte" href="symetries_invariances.html"><b>Symétries et invariances</b>
@@ -62,14 +64,14 @@ footer { margin-top: 32px; font-size: 12px; color: #777; line-height: 1.5; }
       <span>Dipôle oscillant, hypothèses a ≪ λ ≪ r, carte du champ rayonné, structure d'onde plane locale, indicatrice en sin²θ, puissance en ω⁴ et bleu du ciel.</span></a>
   </div>
 
-  <h2>Ondes</h2>
-  <div class="grille">
+  <h2 data-domaine="ondes" id="ondes">Ondes</h2>
+  <div class="grille" data-domaine="ondes">
     <a class="carte" href="onde_stationnaire.html"><b>Onde stationnaire</b>
       <span>Onde incidente et onde réfléchie sur une extrémité fixe, superposition, nœuds et ventres, modes propres d'une corde fixée à ses deux extrémités.</span></a>
   </div>
 
-  <h2>Thermodynamique</h2>
-  <div class="grille">
+  <h2 data-domaine="thermo" id="thermo">Thermodynamique</h2>
+  <div class="grille" data-domaine="thermo">
     <a class="carte" href="systeme_ouvert.html"><b>Premier principe pour un système ouvert</b>
       <span>Volume de contrôle, système fermé Σ* construit entre t et t + dt, régime stationnaire, travaux de poussée, bilan Δh + Δe<sub>c</sub> + Δe<sub>p</sub> = w<sub>u</sub> + q.</span></a>
     <a class="carte" href="cycle_frigorifique.html"><b>Cycle frigorifique dans le diagramme (P, h)</b>
@@ -78,14 +80,14 @@ footer { margin-top: 32px; font-size: 12px; color: #777; line-height: 1.5; }
       <span>Bilan sur une tranche, loi de Fourier, équation de la chaleur, étalement en √(Dt) et temps L²/D, régime permanent et résistance thermique.</span></a>
   </div>
 
-  <h2>Chimie</h2>
-  <div class="grille">
+  <h2 data-domaine="chimie" id="chimie">Chimie</h2>
+  <div class="grille" data-domaine="chimie">
     <a class="carte" href="courbes_intensite_potentiel.html"><b>Courbes intensité-potentiel</b>
       <span>Systèmes rapide et lent, paliers de diffusion, surpotentiels, murs du solvant, potentiel mixte et corrosion, blocage cinétique.</span></a>
   </div>
 
-  <h2>Optique ondulatoire</h2>
-  <div class="grille">
+  <h2 data-domaine="optique" id="optique">Optique ondulatoire</h2>
+  <div class="grille" data-domaine="optique">
     <a class="carte" href="michelson_construction.html"><b>Michelson: construction du schéma équivalent</b>
       <span>Les deux chemins, la source fictive S′ et le miroir fictif M′₂ par symétrie, puis le schéma équivalent en lame ou coin d'air; S, A et les miroirs sont déplaçables.</span></a>
     <a class="carte" href="lame_air.html"><b>Michelson en lame d'air</b>
@@ -96,14 +98,14 @@ footer { margin-top: 32px; font-size: 12px; color: #777; line-height: 1.5; }
       <span>Addition des éclairements de sources incohérentes, brouillage par une source étendue (a b / d ≳ λ), doublet et battements, raie de largeur Δλ et longueur de cohérence.</span></a>
   </div>
 
-  <h2>Mécanique quantique</h2>
-  <div class="grille">
+  <h2 data-domaine="quantique" id="quantique">Mécanique quantique</h2>
+  <div class="grille" data-domaine="quantique">
     <a class="carte" href="heisenberg.html"><b>Inégalité de Heisenberg</b>
       <span>Onde plane, battements, paquet d'ondes gaussien et relation Δx Δk ≥ 1/2, inégalité Δx Δp ≥ ħ/2, étalement du paquet libre.</span></a>
   </div>
 
-  <h2>Physique statistique</h2>
-  <div class="grille">
+  <h2 data-domaine="stat" id="stat">Physique statistique</h2>
+  <div class="grille" data-domaine="stat">
     <a class="carte" href="systeme_deux_niveaux.html"><b>Système à deux niveaux</b>
       <span>Particules qui changent de niveau au contact d'un thermostat, facteur de Boltzmann, populations à basse et haute température, énergie moyenne, capacité thermique (anomalie de Schottky).</span></a>
     <a class="carte" href="equipartition.html"><b>Équipartition de l'énergie</b>
