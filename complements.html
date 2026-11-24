@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compléments — MP* Malherbe</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif; color: #222; background: #eef0f3; }
+main { max-width: 1150px; margin: 0 auto; padding: 28px 20px 40px; }
+h1 { font-size: 24px; margin: 0 0 4px; }
+.sous { color: #555; margin: 0 0 24px; }
+h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em; color: #4a6fa5; margin: 26px 0 10px; }
+.grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 14px; }
+a.carte { display: block; background: #fff; border: 1px solid #d5d9df; border-radius: 8px; padding: 14px 16px;
+  text-decoration: none; color: inherit; transition: box-shadow 0.15s, border-color 0.15s; }
+a.carte:hover { border-color: #7f9fcf; box-shadow: 0 3px 14px rgba(40, 70, 120, 0.15); }
+.carte b { display: block; font-size: 15.5px; margin-bottom: 5px; color: #1f3f73; }
+.carte span { font-size: 13px; color: #555; line-height: 1.45; }
+footer { margin-top: 32px; font-size: 12px; color: #777; line-height: 1.5; }
+</style>
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<main>
+  <p style="margin:0 0 10px"><a href="index.html" style="color:#3b5f96;text-decoration:none;font-size:14px">← Toutes les applets</a></p>
+  <h1>Compléments <span style="color:#3b5f96">— MP* Malherbe</span></h1>
+  <p class="sous">Des simulations pour aller au-delà du programme, à projeter en classe ou à explorer par curiosité. Elles s'ouvrent dans le navigateur, sans installation.</p>
+
+  <h2 data-domaine="complements" id="astro">Astrophysique</h2>
+  <div class="grille" data-domaine="complements">
+    <a class="carte" href="galaxie.html"><b>Formation d'une galaxie</b>
+      <span>Effondrement d'un nuage de gaz en rotation dans un halo de matière noire (disque, formation d'étoiles, bras spiraux) ou collision de deux galaxies (queues de marée, fusion). Vue 3D, couleurs fluo.</span></a>
+  </div>
+
+  <footer>Testé avec Chrome. Utiliser le bouton « retour » du navigateur pour revenir à cette page.</footer>
+</main>
+</body>
+</html>
