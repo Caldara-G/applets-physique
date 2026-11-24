@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fentes d'Young particule par particule — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Fentes d'Young avec des quanta envoyés un par un.
+   Chaque impact sur l'écran est tiré au hasard selon la densité de probabilité |ψ|² (diffraction de
+   Fraunhofer) : deux fentes I(x) ∝ cos²(π a x/(λD)) sinc²(π b x/(λD)) ; une fente : sinc² ;
+   avec détecteur de chemin : somme des intensités des deux fentes (pas d'interférences).
+   Longueur d'onde de de Broglie λ = h/p (électrons : p = √(2meU(1 + eU/(2mc²)))). */
+const C = Cadre("Fentes d'Young particule par particule", "Young quantique");
+const ctx = C.ctx;
+const h = 6.626e-34, me = 9.109e-31, e = 1.602e-19, c = 2.998e8, u = 1.6605e-27;
+const P = { type: "electrons", mode: "deux", taux: 2, U: 50, a: 2.0, b: 0.5, D: 1.5, vitesse2: 220, lambdaL: 633, onde: true };
+let impacts = [], hist, accu, enVol = [], t = 0, tProchain = 0;
+const NB = 240;
+
+function lambda() {
+  if (P.type === "photons") return P.lambdaL * 1e-9;
+  if (P.type === "electrons") { const U = P.U * 1e3, p = Math.sqrt(2 * me * e * U * (1 + e * U / (2 * me * c * c))); return h / p; }
+  return h / (720 * u * P.vitesse2);                   // C60
+}
+// géométrie en mètres selon le type
+function geom() {
+  if (P.type === "photons") return { a: P.a * 1e-4, b: P.b * 1e-4, D: P.D };            // a, b en dixièmes de mm
+  if (P.type === "electrons") return { a: P.a * 1e-6, b: P.b * 1e-6, D: P.D };          // a, b en µm
+  return { a: P.a * 1e-7, b: P.b * 1e-7, D: P.D };                                       // C60 : en centaines de nm
+}
+function demiLargeur() { const g = geom(); return 2.6 * lambda() * g.D / g.b; }      // on montre ± 2,6 lobes de diffraction
+function I(x) {
+  const g = geom(), L = lambda();
+  const s = Math.PI * g.b * x / (L * g.D), sinc = Math.abs(s) < 1e-9 ? 1 : Math.sin(s) / s;
+  if (P.mode === "une" || P.mode === "detecteur") return sinc * sinc;
+  const k = Math.cos(Math.PI * g.a * x / (L * g.D));
+  return k * k * sinc * sinc;
+}
+function tirer() { const X = demiLargeur(); for (;;) { const x = (2 * Math.random() - 1) * X; if (Math.random() < I(x)) return x; } }
+function gauss() { return Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random()); }
+function recommencer() {
+  impacts = []; hist = new Float32Array(NB); enVol = []; t = 0; tProchain = 0;
+  accu = document.createElement("canvas"); accu.width = Math.round(ecran().w * C.dpr); accu.height = Math.round(ecran().h * C.dpr);
+  majTextes();
+}
+// zones d'affichage
+function vueCote() { return { x: 14, y: 14, w: Math.max(240, C.W * 0.3), h: C.H - 28 }; }
+function ecran() { const v = vueCote(); return { x: v.x + v.w + 14, y: 14, w: C.W - v.w - 42, h: (C.H - 28) * 0.66 }; }
+function zoneHist() { const s = ecran(); return { x: s.x, y: s.y + s.h + 10, w: s.w, h: C.H - 14 - (s.y + s.h + 10) }; }
+
+function pas(dt) {
+  t += dt;
+  const taux = Math.pow(10, P.taux / 2) / 3;            // particules par seconde (échelle logarithmique)
+  const lent = taux < 25;
+  while (tProchain <= t) {
+    const x = tirer(), y = gauss() * 0.22;
+    if (lent && P.onde) enVol.push({ t0: tProchain, x, y, fait: false });
+    else poser(x, y);
+    tProchain += -Math.log(1 - Math.random()) / taux;       // arrivées aléatoires (loi de Poisson)
+    if (!lent) { if (tProchain < t - 0.2) tProchain = t; }
+  }
+  // particules « en vol » (mode lent) : onde qui se propage, puis impact
+  for (const q of enVol) if (!q.fait && t - q.t0 > 1.2) { q.fait = true; poser(q.x, q.y); flashs.push({ x: q.x, y: q.y, a: 1 }); }
+  enVol = enVol.filter(q => t - q.t0 < 1.4);
+}
+let flashs = [];
+function poser(x, y) {
+  impacts.push([x, y]);
+  const X = demiLargeur(), k = Math.floor((x + X) / (2 * X) * NB);
+  if (k >= 0 && k < NB) hist[k]++;
+  const s = ecran(), c2 = accu.getContext("2d");
+  const px = (x + X) / (2 * X) * s.w * C.dpr, py = (0.5 + y) * s.h * C.dpr;
+  c2.globalCompositeOperation = "lighter";
+  const n = impacts.length, r = (n < 2000 ? 2.2 : n < 20000 ? 1.4 : 0.9) * C.dpr;
+  c2.fillStyle = n < 2000 ? "rgba(120,255,180,0.95)" : n < 20000 ? "rgba(90,255,160,0.55)" : "rgba(80,255,150,0.3)";
+  c2.beginPath(); c2.arc(px, py, r, 0, 6.2832); c2.fill();
+}
+// ---------------------------------------------------------------- dessin
+function dessiner() {
+  C.effacer();
+  dessinerCote();
+  const s = ecran();
+  // écran vu de face
+  ctx.fillStyle = "#06090a"; ctx.fillRect(s.x, s.y, s.w, s.h);
+  ctx.strokeStyle = "rgba(57,255,20,0.35)"; ctx.strokeRect(s.x, s.y, s.w, s.h);
+  ctx.drawImage(accu, s.x, s.y, s.w, s.h);
+  const X = demiLargeur();
+  ctx.globalCompositeOperation = "lighter";
+  for (const f of flashs) {
+    const px = s.x + (f.x + X) / (2 * X) * s.w, py = s.y + (0.5 + f.y) * s.h;
+    C.halo(px, py, 28 * f.a + 6, "rgba(200,255,220,1)", f.a);
+    f.a -= 0.03;
+  }
+  flashs = flashs.filter(f => f.a > 0);
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "#a8a2c0"; ctx.font = "12px system-ui";
+  ctx.fillText("écran (vu de face)", s.x + 8, s.y + 16);
+  dessinerHist();
+  majHud();
+}
+function dessinerHist() {
+  const z = zoneHist(), X = demiLargeur();
+  if (z.h < 40) return;
+  ctx.fillStyle = "rgba(14,11,24,0.92)"; ctx.fillRect(z.x, z.y, z.w, z.h);
+  ctx.strokeStyle = "rgba(255,43,214,0.45)"; ctx.strokeRect(z.x, z.y, z.w, z.h);
+  let mx = 0; for (let k = 0; k < NB; k++) mx = Math.max(mx, hist[k]);
+  // courbe théorique normalisée : même nombre total d'impacts
+  let somme = 0; const Ith = new Float32Array(NB);
+  for (let k = 0; k < NB; k++) { Ith[k] = I(-X + (k + 0.5) * 2 * X / NB); somme += Ith[k]; }
+  const n = impacts.length, echelle = Math.max(mx, n ? (Math.max(...Ith) / somme) * n : 1) * 1.1 || 1;
+  const bw = z.w / NB;
+  for (let k = 0; k < NB; k++) {
+    const hh = hist[k] / echelle * (z.h - 22);
+    ctx.fillStyle = "#39ff14"; ctx.fillRect(z.x + k * bw, z.y + z.h - 4 - hh, Math.max(1, bw - 0.5), hh);
+  }
+  if (n > 0 && P.theorie !== false) {
+    ctx.strokeStyle = "#ff2bd6"; ctx.lineWidth = 2; ctx.beginPath();
+    for (let k = 0; k < NB; k++) { const y = z.y + z.h - 4 - Ith[k] / somme * n / echelle * (z.h - 22); k ? ctx.lineTo(z.x + (k + 0.5) * bw, y) : ctx.moveTo(z.x + (k + 0.5) * bw, y); }
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#fff"; ctx.font = "12px system-ui";
+  ctx.fillText("nombre d'impacts selon x (vert) et prédiction |ψ|² (magenta)", z.x + 8, z.y + 15);
+}
+function dessinerCote() {
+  const v = vueCote();
+  ctx.fillStyle = "#070512"; ctx.fillRect(v.x, v.y, v.w, v.h);
+  ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.strokeRect(v.x, v.y, v.w, v.h);
+  const cy = v.y + v.h / 2, xs = v.x + 22, xf = v.x + v.w * 0.42, xe = v.x + v.w - 16;
+  const da = Math.min(60, v.h * 0.1);
+  // source
+  C.halo(xs, cy, 16, "rgba(255,230,0,1)", 0.9);
+  ctx.fillStyle = "#ffe600"; ctx.font = "11px system-ui"; ctx.textAlign = "center";
+  ctx.fillText(P.type === "photons" ? "laser" : P.type === "electrons" ? "canon à électrons" : "four à C₆₀", xs + 20, cy + 34);
+  // plaque et fentes
+  ctx.fillStyle = "#8b84a8";
+  const fente = 9;
+  const ouv = P.mode === "une" ? [cy - da / 2] : [cy - da / 2, cy + da / 2];
+  let y = v.y + 30;
+  const bords = ouv.map(o => [o - fente / 2, o + fente / 2]).sort((p, q) => p[0] - q[0]);
+  for (const [y0, y1] of bords) { ctx.fillRect(xf - 3, y, 6, y0 - y); y = y1; }
+  ctx.fillRect(xf - 3, y, 6, v.y + v.h - 30 - y);
+  if (P.mode === "une") { ctx.fillRect(xf - 3, cy + da / 2 - fente / 2, 6, fente); }
+  if (P.mode === "detecteur") for (const o of ouv) { C.halo(xf + 12, o, 10, "rgba(255,60,60,1)", 0.9); }
+  // écran
+  ctx.fillStyle = "#39ff14"; ctx.fillRect(xe, v.y + 30, 3, v.h - 60);
+  ctx.fillStyle = "#a8a2c0"; ctx.fillText("fentes", xf, v.y + v.h - 12); ctx.fillText("écran", xe - 6, v.y + v.h - 12); ctx.textAlign = "left";
+  ctx.fillText("vue de dessus", v.x + 8, v.y + v.h - 28);
+  // ondes des particules en vol
+  ctx.save(); ctx.beginPath(); ctx.rect(v.x, v.y, v.w, v.h); ctx.clip();
+  ctx.globalCompositeOperation = "lighter";
+  const X = demiLargeur();
+  for (const q of enVol) {
+    const dtq = t - q.t0, vit = (xe - xs) / 1.2;
+    const R = dtq * vit;
+    if (R < xf - xs) {
+      // onde incidente
+      ctx.strokeStyle = `rgba(0,240,255,${0.9 - 0.4 * R / (xf - xs)})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(xs, cy, R, -0.5, 0.5); ctx.stroke();
+    } else if (!q.fait) {
+      // ondes diffractées par chaque fente : elles se superposent
+      const R2 = R - (xf - xs);
+      for (const o of ouv) {
+        for (let k = 0; k < 4; k++) {
+          const r = R2 - k * 9; if (r <= 0) continue;
+          ctx.strokeStyle = `rgba(0,240,255,${(0.7 - 0.15 * k) * Math.max(0.15, 1 - R2 / (xe - xf))})`; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.arc(xf, o, r, -1.2, 1.2); ctx.stroke();
+        }
+      }
+    }
+    if (q.fait || R >= xe - xs) {
+      const py = cy + (q.x / X) * (v.h / 2 - 34);
+      C.halo(xe, py, 14, "rgba(200,255,220,1)", Math.max(0, 1 - (dtq - 1.2) / 0.2));
+    }
+  }
+  ctx.restore();
+}
+let ch = 0;
+function majHud() {
+  if (ch++ % 6) return;
+  const g = geom(), L = lambda(), i = L * g.D / g.a, taux = Math.pow(10, P.taux / 2) / 3;
+  const fmt = x => x >= 1e-3 ? C.fr(x * 1e3, 2) + " mm" : x >= 1e-6 ? C.fr(x * 1e6, 2) + " µm" : x >= 1e-9 ? C.fr(x * 1e9, 2) + " nm" : C.fr(x * 1e12, 2) + " pm";
+  C.hud.innerHTML = `<span class="grand"><span class="v">${impacts.length}</span> impacts</span><br>λ = <span class="v">${fmt(L)}</span> · interfrange λD/a = <span class="v">${fmt(i)}</span> · <span class="v">${taux < 10 ? C.fr(taux, 1) : Math.round(taux)}</span> particules/s`;
+}
+// ---------------------------------------------------------------- panneau
+const s1 = C.section("Particules");
+C.radios(s1, [["photons", "Photons (laser hélium-néon)"], ["electrons", "Électrons accélérés"], ["c60", "Molécules de fullerène C₆₀ (720 u)"]], P, "type", () => { majPanneau(); recommencer(); });
+const bE = C.el("div", {}, s1);
+C.curseur(bE, "Tension d'accélération U", P, "U", 1, 200, 1, v => v + " kV", recommencer);
+const bM = C.el("div", {}, s1);
+C.curseur(bM, "Vitesse des molécules", P, "vitesse2", 80, 400, 5, v => v + " m/s", recommencer);
+const s2 = C.section("Dispositif");
+C.radios(s2, [["deux", "Deux fentes ouvertes"], ["une", "Une seule fente ouverte"], ["detecteur", "Deux fentes avec un détecteur « par quelle fente »"]], P, "mode", recommencer);
+const curA = C.curseur(s2, "Distance a entre les fentes", P, "a", 0.5, 8, 0.1, v => C.fr(v, 1) + unite(), recommencer);
+const curB = C.curseur(s2, "Largeur b d'une fente", P, "b", 0.1, 2, 0.05, v => C.fr(v, 2) + unite(), () => { if (P.b > P.a * 0.8) curA.fixer(+(P.b / 0.8).toFixed(1)); recommencer(); });
+C.curseur(s2, "Distance fentes-écran D", P, "D", 0.2, 3, 0.05, v => C.fr(v, 2) + " m", recommencer);
+function unite() { return P.type === "photons" ? " × 0,1 mm" : P.type === "electrons" ? " µm" : " × 100 nm"; }
+const s3 = C.section("Débit");
+C.curseur(s3, "Particules par seconde", P, "taux", 0, 8, 0.1, v => { const r = Math.pow(10, v / 2) / 3; return r < 10 ? C.fr(r, 1) : Math.round(r); });
+C.caseC(s3, "Montrer l'onde quand le débit est faible", P, "onde");
+const bt = C.boutons(s3);
+C.bouton(bt, "Une à la fois", () => s3.querySelector("input[type=range]").fixer(1));
+C.bouton(bt, "Pluie", () => s3.querySelector("input[type=range]").fixer(5));
+C.bouton(bt, "Déluge", () => s3.querySelector("input[type=range]").fixer(8));
+C.bouton(bt, "Effacer l'écran", recommencer);
+const s4 = C.section("Ce qu'on observe");
+const tx = C.texte(s4, "");
+C.note(s4, "Expériences réelles: électrons un par un (Tonomura, Hitachi, 1989), molécules de C₆₀ (Arndt et Zeilinger, 1999), photons uniques (Grangier et Aspect, 1986). Les impacts sont tirés au hasard selon la loi prédite par la mécanique quantique.");
+C.temps(recommencer, { vitesse: false });
+function majTextes() {
+  tx.innerHTML = "Chaque particule arrive en un point précis de l'écran, au hasard: c'est un corpuscule. Mais la répartition des impacts, qui se construit peu à peu, montre des <b>franges d'interférence</b>: la probabilité d'arrivée est donnée par |ψ|², où ψ est une onde qui passe par les deux fentes à la fois.<br>" +
+    (P.mode === "detecteur" ? "Ici, un détecteur indique par quelle fente passe chaque particule: les franges <b>disparaissent</b>, il ne reste que la figure de diffraction d'une fente. Connaître le chemin détruit les interférences." :
+     P.mode === "une" ? "Avec une seule fente, on obtient seulement la figure de diffraction, sans franges." :
+     "Les particules sont envoyées une par une: chacune « interfère avec elle-même ». L'interfrange vaut λD/a, avec λ = h/p la longueur d'onde de de Broglie.");
+}
+function majPanneau() {
+  bE.style.display = P.type === "electrons" ? "" : "none";
+  bM.style.display = P.type === "c60" ? "" : "none";
+  curA.dispatchEvent(new Event("input")); curB.dispatchEvent(new Event("input"));
+}
+majPanneau();
+C.surRedim(recommencer);
+C.ajuster();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

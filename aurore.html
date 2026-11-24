@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aurores polaires et ceintures de radiation — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Particules chargées dans le champ dipolaire terrestre (unité de longueur : rayon terrestre R).
+   B(r) = B0 [3(m·r̂)r̂ − m]/r³ avec m = −ẑ (le champ est dirigé vers le nord à l'équateur).
+   Approximation du centre guide (voir plus bas).
+   Une particule dont l'angle d'attaque est dans le cône de perte atteint l'atmosphère :
+   pour la ligne de champ L, la latitude d'arrivée vérifie cos²λ = 1/L. */
+const C = Cadre("Aurores polaires et ceintures de radiation", "Aurores");
+const ctx = C.ctx;
+const P = { scen: "averse", L: 4, pitch: 35, energie: 1, nPart: 160, lignes: true, autoRot: true, especes: "deux" };
+const cam = { lacet: -0.9, tangage: 0.35, dist: 22 };
+let parts = [], rideaux = [], t = 0;
+
+function champ(x, y, z, out) {
+  const r2 = x * x + y * y + z * z, r = Math.sqrt(r2), r5 = r2 * r2 * r;
+  // m = −ẑ : B = (−3 z r⃗ + r² ẑ)/r⁵ × (−1)… soit B = (3 (m·r) r − m r²)/r⁵ avec m·r = −z
+  out[0] = -3 * z * x / r5; out[1] = -3 * z * y / r5; out[2] = (-3 * z * z + r2) / r5;
+  return Math.hypot(out[0], out[1], out[2]);
+}
+/* Mouvement du centre guide : la particule glisse le long de la ligne de champ (L, longitude φ)
+   avec v∥ = ±√(v² − μB), μ = v⊥²/B constant (invariant adiabatique) ; elle rebondit là où μB = v².
+   Dérive lente en longitude, de sens opposé pour les deux signes de charge.
+   À l'affichage, on ajoute l'hélice de gyration (rayon exagéré) autour du centre guide. */
+function Bmod(L, lam) { const s = Math.sin(lam), c = Math.cos(lam); return Math.sqrt(1 + 3 * s * s) / Math.pow(L * c * c, 3); }
+function nouvelle(L, pitchDeg, lon, signe, v) {
+  const a = pitchDeg * Math.PI / 180, B0 = Bmod(L, 0);
+  return { L, lon, lam: 0, v, sens: Math.random() < 0.5 ? 1 : -1, mu: (v * Math.sin(a)) ** 2 / B0, signe, phase: Math.random() * 6.28, trace: [], x: L * Math.cos(lon), y: L * Math.sin(lon), z: 0, k: signe };
+}
+function recommencer() {
+  parts = []; rideaux = []; t = 0;
+  if (P.scen === "piegee") {
+    parts.push(nouvelle(P.L, P.pitch, 0, 1, P.energie));
+    if (P.especes === "deux") parts.push(nouvelle(P.L, P.pitch, Math.PI, -1, P.energie));
+  } else for (let k = 0; k < P.nPart; k++) { const p = injecter(); p.lam = (Math.random() - 0.5) * 0.6; parts.push(p); }
+  C.effacer();
+}
+function injecter() {
+  // particules du feuillet de plasma : lignes de champ L = 5 à 7 ; la plupart ont un angle d'attaque
+  // dans le cône de perte (diffusion par les ondes du plasma), les autres restent piégées
+  const L = 5 + 2 * Math.random(), lon = Math.random() * 2 * Math.PI;
+  const pitch = Math.random() < 0.8 ? 0.3 + 2 * Math.random() : 15 + 50 * Math.random();
+  const signe = P.especes === "deux" ? (Math.random() < 0.5 ? 1 : -1) : 1;
+  return nouvelle(L, pitch, lon, signe, P.energie * (0.7 + 0.6 * Math.random()));
+}
+function positionGC(p) {
+  const c = Math.cos(p.lam), r = p.L * c * c;
+  return [r * c * Math.cos(p.lon), r * c * Math.sin(p.lon), r * Math.sin(p.lam), r];
+}
+function avancer(p, duree) {
+  let reste = duree;
+  while (reste > 0) {
+    const h = Math.min(reste, 0.02);
+    const B = Bmod(p.L, p.lam), v2p = p.v * p.v - p.mu * B;
+    if (v2p <= 0) {
+      // point miroir : demi-tour
+      p.sens = -p.sens; p.lam += p.sens * 1e-4;
+    } else {
+      const vpar = Math.sqrt(v2p), s = Math.sin(p.lam), c = Math.cos(p.lam);
+      const dsdl = p.L * c * Math.sqrt(1 + 3 * s * s);        // ds/dλ le long de la ligne
+      p.lam += p.sens * vpar * h / dsdl;
+    }
+    // dérive en longitude (gradient et courbure), opposée pour les protons et les électrons
+    p.lon += p.signe * 0.004 * p.v * p.v * p.L * h;
+    // gyration (pour l'affichage)
+    p.phase += 14 * Math.sqrt(B / Bmod(p.L, 0)) * h;
+    reste -= h;
+    afficher(p);
+    const c = Math.cos(p.lam);
+    if (p.L * c * c < 1.06) return "sol";
+  }
+  return null;
+}
+function afficher(p) {
+    // position affichée : centre guide + hélice de rayon ρ ∝ v⊥/B (exagéré)
+    const [gx, gy, gz] = positionGC(p);
+    const B = Bmod(p.L, p.lam), vperp = Math.sqrt(Math.max(0, p.mu * B));
+    const rho = Math.min(0.25, 0.06 * vperp / Math.sqrt(B / Bmod(p.L, 0)) * (P.scen === "piegee" ? 3 : 1));
+    // base locale : e1 = direction azimutale, e2 = (b ∧ e1)
+    const s = Math.sin(p.lam), cc = Math.cos(p.lam), n = Math.sqrt(1 + 3 * s * s);
+    const br = 2 * s / n, bl = -cc / n;           // composantes radiale et en latitude de b (au signe près)
+    const e1 = [-Math.sin(p.lon), Math.cos(p.lon), 0];
+    const ur = [cc * Math.cos(p.lon), cc * Math.sin(p.lon), s], ul = [-s * Math.cos(p.lon), -s * Math.sin(p.lon), cc];
+    const e2 = [bl * ur[0] - br * ul[0], bl * ur[1] - br * ul[1], bl * ur[2] - br * ul[2]];
+    const cp = Math.cos(p.phase * p.signe), sp = Math.sin(p.phase * p.signe);
+    p.x = gx + rho * (cp * e1[0] + sp * e2[0]); p.y = gy + rho * (cp * e1[1] + sp * e2[1]); p.z = gz + rho * (cp * e1[2] + sp * e2[2]);
+    p.trace.push([p.x, p.y, p.z]);
+}
+function pas(dt) {
+  const duree = dt * 4;
+  t += duree;
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    const res = avancer(p, duree);
+    const Lmax = P.scen === "piegee" ? 9000 : 260;
+    while (p.trace.length > Lmax) p.trace.shift();
+    if (res === "sol") {
+      const [gx, gy, gz] = positionGC(p), rr = Math.hypot(gx, gy, gz);
+      rideaux.push({ x: gx / rr, y: gy / rr, z: gz / rr, a: 1, h: 0.05 + 0.08 * Math.random() });
+      parts[i] = P.scen === "piegee" ? nouvelle(P.L, P.pitch, Math.random() * 6.28, p.signe, P.energie) : injecter();
+    }
+  }
+  for (const r of rideaux) r.a -= dt * 0.07;
+  rideaux = rideaux.filter(r => r.a > 0);
+  if (rideaux.length > 5000) rideaux.splice(0, rideaux.length - 5000);
+}
+// ---------------------------------------------------------------- projection 3D
+let proj;
+function preparer() {
+  const cl = Math.cos(cam.lacet), sl = Math.sin(cam.lacet), ct = Math.cos(cam.tangage), st = Math.sin(cam.tangage);
+  const foc = Math.min(C.W, C.H) * 1.6;
+  // direction de la caméra (de la Terre vers l'observateur)
+  const cx = cl * ct, cy = sl * ct, cz = st;
+  proj = (x, y, z) => {
+    // axes : u horizontal, w vertical à l'écran
+    const ux = -sl, uy = cl;                              // u ⟂ c dans le plan équatorial
+    const wx = -cl * st, wy = -sl * st, wz = ct;           // w = c ∧ u
+    const X = x * ux + y * uy, Y = x * wx + y * wy + z * wz, Z = x * cx + y * cy + z * cz;
+    const d = cam.dist - Z, k = foc / d;
+    return [C.W / 2 + X * k, C.H / 2 - Y * k, Z, k];
+  };
+  proj.c = [cx, cy, cz];
+}
+function cache(x, y, z) {
+  // point masqué par la Terre (vue en perspective approchée par une projection parallèle)
+  const [cx, cy, cz] = proj.c, s = x * cx + y * cy + z * cz;
+  if (s >= 0) return false;
+  return x * x + y * y + z * z - s * s < 1;
+}
+function dessiner(dt) {
+  if (P.autoRot && !glisse) cam.lacet += dt * 0.08;
+  preparer();
+  C.effacer();
+  // étoiles
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  for (const [a, b] of ETOILES) ctx.fillRect(a * C.W, b * C.H, 1, 1);
+  // lignes de champ (arrière, puis Terre, puis avant)
+  const R = proj(0, 0, 0)[3];
+  const lignes = [];
+  if (P.lignes) for (const L of [2, 3, 4.5, 6, 8]) for (let m = 0; m < 12; m++) {
+    const lon = m * Math.PI / 6, pts = [];
+    const lmax = Math.acos(Math.sqrt(1 / L));
+    for (let k = 0; k <= 60; k++) { const lam = -lmax + 2 * lmax * k / 60, r = L * Math.cos(lam) ** 2; pts.push([r * Math.cos(lam) * Math.cos(lon), r * Math.cos(lam) * Math.sin(lon), r * Math.sin(lam)]); }
+    lignes.push(pts);
+  }
+  function tracerLignes(avant) {
+    ctx.strokeStyle = "rgba(0,200,255,0.16)"; ctx.lineWidth = 1;
+    for (const pts of lignes) {
+      ctx.beginPath(); let ouvert = false;
+      for (const q of pts) {
+        const devant = q[0] * proj.c[0] + q[1] * proj.c[1] + q[2] * proj.c[2] >= 0;
+        const vis = avant ? !cache(...q) : cache(...q) === false && !devant;
+        if (!vis) { ouvert = false; continue; }
+        const p = proj(...q); ouvert ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); ouvert = true;
+      }
+      ctx.stroke();
+    }
+  }
+  tracerLignes(false);
+  // Terre
+  const O = proj(0, 0, 0), rT = O[3];
+  const g = ctx.createRadialGradient(O[0] - rT * 0.3, O[1] - rT * 0.35, rT * 0.1, O[0], O[1], rT);
+  g.addColorStop(0, "#3a86ff"); g.addColorStop(0.7, "#123a8a"); g.addColorStop(1, "#071a40");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(O[0], O[1], rT, 0, 6.2832); ctx.fill();
+  // parallèles et méridiens
+  ctx.strokeStyle = "rgba(160,200,255,0.18)"; ctx.lineWidth = 1;
+  for (const lat of [-60, -30, 0, 30, 60]) {
+    ctx.beginPath(); let ouv = false;
+    for (let k = 0; k <= 72; k++) { const lo = k * Math.PI / 36, la = lat * Math.PI / 180, q = [Math.cos(la) * Math.cos(lo), Math.cos(la) * Math.sin(lo), Math.sin(la)]; if (q[0] * proj.c[0] + q[1] * proj.c[1] + q[2] * proj.c[2] < 0) { ouv = false; continue; } const p = proj(...q); ouv ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); ouv = true; }
+    ctx.stroke();
+  }
+  // atmosphère
+  ctx.globalCompositeOperation = "lighter";
+  const ga = ctx.createRadialGradient(O[0], O[1], rT * 0.95, O[0], O[1], rT * 1.12);
+  ga.addColorStop(0, "rgba(80,160,255,0.35)"); ga.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = ga; ctx.beginPath(); ctx.arc(O[0], O[1], rT * 1.12, 0, 6.2832); ctx.fill();
+  // rideaux d'aurore
+  for (const r of rideaux) {
+    const bas = [r.x * 1.01, r.y * 1.01, r.z * 1.01], haut = [r.x * (1.01 + r.h), r.y * (1.01 + r.h), r.z * (1.01 + r.h)];
+    if (cache(...bas) && cache(...haut)) continue;
+    const a = proj(...bas), b = proj(...haut);
+    const gr = ctx.createLinearGradient(a[0], a[1], b[0], b[1]);
+    gr.addColorStop(0, `rgba(60,255,120,${0.55 * r.a})`); gr.addColorStop(0.6, `rgba(60,255,140,${0.3 * r.a})`); gr.addColorStop(1, `rgba(255,40,90,${0.35 * r.a})`);
+    ctx.strokeStyle = gr; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+    if (!cache(...bas)) C.halo(a[0], a[1], 9, "rgba(60,255,120,1)", 0.35 * r.a);
+  }
+  ctx.globalCompositeOperation = "source-over";
+  tracerLignes(true);
+  // particules
+  ctx.globalCompositeOperation = "lighter"; ctx.lineCap = "round";
+  for (const p of parts) {
+    const col = p.signe > 0 ? [255, 43, 214] : [0, 240, 255];
+    const tr = p.trace, n = tr.length;
+    ctx.lineWidth = P.scen === "piegee" ? 1.6 : 1.2;
+    let prec = null;
+    for (let i = 0; i < n; i++) {
+      const q = tr[i];
+      if (cache(...q)) { prec = null; continue; }
+      const s = proj(...q);
+      if (prec) {
+        ctx.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},${0.1 + 0.9 * i / n})`;
+        ctx.beginPath(); ctx.moveTo(prec[0], prec[1]); ctx.lineTo(s[0], s[1]); ctx.stroke();
+      }
+      prec = s;
+    }
+    if (!cache(p.x, p.y, p.z)) { const s = proj(p.x, p.y, p.z); C.halo(s[0], s[1], P.scen === "piegee" ? 12 : 5, `rgba(${col[0]},${col[1]},${col[2]},1)`, 1); }
+  }
+  ctx.globalCompositeOperation = "source-over";
+  majHud();
+}
+const ETOILES = Array.from({ length: 350 }, () => [Math.random(), Math.random()]);
+let ch = 0;
+function majHud() {
+  if (ch++ % 8) return;
+  if (P.scen === "piegee") {
+    const am = Math.asin(Math.sqrt(1 / P.L ** 3 / Math.sqrt(4 - 3 / P.L))) * 180 / Math.PI;     // cône de perte (dipôle)
+    C.hud.innerHTML = `<span class="grand">Particules piégées sur la ligne de champ L = <span class="v">${C.fr(P.L, 1)}</span></span><br>angle d'attaque à l'équateur: <span class="v">${P.pitch}°</span> · cône de perte: <span class="v">${C.fr(am, 1)}°</span>${P.pitch < am ? "<br><span style='color:#ffe600'>dans le cône de perte: la particule atteint l'atmosphère</span>" : ""}`;
+  } else {
+    C.hud.innerHTML = `<span class="grand">Averse de particules du feuillet de plasma</span><br>rideaux d'aurore actifs: <span class="v">${rideaux.length}</span> · latitude attendue: cos²λ = 1/L, soit <span class="v">63°</span> à <span class="v">68°</span> pour L = 5 à 7`;
+  }
+}
+// ---------------------------------------------------------------- souris
+let glisse = false, prec = null;
+C.pointeur({
+  bas: (x, y) => { glisse = true; prec = [x, y]; },
+  glisse: (x, y) => { cam.lacet -= (x - prec[0]) * 0.007; cam.tangage = Math.max(-1.45, Math.min(1.45, cam.tangage + (y - prec[1]) * 0.007)); prec = [x, y]; },
+  haut: () => { glisse = false; },
+  molette: dy => { cam.dist = Math.max(6, Math.min(60, cam.dist * Math.exp(dy * 0.001))); },
+});
+// ---------------------------------------------------------------- panneau
+const s1 = C.section("Situation");
+C.radios(s1, [["averse", "Averse de particules: les ovales d'aurores"], ["piegee", "Une particule piégée: gyration, rebond, dérive"]], P, "scen", () => { majPanneau(); recommencer(); });
+const bP = C.el("div", {}, s1);
+C.curseur(bP, "Ligne de champ L (distance à l'équateur en rayons terrestres)", P, "L", 2, 8, 0.1, v => C.fr(v, 1), recommencer);
+C.curseur(bP, "Angle d'attaque à l'équateur (entre v et B)", P, "pitch", 3, 89, 1, v => v + "°", recommencer);
+C.curseur(bP, "Énergie (vitesse) de la particule", P, "energie", 0.3, 2.5, 0.05, v => "×" + C.fr(v, 2), recommencer);
+const bA = C.el("div", {}, s1);
+C.curseur(bA, "Nombre de particules", P, "nPart", 20, 400, 10, v => v, recommencer);
+C.radios(s1, [["deux", "Protons (magenta) et électrons (cyan)"], ["protons", "Protons seulement"]], P, "especes", recommencer);
+const s2 = C.section("Affichage");
+C.caseC(s2, "Lignes de champ", P, "lignes");
+C.caseC(s2, "Rotation automatique (sinon: glisser pour tourner)", P, "autoRot");
+const s3 = C.section("Ce qu'on observe");
+C.texte(s3, "Une particule chargée dans un champ magnétique s'enroule autour des lignes de champ (<b>gyration</b>, rayon mv<sub>⊥</sub>/qB). En s'approchant des pôles, le champ se resserre: la particule ralentit le long de la ligne et repart en sens inverse, c'est l'effet de <b>miroir magnétique</b> (μ = mv<sub>⊥</sub>²/2B se conserve). Elle rebondit d'un hémisphère à l'autre et dérive lentement autour de la Terre, en sens opposés pour les protons et les électrons: ce sont les ceintures de Van Allen.");
+C.texte(s3, "Les particules dont la vitesse est presque alignée avec le champ (dans le <b>cône de perte</b>) ne rebondissent pas assez haut: elles plongent dans la haute atmosphère et excitent l'oxygène, qui émet en vert (557,7 nm, vers 100 km) et en rouge (630 nm, plus haut). Comme elles suivent des lignes de champ venant de L ≈ 5 à 7, elles arrivent toutes vers 63 à 68° de latitude magnétique: l'<b>ovale auroral</b>.");
+C.note(s3, "Le rayon de gyration est très exagéré pour être visible à l'échelle de la Terre, et la dérive accélérée; le champ est un dipôle pur, sans la déformation due au vent solaire.");
+C.temps(recommencer, { vitesse: false });
+function majPanneau() { bP.style.display = P.scen === "piegee" ? "" : "none"; bA.style.display = P.scen === "averse" ? "" : "none"; cam.dist = P.scen === "piegee" ? 20 : 15; }
+majPanneau();
+C.legende.innerHTML = `<span><i style="background:#ff2bd6"></i>protons &nbsp;<i style="background:#00f0ff"></i>électrons &nbsp;<i style="background:#3cff78"></i>aurores</span>`;
+C.ajuster();
+recommencer();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

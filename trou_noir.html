@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trou noir et disque d'accrétion — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Trou noir de Schwarzschild (G = c = 1, masse M = 1, horizon r = 2, sphère de photons r = 3,
+   dernière orbite circulaire stable r = 6).
+   Rayons lumineux : dans le plan de l'orbite, u = 1/r vérifie d²u/dφ² = −u + 3u² (équation de Binet relativiste).
+   Pour chaque paramètre d'impact b, la trajectoire u(φ) est intégrée une fois (table). Pour un pixel,
+   on cherche les angles φ où le rayon traverse le plan du disque ; s'il le traverse entre r_int et r_ext,
+   il voit le disque, sinon il voit le ciel (direction finale) ou l'horizon.
+   Décalage spectral du disque : g = √(1 − 2/r) / [γ (1 − v·k)] (Doppler + effet Einstein), luminosité ∝ g⁴. */
+const C = Cadre("Trou noir et disque d'accrétion", "Trou noir");
+const ctx = C.ctx;
+const P = { vue: "image", incl: 8, rCam: 50, fov: 58, rExt: 18, doppler: true, disque: true, tourne: true, nRayons: 26, orbite: 7.5 };
+let t = 0;
+let RED = 3;              // calcul à 1/3 de la résolution (1/2 en haute qualité)
+
+// ---------------------------------------------------------------- table des géodésiques lumineuses
+const DPHI = 0.01, NPHI = 1400;
+let table = null, tableBmax = 0, tableRcam = 0;
+const NB = 900;
+function construireTable() {
+  const asp = Math.hypot(C.W, C.H) / C.W, psiMax = Math.atan(Math.tan(P.fov / 2 * Math.PI / 180) * asp);
+  const bmax = P.rCam * Math.sin(Math.min(Math.PI / 2, psiMax * 1.05)) / Math.sqrt(1 - 2 / P.rCam) + 0.5;
+  table = [];
+  const u0 = 1 / P.rCam;
+  for (let k = 0; k < NB; k++) {
+    const b = bmax * k / (NB - 1);
+    const arr = new Float32Array(NPHI).fill(NaN);
+    // départ vers le trou noir : du/dφ > 0
+    let u = u0, w = Math.sqrt(Math.max(0, 1 / (b * b) - u * u * (1 - 2 * u)));
+    let phi = 0, fin = 0, phiInf = NaN, capture = false;
+    if (b === 0) { capture = true; fin = 0; }
+    else for (let i = 0; i < NPHI; i++) {
+      arr[i] = u;
+      // RK4 sur (u, w), w = du/dφ
+      const f = (uu) => -uu + 3 * uu * uu;
+      const h = DPHI;
+      const k1u = w, k1w = f(u);
+      const k2u = w + h / 2 * k1w, k2w = f(u + h / 2 * k1u);
+      const k3u = w + h / 2 * k2w, k3w = f(u + h / 2 * k2u);
+      const k4u = w + h * k3w, k4w = f(u + h * k3u);
+      const un = u + h / 6 * (k1u + 2 * k2u + 2 * k3u + k4u);
+      w += h / 6 * (k1w + 2 * k2w + 2 * k3w + k4w);
+      if (un >= 0.5) { capture = true; fin = i + 1; arr[i + 1 < NPHI ? i + 1 : i] = 0.5; break; }
+      if (un <= 0) { phiInf = (i + u / (u - un)) * DPHI; fin = i + 1; break; }
+      u = un; fin = i + 1;
+    }
+    table.push({ b, arr, fin, capture, phiInf });
+  }
+  tableBmax = bmax; tableRcam = P.rCam;
+}
+// u(φ) pour la trajectoire k, par interpolation
+function uDe(T, phi) {
+  const x = phi / DPHI, i = Math.floor(x);
+  if (i < 0 || i + 1 >= T.fin) return NaN;
+  const f = x - i; return T.arr[i] * (1 - f) + T.arr[i + 1] * f;
+}
+// ---------------------------------------------------------------- ciel de fond (équirectangulaire)
+let ciel, cielD, CW = 2048, CH = 1024;
+function construireCiel() {
+  const cv = document.createElement("canvas"); cv.width = CW; cv.height = CH;
+  const c = cv.getContext("2d");
+  c.fillStyle = "#000"; c.fillRect(0, 0, CW, CH);
+  // voie lactée : bande inclinée
+  for (let k = 0; k < 30000; k++) {
+    const x = Math.random() * CW, y0 = CH / 2 + 60 * Math.sin(x / CW * 2 * Math.PI + 0.6), y = y0 + (Math.random() + Math.random() + Math.random() - 1.5) * 50;
+    c.fillStyle = `rgba(${150 + Math.random() * 100},${120 + Math.random() * 80},${200 + Math.random() * 55},${Math.random() * 0.25})`;
+    c.fillRect(x, y, 2, 2);
+  }
+  for (let k = 0; k < 7000; k++) {
+    const m = Math.random();
+    c.fillStyle = `rgba(255,255,255,${0.3 + 0.7 * m * m})`;
+    const s = m > 0.97 ? 2 : 1; c.fillRect(Math.random() * CW, Math.random() * CH, s, s);
+  }
+  // quelques nébuleuses fluo
+  for (const [x, y, col] of [[0.2, 0.3, "255,43,214"], [0.65, 0.7, "0,240,255"], [0.85, 0.35, "138,92,255"], [0.45, 0.55, "57,255,20"]]) {
+    const g = c.createRadialGradient(x * CW, y * CH, 0, x * CW, y * CH, 90);
+    g.addColorStop(0, `rgba(${col},0.35)`); g.addColorStop(1, "rgba(0,0,0,0)");
+    c.fillStyle = g; c.fillRect(0, 0, CW, CH);
+  }
+  // quadrillage discret pour voir la déformation
+  c.strokeStyle = "rgba(0,240,255,0.18)"; c.lineWidth = 1;
+  for (let x = 0; x <= CW; x += CW / 24) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, CH); c.stroke(); }
+  for (let y = 0; y <= CH; y += CH / 12) { c.beginPath(); c.moveTo(0, y); c.lineTo(CW, y); c.stroke(); }
+  ciel = cv; cielD = c.getImageData(0, 0, CW, CH).data;
+}
+// ---------------------------------------------------------------- rendu de l'image
+let w, h, img, cvImg;
+function redim() { w = Math.max(40, Math.round(C.W / RED)); h = Math.max(30, Math.round(C.H / RED)); cvImg = document.createElement("canvas"); cvImg.width = w; cvImg.height = h; img = cvImg.getContext("2d").createImageData(w, h); }
+C.surRedim(() => { redim(); table = null; });
+const PALDISQUE = [[90, 0, 40], [255, 30, 120], [255, 110, 40], [255, 220, 90], [255, 255, 230], [150, 230, 255], [80, 140, 255]];
+function couleurG(gfac, I) {
+  // g < 1 : décalage vers le rouge ; g > 1 : vers le bleu
+  let u = 0.55 + 0.6 * Math.log(gfac);
+  u = Math.min(0.999, Math.max(0, u)) * (PALDISQUE.length - 1);
+  const i = Math.floor(u), f = u - i, a = PALDISQUE[i], b = PALDISQUE[i + 1];
+  return [(a[0] * (1 - f) + b[0] * f) * I, (a[1] * (1 - f) + b[1] * f) * I, (a[2] * (1 - f) + b[2] * f) * I];
+}
+function texture(r, th) {
+  // motif turbulent qui tourne à la vitesse képlérienne Ω = r^(−3/2)
+  const a = th - t * Math.pow(r, -1.5) * 3;
+  const v = 0.55 + 0.25 * Math.sin(7 * a + 3 * Math.log(r) * 4) + 0.15 * Math.sin(13 * a - 9 * Math.log(r)) + 0.1 * Math.sin(29 * a + 21 * Math.log(r) + 1.7);
+  return Math.max(0.15, v);
+}
+function rendre() {
+  if (!table || tableRcam !== P.rCam) construireTable();
+  const d = img.data, inc = P.incl * Math.PI / 180;
+  // caméra : position c, axes d'écran R (droite) et U (haut)
+  const c = [Math.cos(inc), 0, Math.sin(inc)], R = [0, 1, 0], U = [-Math.sin(inc), 0, Math.cos(inc)];
+  const f = (w / 2) / Math.tan(P.fov / 2 * Math.PI / 180);
+  const rin = 6, rout = P.rExt, ralpha = Math.sqrt(1 - 2 / P.rCam);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const sx = (i - w / 2) / f, sy = -(j - h / 2) / f;
+    // direction du rayon (partant de la caméra) : −c + sx R + sy U
+    let dx = -c[0] + sx * R[0] + sy * U[0], dy = -c[1] + sx * R[1] + sy * U[1], dz = -c[2] + sx * R[2] + sy * U[2];
+    const n = Math.hypot(dx, dy, dz); dx /= n; dy /= n; dz /= n;
+    const cosPsi = -(dx * c[0] + dy * c[1] + dz * c[2]), sinPsi = Math.sqrt(Math.max(0, 1 - cosPsi * cosPsi));
+    // paramètre d'impact (observateur statique à r_cam)
+    const b = P.rCam * sinPsi / ralpha;
+    // vecteur e : dans le plan du rayon, perpendiculaire à c, du côté où le rayon tourne
+    let ex = dx + cosPsi * c[0], ey = dy + cosPsi * c[1], ez = dz + cosPsi * c[2];
+    const ne = Math.hypot(ex, ey, ez) || 1; ex /= ne; ey /= ne; ez /= ne;
+    const kb = b / tableBmax * (NB - 1);
+    const T = table[Math.round(kb) < NB ? Math.round(kb) : NB - 1];
+    let col = null;
+    // traversées du plan du disque : cos φ c_z + sin φ e_z = 0
+    if (P.disque) {
+      let phi0 = Math.atan2(-c[2], ez);
+      while (phi0 <= 1e-6) phi0 += Math.PI;
+      for (let phi = phi0; phi < T.fin * DPHI; phi += Math.PI) {
+        const u = uDe(T, phi);
+        if (!(u > 0)) break;
+        const r = 1 / u;
+        if (r >= rin && r <= rout) {
+          // point du disque et angle
+          const px = r * (Math.cos(phi) * c[0] + Math.sin(phi) * ex), py = r * (Math.cos(phi) * c[1] + Math.sin(phi) * ey);
+          const th = Math.atan2(py, px);
+          // direction du photon au point de traversée (sens caméra → disque), puis k = sens disque → caméra
+          const du = (uDe(T, phi + DPHI) - uDe(T, phi - DPHI)) / (2 * DPHI);
+          const drdphi = -du / (u * u);
+          let kx = -(drdphi * (Math.cos(phi) * c[0] + Math.sin(phi) * ex) + r * (-Math.sin(phi) * c[0] + Math.cos(phi) * ex));
+          let ky = -(drdphi * (Math.cos(phi) * c[1] + Math.sin(phi) * ey) + r * (-Math.sin(phi) * c[1] + Math.cos(phi) * ey));
+          let kz = -(drdphi * (Math.cos(phi) * c[2] + Math.sin(phi) * ez) + r * (-Math.sin(phi) * c[2] + Math.cos(phi) * ez));
+          const nk = Math.hypot(kx, ky, kz) || 1; kx /= nk; ky /= nk;
+          const v = Math.sqrt(1 / (r - 2)), gam = 1 / Math.sqrt(1 - v * v);
+          const vk = v * (-Math.sin(th) * kx + Math.cos(th) * ky);
+          let g = Math.sqrt(1 - 2 / r) / (gam * (1 - vk)) / ralpha;
+          if (!P.doppler) g = 1;
+          const emis = (1 - Math.sqrt(rin / r)) * Math.pow(rin / r, 2.2) * 9;
+          const I = Math.min(1.3, emis * Math.pow(g, 4) * texture(r, th) * 1.0);
+          col = couleurG(g, Math.min(1.15, I + 0.05));
+          break;
+        }
+      }
+    }
+    const k = 4 * (j * w + i);
+    if (col) { d[k] = Math.min(255, col[0]); d[k + 1] = Math.min(255, col[1]); d[k + 2] = Math.min(255, col[2]); d[k + 3] = 255; continue; }
+    if (T.capture) { d[k] = d[k + 1] = d[k + 2] = 0; d[k + 3] = 255; continue; }
+    // ciel : direction finale
+    const pf = T.phiInf;
+    if (!isFinite(pf)) { d[k] = d[k + 1] = d[k + 2] = 0; d[k + 3] = 255; continue; }
+    const ox = Math.cos(pf) * c[0] + Math.sin(pf) * ex, oy = Math.cos(pf) * c[1] + Math.sin(pf) * ey, oz = Math.cos(pf) * c[2] + Math.sin(pf) * ez;
+    // le ciel tourne lentement (la caméra est en orbite)
+    const lon = Math.atan2(oy, ox) + t * 0.02, lat = Math.asin(Math.max(-1, Math.min(1, oz)));
+    const X = Math.floor(((lon / (2 * Math.PI) + 1.5) % 1) * CW), Y = Math.floor((0.5 - lat / Math.PI) * (CH - 1));
+    const q = 4 * (Y * CW + X);
+    d[k] = cielD[q]; d[k + 1] = cielD[q + 1]; d[k + 2] = cielD[q + 2]; d[k + 3] = 255;
+  }
+  cvImg.getContext("2d").putImageData(img, 0, 0);
+}
+function dessinerImage() {
+  rendre();
+  C.effacer();
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(cvImg, 0, 0, C.W, C.H);
+  // halo lumineux (le disque « bave » un peu, comme sur une photo)
+  ctx.globalCompositeOperation = "lighter";
+  ctx.filter = "blur(10px)"; ctx.globalAlpha = 0.45; ctx.drawImage(cvImg, 0, 0, C.W, C.H);
+  ctx.filter = "none"; ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+}
+// ---------------------------------------------------------------- vue « trajectoires »
+let orb = null;
+function dessinerTrajectoires() {
+  C.effacer();
+  const s = Math.min(C.W, C.H) / 34, cx = C.W * 0.55, cy = C.H / 2;
+  const X = x => cx + x * s, Y = y => cy - y * s;
+  // horizon, sphère de photons, ISCO
+  ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(cx, cy, 2 * s, 0, 6.2832); ctx.fill();
+  ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.setLineDash([6, 5]);
+  ctx.strokeStyle = "#ffe600"; ctx.beginPath(); ctx.arc(cx, cy, 3 * s, 0, 6.2832); ctx.stroke();
+  ctx.strokeStyle = "#39ff14"; ctx.beginPath(); ctx.arc(cx, cy, 6 * s, 0, 6.2832); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.font = "13px system-ui"; ctx.fillStyle = "#fff"; ctx.fillText("horizon r = 2M", X(0) - 40, Y(-2) + 18);
+  ctx.fillStyle = "#ffe600"; ctx.fillText("sphère de photons r = 3M", X(2.2), Y(2.4));
+  ctx.fillStyle = "#39ff14"; ctx.fillText("dernière orbite stable r = 6M", X(4.3), Y(4.6));
+  // rayons venant de la gauche, paramètres d'impact répartis
+  ctx.globalCompositeOperation = "lighter"; ctx.lineWidth = 1.5;
+  const bc = 3 * Math.sqrt(3), n = Math.round(P.nRayons);
+  for (let k = 0; k < n; k++) {
+    const b = 0.3 + 11.5 * k / (n - 1);
+    // départ loin à gauche : r0 = 40, φ mesuré depuis −x
+    const r0 = 45; let u = 1 / r0, wv = Math.sqrt(Math.max(0, 1 / (b * b) - u * u * (1 - 2 * u))), phi0 = Math.asin(Math.min(1, b / r0)), phi = phi0;
+    const capt = b < bc;
+    const col = capt ? "rgba(255,43,214,0.85)" : `hsla(${180 + 60 * Math.min(1, (b - bc) / 6)},100%,60%,0.85)`;
+    ctx.strokeStyle = col; ctx.beginPath();
+    ctx.moveTo(X(-Math.cos(phi) / u), Y(Math.sin(phi) / u));
+    for (let i = 0; i < 4000; i++) {
+      const hh = 0.004, f = uu => -uu + 3 * uu * uu;
+      const k1u = wv, k1w = f(u), k2u = wv + hh / 2 * k1w, k2w = f(u + hh / 2 * k1u), k3u = wv + hh / 2 * k2w, k3w = f(u + hh / 2 * k2u), k4u = wv + hh * k3w, k4w = f(u + hh * k3u);
+      u += hh / 6 * (k1u + 2 * k2u + 2 * k3u + k4u); wv += hh / 6 * (k1w + 2 * k2w + 2 * k3w + k4w); phi += hh;
+      if (u <= 1 / 60 || u >= 0.5) { if (u >= 0.5) u = 0.5; ctx.lineTo(X(-Math.cos(phi) / u), Y(Math.sin(phi) / u)); break; }
+      ctx.lineTo(X(-Math.cos(phi) / u), Y(Math.sin(phi) / u));
+    }
+    ctx.stroke();
+  }
+  // orbite d'une particule massive : précession du périhélie
+  if (orb && orb.trace.length > 1) {
+    ctx.strokeStyle = "rgba(255,230,0,0.9)"; ctx.lineWidth = 2; ctx.beginPath();
+    orb.trace.forEach((p, i) => i ? ctx.lineTo(X(p[0]), Y(p[1])) : ctx.moveTo(X(p[0]), Y(p[1]))); ctx.stroke();
+    const p = orb.trace[orb.trace.length - 1];
+    C.halo(X(p[0]), Y(p[1]), 12, "rgba(255,230,0,1)", 1);
+  }
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "#a8a2c0"; ctx.font = "12px system-ui";
+  ctx.fillText("lumière venant de la gauche →", 14, C.H - 20);
+}
+function initOrbite() {
+  // orbite liée : périastre r_p = P.orbite, apoastre 2,6 r_p ; moment cinétique L tel que les deux sont des points de rebroussement
+  const rp = P.orbite, ra = rp * 1.8, up = 1 / rp, ua = 1 / ra;
+  // potentiel effectif : (du/dφ)² = E²/L² − (1 − 2u)(1/L² + u²) ; deux racines up, ua donnent L² et E²
+  const A = (1 - 2 * up), B = (1 - 2 * ua);
+  const invL2 = (B * ua * ua - A * up * up) / (A - B);         // 1/L²
+  orb = { u: up, w: 1e-6, phi: 0, invL2, trace: [] };
+}
+function pasOrbite(dt) {
+  if (!orb) return;
+  const n = Math.round(dt * 1500);
+  for (let k = 0; k < n; k++) {
+    const hh = 0.002, f = uu => -uu + orb.invL2 + 3 * uu * uu;
+    const k1u = orb.w, k1w = f(orb.u), k2u = orb.w + hh / 2 * k1w, k2w = f(orb.u + hh / 2 * k1u), k3u = orb.w + hh / 2 * k2w, k3w = f(orb.u + hh / 2 * k2u), k4u = orb.w + hh * k3w, k4w = f(orb.u + hh * k3u);
+    orb.u += hh / 6 * (k1u + 2 * k2u + 2 * k3u + k4u); orb.w += hh / 6 * (k1w + 2 * k2w + 2 * k3w + k4w); orb.phi += hh;
+    if (orb.u > 0.5) { initOrbite(); return; }
+    if (k % 3 === 0) { orb.trace.push([Math.cos(orb.phi) / orb.u, Math.sin(orb.phi) / orb.u]); if (orb.trace.length > 9000) orb.trace.shift(); }
+  }
+}
+// ---------------------------------------------------------------- boucle
+function pas(dt) {
+  t += dt;
+  if (P.vue === "image" && P.tourne && !glisse) { P.incl = 8 + 14 * Math.sin(t * 0.12); curI.fixer(Math.round(P.incl * 10) / 10); }
+  if (P.vue === "traj") pasOrbite(dt);
+}
+function dessiner() {
+  if (!img) return;
+  if (P.vue === "image") dessinerImage(); else dessinerTrajectoires();
+  majHud();
+}
+let ch = 0;
+function majHud() {
+  if (ch++ % 8) return;
+  if (P.vue === "image") C.hud.innerHTML = `<span class="grand">Vu depuis r = <span class="v">${P.rCam}</span> M, <span class="v">${C.fr(P.incl, 1)}°</span> au-dessus du disque</span><br>disque de r = 6M à <span class="v">${P.rExt}</span> M · rayon apparent de l'ombre: 3√3 M ≈ 5,2 M`;
+  else C.hud.innerHTML = `<span class="grand">Rayons lumineux autour d'un trou noir</span><br>paramètre d'impact critique b = 3√3 M ≈ 5,2 M: en dessous (magenta), la lumière est capturée`;
+}
+let glisse = false, prec = null;
+C.pointeur({
+  bas: (x, y) => { glisse = true; prec = [x, y]; },
+  glisse: (x, y) => { if (P.vue === "image") { P.incl = Math.max(-80, Math.min(80, P.incl + (y - prec[1]) * 0.15)); curI.fixer(Math.round(P.incl * 10) / 10); } prec = [x, y]; },
+  haut: () => { glisse = false; },
+  molette: dy => { if (P.vue === "image") { P.fov = Math.max(10, Math.min(70, P.fov * Math.exp(dy * 0.001))); curF.fixer(Math.round(P.fov)); construireTable(); } },
+});
+// ---------------------------------------------------------------- panneau
+const s0 = C.section("Vue");
+C.radios(s0, [["image", "Ce que voit un observateur proche"], ["traj", "Trajectoires de la lumière et d'une planète"]], P, "vue", () => { majPanneau(); if (P.vue === "traj") initOrbite(); });
+const bI = C.el("div", {}, C.pan);
+const s1 = C.section("Observateur et disque", bI);
+const curI = C.curseur(s1, "Hauteur de l'observateur au-dessus du disque", P, "incl", -80, 80, 0.5, v => C.fr(v, 1) + "°");
+C.caseC(s1, "Mouvement automatique de l'observateur", P, "tourne");
+C.curseur(s1, "Distance de l'observateur", P, "rCam", 15, 80, 1, v => v + " M", construireTable);
+const curF = C.curseur(s1, "Champ de vision", P, "fov", 10, 70, 1, v => v + "°", construireTable);
+C.curseur(s1, "Rayon extérieur du disque", P, "rExt", 8, 30, 1, v => v + " M");
+C.caseC(s1, "Disque d'accrétion", P, "disque");
+P.hq = false;
+C.caseC(s1, "Haute qualité (plus lent)", P, "hq", () => { RED = P.hq ? 2 : 3; redim(); });
+C.caseC(s1, "Effets Doppler et Einstein (couleur et luminosité)", P, "doppler");
+const bT = C.el("div", {}, C.pan);
+const s2 = C.section("Trajectoires", bT);
+C.curseur(s2, "Nombre de rayons", P, "nRayons", 10, 80, 1, v => v);
+C.curseur(s2, "Périastre de l'orbite de la planète", P, "orbite", 4.5, 14, 0.1, v => C.fr(v, 1) + " M", initOrbite);
+const s3 = C.section("Ce qu'on observe");
+const tI = C.texte(s3, "La lumière est déviée par la courbure de l'espace-temps. Le disque d'accrétion, plat, apparaît <b>replié</b>: on voit le dessus du disque, mais aussi sa face arrière, au-dessus et en dessous du trou noir, dont la lumière a fait le tour. Au centre, l'<b>ombre</b>: les rayons qui y pointent ont été capturés. Le ciel de fond est déformé et dédoublé (lentille gravitationnelle).");
+const tI2 = C.texte(s3, "Le gaz du disque tourne vite (jusqu'à la moitié de c au bord intérieur): le côté qui vient vers nous est plus brillant et plus bleu (<b>effet Doppler</b> et effet de phare relativiste), l'autre plus sombre et rouge. Près du trou noir, le temps s'écoule plus lentement: la lumière est rougie (effet Einstein).");
+const tT = C.texte(s3, "Un rayon de paramètre d'impact b &lt; 3√3 M est capturé. Les rayons proches de cette valeur font un ou plusieurs tours sur la <b>sphère de photons</b> (r = 3M) avant de repartir. Une planète sur une orbite proche voit son périastre tourner (précession, comme celle de Mercure mais énorme), et sous r = 6M aucune orbite circulaire n'est stable.");
+C.note(s3, "Unités: G = c = 1, distances en M (masse du trou noir, soit GM/c², 1,5 km pour une masse solaire). Comparer avec les images du télescope EHT (M87*, 2019) et le film Interstellar.");
+C.temps(null, { vitesse: false });
+function majPanneau() {
+  bI.style.display = tI.style.display = tI2.style.display = P.vue === "image" ? "" : "none";
+  bT.style.display = tT.style.display = P.vue === "traj" ? "" : "none";
+}
+construireCiel();
+majPanneau();
+C.ajuster();
+construireTable();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

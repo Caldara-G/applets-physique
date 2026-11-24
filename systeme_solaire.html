@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Le système solaire en accéléré — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Système solaire (plan de l'écliptique). Unités : UA, année ; GM☉ = 4π² UA³/an².
+   Planètes sur des orbites képlériennes fixes (équation de Kepler résolue par Newton).
+   Astéroïdes et comètes : particules-test soumises au Soleil, à Jupiter (et Saturne), avec le terme
+   indirect (accélération du Soleil par les planètes), intégration saute-mouton à pas adaptatif.
+   Lacunes de Kirkwood : la masse de Jupiter peut être exagérée pour qu'elles se creusent en
+   quelques dizaines de secondes au lieu de millions d'années. */
+const C = Cadre("Le système solaire en accéléré", "Système solaire");
+const ctx = C.ctx;
+const GM = 4 * Math.PI * Math.PI;
+const PLANETES = [
+  // nom, a (UA), e, ϖ (longitude du périhélie, degrés), M0 (degrés), rapport de masse, couleur, rayon affiché
+  ["Mercure", 0.387, 0.206, 77, 174, 1.66e-7, "#b8b0a8", 3],
+  ["Vénus", 0.723, 0.007, 131, 50, 2.45e-6, "#ffd59a", 4.5],
+  ["Terre", 1.000, 0.017, 103, 357, 3.0e-6, "#4fa3ff", 4.5],
+  ["Mars", 1.524, 0.093, 336, 19, 3.2e-7, "#ff6a3d", 3.5],
+  ["Jupiter", 5.203, 0.048, 14, 20, 9.546e-4, "#ffb070", 9],
+  ["Saturne", 9.537, 0.054, 93, 317, 2.858e-4, "#ffe08a", 8],
+  ["Uranus", 19.19, 0.047, 173, 142, 4.37e-5, "#7ff9ff", 6],
+  ["Neptune", 30.07, 0.009, 48, 256, 5.15e-5, "#5a7bff", 6],
+];
+const P = { scen: "kirkwood", exag: 12, ansParSec: 40, zoom: 1, noms: true, orbites: true, nAst: 2500 };
+let t = 0, parts = [], echelleBase = 1, impacts = 0, ejectees = 0, capturees = 0;
+const rad = Math.PI / 180;
+function posPlanete(p, tt) {
+  const [, a, e, w, M0] = p;
+  const n = 2 * Math.PI / Math.pow(a, 1.5);
+  const M = M0 * rad + n * tt;
+  let E = M; for (let k = 0; k < 8; k++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+  const x = a * (Math.cos(E) - e), y = a * Math.sqrt(1 - e * e) * Math.sin(E);
+  const c = Math.cos(w * rad), s = Math.sin(w * rad);
+  return [c * x - s * y, s * x + c * y];
+}
+const JUP = PLANETES[4], SAT = PLANETES[5];
+function masseJ() { return JUP[5] * (P.scen === "kirkwood" ? P.exag : 1); }
+// ---------------------------------------------------------------- particules
+function orbiteCirc(a, e, phase, w) {
+  // position et vitesse au point d'anomalie vraie « phase » d'une orbite (a, e, ϖ)
+  const p = a * (1 - e * e), r = p / (1 + e * Math.cos(phase));
+  const th = phase + w, vr = Math.sqrt(GM / p) * e * Math.sin(phase), vt = Math.sqrt(GM / p) * (1 + e * Math.cos(phase));
+  return { x: r * Math.cos(th), y: r * Math.sin(th), vx: vr * Math.cos(th) - vt * Math.sin(th), vy: vr * Math.sin(th) + vt * Math.cos(th) };
+}
+function recommencer() {
+  t = 0; parts = []; impacts = 0; ejectees = 0; capturees = 0;
+  if (P.scen === "kirkwood") {
+    for (let k = 0; k < P.nAst; k++) {
+      const a = 1.9 + 2.3 * Math.random(), e = 0.12 * Math.random();
+      const q = orbiteCirc(a, e, 2 * Math.PI * Math.random(), 2 * Math.PI * Math.random());
+      q.a0 = a; q.vivant = true; parts.push(q);
+    }
+  } else if (P.scen === "comete") {
+    // nuée de comètes « clones » sur une trajectoire qui frôle Jupiter
+    const tR = 1.5, J = posPlanete(JUP, tR), J2 = posPlanete(JUP, tR + 1e-3);
+    const vJ = [(J2[0] - J[0]) / 1e-3, (J2[1] - J[1]) / 1e-3];
+    // orbite de la comète : périhélie 1,2 UA, aphélie ≈ Jupiter ; on remonte le temps à partir de la rencontre
+    for (let k = 0; k < 600; k++) {
+      const db = (Math.random() - 0.5) * 0.12, dvr = (Math.random() - 0.5) * 0.15;
+      // point de rencontre décalé, vitesse relative ≈ 4 UA/an vers l'intérieur
+      const ux = -J[0] / Math.hypot(...J), uy = -J[1] / Math.hypot(...J);
+      const vx = vJ[0] * 0.55 + ux * (2.2 + dvr), vy = vJ[1] * 0.55 + uy * (2.2 + dvr);
+      const q = { x: J[0] - uy * db, y: J[1] + ux * db, vx, vy, vivant: true, prochesJ: false };
+      // intégration à rebours jusqu'à t = 0, en ignorant Jupiter (la comète en est loin)
+      const n = 300, hh = -tR / n;
+      for (let m = 0; m < n; m++) { const r3 = Math.pow(q.x * q.x + q.y * q.y, 1.5); q.vx -= GM * q.x / r3 * hh / 2; q.vy -= GM * q.y / r3 * hh / 2; q.x += q.vx * hh; q.y += q.vy * hh; const r4 = Math.pow(q.x * q.x + q.y * q.y, 1.5); q.vx -= GM * q.x / r4 * hh / 2; q.vy -= GM * q.y / r4 * hh / 2; }
+      parts.push(q);
+    }
+  } else {
+    // ceinture principale et troyens de Jupiter, pour le décor
+    for (let k = 0; k < 1500; k++) { const q = orbiteCirc(2.1 + 1.2 * Math.random(), 0.1 * Math.random(), 6.28 * Math.random(), 6.28 * Math.random()); q.vivant = true; parts.push(q); }
+    const J = posPlanete(JUP, 0), aJ = Math.atan2(J[1], J[0]);
+    for (const s of [1, -1]) for (let k = 0; k < 250; k++) {
+      const th = aJ + s * Math.PI / 3 + (Math.random() - 0.5) * 0.5, a = 5.2 + (Math.random() - 0.5) * 0.25;
+      const q = orbiteCirc(a, 0.03 * Math.random(), th, 0); q.vivant = true; q.troyen = true; parts.push(q);
+    }
+  }
+  majZoom();
+  C.effacer();
+}
+function majZoom() {
+  const R = P.scen === "systeme" ? 6 : P.scen === "comete" ? 7 : 4.6;
+  echelleBase = Math.min(C.W, C.H) / (2 * R);
+}
+function acceleration(q, J, S, mJ, mS, sortie) {
+  const r2 = q.x * q.x + q.y * q.y, r3 = r2 * Math.sqrt(r2);
+  let ax = -GM * q.x / r3, ay = -GM * q.y / r3;
+  for (const [B, m] of [[J, mJ], [S, mS]]) {
+    if (!m) continue;
+    const dx = B[0] - q.x, dy = B[1] - q.y, d2 = dx * dx + dy * dy + 1e-8, d3 = d2 * Math.sqrt(d2);
+    const rb3 = Math.pow(B[0] * B[0] + B[1] * B[1], 1.5);
+    ax += GM * m * (dx / d3 - B[0] / rb3); ay += GM * m * (dy / d3 - B[1] / rb3);
+    if (sortie && B === J) sortie.dJ = Math.sqrt(d2);
+  }
+  return [ax, ay];
+}
+function pas(dt) {
+  const duree = dt * P.ansParSec, mJ = masseJ(), mS = P.scen === "systeme" ? 0 : SAT[5];
+  const hBase = P.scen === "comete" ? 0.004 : 0.02;
+  const nb = Math.max(1, Math.ceil(duree / hBase)), h = duree / nb;
+  const debut = performance.now();
+  for (let k = 0; k < nb; k++) {
+    const J = posPlanete(JUP, t + h / 2), S = posPlanete(SAT, t + h / 2);
+    for (const q of parts) {
+      if (!q.vivant) continue;
+      // sous-pas près de Jupiter
+      const dJ = Math.hypot(q.x - J[0], q.y - J[1]);
+      const sous = Math.min(200, Math.max(1, Math.ceil(h / (0.03 * Math.pow(dJ, 1.5) / Math.sqrt(GM * mJ)))));
+      const hh = h / sous;
+      for (let m = 0; m < sous; m++) {
+        q.x += q.vx * hh / 2; q.y += q.vy * hh / 2;
+        const o = {};
+        const [ax, ay] = acceleration(q, J, S, mJ, mS, o);
+        q.vx += ax * hh; q.vy += ay * hh;
+        q.x += q.vx * hh / 2; q.y += q.vy * hh / 2;
+        if (o.dJ < 0.0007) { q.vivant = false; impacts++; break; }
+        if (o.dJ < 0.15) q.prochesJ = true;
+      }
+      const r = Math.hypot(q.x, q.y);
+      if (r < 0.02) { q.vivant = false; }
+      if (r > 60) { q.vivant = false; ejectees++; }
+    }
+    t += h;
+    if (performance.now() - debut > 35) break;
+  }
+}
+// ---------------------------------------------------------------- dessin
+let centre = [0, 0];
+function dessiner() {
+  C.effacer();
+  const s = echelleBase * P.zoom, X = x => C.W / 2 + (x - centre[0]) * s, Y = y => C.H / 2 - (y - centre[1]) * s;
+  // orbites
+  if (P.orbites) {
+    ctx.lineWidth = 1;
+    for (const p of PLANETES) {
+      ctx.strokeStyle = C.rgba(p[6], 0.28); ctx.beginPath();
+      for (let k = 0; k <= 160; k++) { const tt = k / 160 * Math.pow(p[1], 1.5); const r = posPlanete(p, tt); k ? ctx.lineTo(X(r[0]), Y(r[1])) : ctx.moveTo(X(r[0]), Y(r[1])); }
+      ctx.stroke();
+    }
+  }
+  // Soleil
+  ctx.globalCompositeOperation = "lighter";
+  C.halo(X(0), Y(0), 46, "rgba(255,200,80,1)", 0.9);
+  C.halo(X(0), Y(0), 14, "rgba(255,255,230,1)", 1);
+  // particules
+  const mJ = masseJ();
+  for (const q of parts) {
+    if (!q.vivant) continue;
+    let c;
+    if (P.scen === "comete") {
+      const v2 = q.vx * q.vx + q.vy * q.vy, r = Math.hypot(q.x, q.y), E = v2 / 2 - GM / r;
+      c = E > 0 ? "rgba(255,43,214,0.9)" : q.prochesJ ? "rgba(255,230,0,0.9)" : "rgba(0,240,255,0.9)";
+    } else if (q.troyen) c = "rgba(57,255,20,0.8)";
+    else c = "rgba(170,200,255,0.75)";
+    ctx.fillStyle = c;
+    const sz = P.scen === "comete" ? 2.2 : 1.6;
+    ctx.fillRect(X(q.x) - sz / 2, Y(q.y) - sz / 2, sz, sz);
+  }
+  // planètes
+  for (const p of PLANETES) {
+    const r = posPlanete(p, t), px = X(r[0]), py = Y(r[1]);
+    if (px < -50 || px > C.W + 50 || py < -50 || py > C.H + 50) continue;
+    C.halo(px, py, p[7] * 2.6, C.rgba(p[6], 1), 0.8);
+    ctx.fillStyle = p[6]; ctx.beginPath(); ctx.arc(px, py, p[7] * 0.6, 0, 6.2832); ctx.fill();
+    if (P.noms) { ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.font = "12px system-ui"; ctx.fillText(p[0], px + 8, py - 8); ctx.globalCompositeOperation = "lighter"; }
+  }
+  ctx.globalCompositeOperation = "source-over";
+  if (P.scen === "kirkwood") histogramme();
+  majHud();
+}
+const RESO = [["4:1", 4], ["3:1", 3], ["5:2", 2.5], ["7:3", 7 / 3], ["2:1", 2], ["3:2", 1.5]];
+function histogramme() {
+  const w = Math.min(460, C.W * 0.42), hgt = 170, x0 = C.W - w - 14, y0 = C.H - hgt - 14;
+  ctx.fillStyle = "rgba(14,11,24,0.92)"; ctx.fillRect(x0, y0, w, hgt);
+  ctx.strokeStyle = "rgba(255,43,214,0.45)"; ctx.strokeRect(x0, y0, w, hgt);
+  const amin = 1.9, amax = 4.2, nb = 115, cpt = new Array(nb).fill(0);
+  for (const q of parts) {
+    if (!q.vivant) continue;
+    const r = Math.hypot(q.x, q.y), v2 = q.vx * q.vx + q.vy * q.vy, a = 1 / (2 / r - v2 / GM);
+    const k = Math.floor((a - amin) / (amax - amin) * nb); if (k >= 0 && k < nb) cpt[k]++;
+  }
+  const mx = Math.max(...cpt, 1), X = a => x0 + 12 + (w - 24) * (a - amin) / (amax - amin), bw = (w - 24) / nb;
+  for (let k = 0; k < nb; k++) { const hh = cpt[k] / mx * (hgt - 50); ctx.fillStyle = "#9ab8ff"; ctx.fillRect(X(amin) + k * bw, y0 + hgt - 22 - hh, Math.max(1, bw - 0.6), hh); }
+  ctx.font = "11px system-ui"; ctx.textAlign = "center";
+  for (const [lab, ratio] of RESO) {
+    const a = JUP[1] * Math.pow(1 / ratio, 2 / 3), x = X(a);
+    ctx.strokeStyle = "rgba(255,230,0,0.6)"; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(x, y0 + 24); ctx.lineTo(x, y0 + hgt - 22); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = "#ffe600"; ctx.fillText(lab, x, y0 + hgt - 8);
+  }
+  ctx.textAlign = "left"; ctx.fillStyle = "#fff"; ctx.font = "12px system-ui";
+  ctx.fillText("nombre d'astéroïdes selon le demi-grand axe a (de 1,9 à 4,2 UA)", x0 + 10, y0 + 15);
+}
+let ch = 0;
+function majHud() {
+  if (ch++ % 8) return;
+  const f = C.fr;
+  let h = `<span class="grand">t = <span class="v">${t < 1000 ? f(t, 1) : Math.round(t)}</span> ans</span> · ${f(t / JUP[1] ** 1.5, 1)} révolutions de Jupiter`;
+  if (P.scen === "kirkwood") h += `<br>masse de Jupiter ×<span class="v">${P.exag}</span> · astéroïdes restants: <span class="v">${parts.filter(q => q.vivant).length}</span>`;
+  if (P.scen === "comete") {
+    let liees = 0, ej = 0; for (const q of parts) if (q.vivant) { const E = (q.vx ** 2 + q.vy ** 2) / 2 - GM / Math.hypot(q.x, q.y); if (E > 0) ej++; else liees++; }
+    h += `<br>comètes encore liées au Soleil: <span class="v">${liees}</span> · en route vers l'espace interstellaire: <span class="v">${ej + ejectees}</span> · tombées sur Jupiter: <span class="v">${impacts}</span>`;
+  }
+  C.hud.innerHTML = h;
+}
+// ---------------------------------------------------------------- souris : zoom et déplacement
+let prec = null;
+C.pointeur({
+  bas: (x, y) => { prec = [x, y]; },
+  glisse: (x, y) => { const s = echelleBase * P.zoom; centre[0] -= (x - prec[0]) / s; centre[1] += (y - prec[1]) / s; prec = [x, y]; C.effacer(); },
+  molette: dy => { P.zoom = Math.max(0.1, Math.min(20, P.zoom * Math.exp(-dy * 0.0015))); curZ.fixer(+P.zoom.toFixed(2)); C.effacer(); },
+});
+// ---------------------------------------------------------------- panneau
+const s1 = C.section("Situation");
+C.radios(s1, [["systeme", "Les planètes, la ceinture d'astéroïdes et les troyens"], ["kirkwood", "Les lacunes de Kirkwood dans la ceinture d'astéroïdes"], ["comete", "Une nuée de comètes frôle Jupiter"]], P, "scen", () => { majPanneau(); centre = [0, 0]; P.zoom = 1; curZ.fixer(1); recommencer(); });
+const bK = C.el("div", {}, s1);
+C.curseur(bK, "Masse de Jupiter exagérée", P, "exag", 1, 50, 1, v => "×" + v);
+C.curseur(bK, "Nombre d'astéroïdes", P, "nAst", 500, 6000, 100, v => v, recommencer);
+const s2 = C.section("Affichage");
+C.curseur(s2, "Années par seconde", P, "ansParSec", 0.5, 200, 0.5, v => C.fr(v, 1));
+const curZ = C.curseur(s2, "Zoom (aussi: molette; glisser pour déplacer)", P, "zoom", 0.1, 20, 0.05, v => "×" + C.fr(v, 2), () => C.effacer());
+C.caseC(s2, "Noms des planètes", P, "noms");
+C.caseC(s2, "Orbites des planètes", P, "orbites");
+const s3 = C.section("Ce qu'on observe");
+const tS = C.texte(s3, "Les planètes suivent les lois de Kepler: les plus proches du Soleil tournent beaucoup plus vite (T² ∝ a³). Les astéroïdes de la ceinture principale circulent entre Mars et Jupiter; les <b>troyens</b> (en vert) accompagnent Jupiter à 60° devant et derrière elle, aux points de Lagrange L4 et L5.");
+const tK = C.texte(s3, "Un astéroïde dont la période est une fraction simple de celle de Jupiter (1/3, 2/5, 1/2…) la retrouve toujours au même endroit de son orbite: les petites perturbations s'additionnent au lieu de se compenser. C'est une <b>résonance</b>: l'orbite devient excentrique, croise celle de Mars et l'astéroïde est éjecté. D'où les <b>lacunes de Kirkwood</b> (1866) dans la distribution des demi-grands axes.");
+const tKn = C.note(s3, "Dans la réalité, il a fallu des millions d'années; ici la masse de Jupiter est exagérée. À l'inverse, la résonance 3:2 stabilise le groupe de Hilda.");
+const tC = C.texte(s3, "Six cents comètes presque identiques passent près de Jupiter. Selon la distance du passage, la planète géante peut les capturer sur une orbite courte (comètes de la famille de Jupiter, en jaune), les éjecter du système solaire (en magenta) ou même les avaler, comme Shoemaker-Levy 9 en 1994. C'est aussi le principe de l'<b>assistance gravitationnelle</b> utilisée par les sondes spatiales.");
+C.temps(recommencer, { vitesse: false });
+function majPanneau() {
+  bK.style.display = tK.style.display = tKn.style.display = P.scen === "kirkwood" ? "" : "none";
+  tS.style.display = P.scen === "systeme" ? "" : "none";
+  tC.style.display = P.scen === "comete" ? "" : "none";
+  P.ansParSec = P.scen === "comete" ? 1.5 : P.scen === "systeme" ? 2 : 40;
+  const r = s2.querySelector("input[type=range]"); if (r) r.fixer(P.ansParSec);
+  C.legende.innerHTML = P.scen === "comete" ? `<span><i style="background:#00f0ff"></i>pas encore passée près de Jupiter &nbsp;<i style="background:#ffe600"></i>déviée par Jupiter &nbsp;<i style="background:#ff2bd6"></i>éjectée</span>` : P.scen === "systeme" ? `<span><i style="background:#9ab8ff"></i>ceinture principale &nbsp;<i style="background:#39ff14"></i>troyens de Jupiter</span>` : "";
+}
+C.surRedim(() => majZoom());
+majPanneau();
+C.ajuster();
+recommencer();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gaz de sphères dures — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Gaz bidimensionnel de disques durs : chocs élastiques entre disques et sur les parois
+   (pas de temps fixe, détection des recouvrements par grille). Distribution des vitesses à 2D
+   (Maxwell) : f(v) = (v/σ²) exp(−v²/2σ²), avec σ² = kT/m = <v²>/2.
+   Piston mobile : choc sur une paroi de vitesse V : v_x' = 2V − v_x. Pour un gaz 2D monoatomique,
+   γ = (d + 2)/d = 2, donc PV² = cte et TV = cte pour une transformation adiabatique réversible. */
+const C = Cadre("Gaz de sphères dures", "Gaz");
+const ctx = C.ctx;
+const P = { scen: "maxwell", N: 900, r: 4, v0: 160, couleur: "vitesse", piston: 0 };
+let parts = [], boite, t = 0, cloison = false, gros = null, trace = [], impulsion = 0, tImp = 0, histoG = [], Pmes = 0;
+
+function recommencer() {
+  const W = C.W, H = C.H;
+  boite = { x0: 20, y0: 20, x1: W - 20, y1: H - 210 };
+  if (boite.y1 - boite.y0 < 200) boite.y1 = H - 20;
+  parts = []; t = 0; trace = []; histoG = []; impulsion = 0; tImp = 0; gros = null;
+  cloison = P.scen === "joule";
+  const N = Math.round(P.N), r = P.r;
+  const xmax = P.scen === "joule" ? (boite.x0 + boite.x1) / 2 - r - 2 : boite.x1 - r;
+  // placement sur une grille légèrement perturbée (pas de recouvrement initial)
+  const larg = xmax - boite.x0 - r, haut = boite.y1 - boite.y0 - 2 * r;
+  const nx = Math.max(1, Math.floor(Math.sqrt(N * larg / haut))), ny = Math.ceil(N / nx);
+  const dx = larg / nx, dy = haut / ny;
+  for (let k = 0; k < N; k++) {
+    const i = k % nx, j = Math.floor(k / nx);
+    const x = boite.x0 + r + (i + 0.5) * dx + (Math.random() - 0.5) * Math.max(0, dx - 2.2 * r);
+    const y = boite.y0 + r + (j + 0.5) * dy + (Math.random() - 0.5) * Math.max(0, dy - 2.2 * r);
+    const a = Math.random() * 2 * Math.PI;
+    const v = P.scen === "maxwell" ? P.v0 : P.v0 * Math.sqrt(-2 * Math.log(1 - Math.random())) / Math.SQRT2;
+    parts.push({ x, y, vx: v * Math.cos(a), vy: v * Math.sin(a), r, m: 1, esp: P.scen === "melange" ? (x < (boite.x0 + boite.x1) / 2 ? 0 : 1) : 0 });
+  }
+  if (P.scen === "brownien") {
+    // un gros disque lourd au centre ; on retire les petits qui le recouvrent
+    gros = { x: (boite.x0 + boite.x1) / 2, y: (boite.y0 + boite.y1) / 2, vx: 0, vy: 0, r: 26, m: 60, esp: 2 };
+    parts = parts.filter(p => Math.hypot(p.x - gros.x, p.y - gros.y) > gros.r + p.r + 1);
+    parts.push(gros);
+  }
+  C.effacer();
+}
+// ---------------------------------------------------------------- collisions
+function choc(a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy, R = a.r + b.r;
+  if (d2 >= R * R || d2 === 0) return;
+  const d = Math.sqrt(d2), nx = dx / d, ny = dy / d;
+  const vn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+  // séparation des disques qui se recouvrent
+  const rec = (R - d) / 2 + 0.01;
+  const ma = a.m, mb = b.m, ka = mb / (ma + mb), kb = ma / (ma + mb);
+  a.x -= nx * rec * 2 * ka; a.y -= ny * rec * 2 * ka; b.x += nx * rec * 2 * kb; b.y += ny * rec * 2 * kb;
+  if (vn >= 0) return;               // ils s'éloignent déjà
+  const J = 2 * vn / (ma + mb);
+  a.vx += J * mb * nx; a.vy += J * mb * ny; b.vx -= J * ma * nx; b.vy -= J * ma * ny;
+}
+function pas(dt) {
+  const n = Math.max(1, Math.ceil(dt * 900 / (P.r * 2)));     // un disque ne parcourt pas plus que son rayon
+  const h = dt / n;
+  for (let k = 0; k < n; k++) etape(h);
+  t += dt;
+  tImp += dt;
+  if (tImp > 0.5) { Pmes = impulsion / tImp / (2 * (boite.y1 - boite.y0)); impulsion = 0; tImp = 0; }
+  if (P.scen === "joule" || P.scen === "melange") {
+    const mid = (boite.x0 + boite.x1) / 2;
+    let g = 0; for (const p of parts) if (p.x < mid && p.esp === 0) g++;
+    histoG.push([t, g / parts.filter(p => p.esp === 0).length]); if (histoG.length > 900) histoG.shift();
+  }
+  if (gros) { trace.push([gros.x, gros.y]); if (trace.length > 4000) trace.shift(); }
+}
+function etape(h) {
+  // piston (paroi de droite) mobile
+  const Vp = P.scen === "piston" ? P.piston : 0;
+  if (Vp) {
+    boite.x1 += Vp * h;
+    const xmin = boite.x0 + 120, xmax = C.W - 20;
+    if (boite.x1 < xmin) { boite.x1 = xmin; } if (boite.x1 > xmax) { boite.x1 = xmax; }
+  }
+  for (const p of parts) { p.x += p.vx * h; p.y += p.vy * h; }
+  // grille
+  const cs = 2 * P.r + 1, gx = Math.ceil((C.W) / cs) + 1, gy = Math.ceil(C.H / cs) + 1;
+  const tete = new Int32Array(gx * gy).fill(-1), suiv = new Int32Array(parts.length);
+  parts.forEach((p, i) => {
+    if (p === gros) return;
+    const c = Math.min(gx - 1, Math.max(0, (p.x / cs) | 0)) + gx * Math.min(gy - 1, Math.max(0, (p.y / cs) | 0));
+    suiv[i] = tete[c]; tete[c] = i;
+  });
+  for (let cy = 0; cy < gy; cy++) for (let cx = 0; cx < gx; cx++) {
+    for (let i = tete[cx + gx * cy]; i >= 0; i = suiv[i]) {
+      for (const [ox, oy] of [[0, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) {
+        const X = cx + ox, Y = cy + oy;
+        if (X < 0 || X >= gx || Y >= gy) continue;
+        for (let j = tete[X + gx * Y]; j >= 0; j = suiv[j]) {
+          if (ox === 0 && oy === 0 && j <= i) continue;
+          choc(parts[i], parts[j]);
+        }
+      }
+    }
+  }
+  if (gros) for (const p of parts) if (p !== gros) choc(gros, p);
+  // parois
+  const mid = (boite.x0 + boite.x1) / 2;
+  for (const p of parts) {
+    if (p.x < boite.x0 + p.r) { p.x = boite.x0 + p.r; if (p.vx < 0) { impulsion += 2 * p.m * Math.abs(p.vx); p.vx = -p.vx; } }
+    if (p.x > boite.x1 - p.r) { p.x = boite.x1 - p.r; if (p.vx > Vp) { impulsion += 2 * p.m * Math.abs(p.vx - Vp); p.vx = 2 * Vp - p.vx; } }
+    if (p.y < boite.y0 + p.r) { p.y = boite.y0 + p.r; if (p.vy < 0) p.vy = -p.vy; }
+    if (p.y > boite.y1 - p.r) { p.y = boite.y1 - p.r; if (p.vy > 0) p.vy = -p.vy; }
+    if (cloison) {
+      if (p.x < mid && p.x > mid - p.r) { p.x = mid - p.r; if (p.vx > 0) p.vx = -p.vx; }
+      else if (p.x >= mid && p.x < mid + p.r) { p.x = mid + p.r; if (p.vx < 0) p.vx = -p.vx; }
+    }
+  }
+}
+// ---------------------------------------------------------------- dessin
+const GRAD = [[77, 0, 255], [0, 240, 255], [57, 255, 20], [255, 230, 0], [255, 106, 0], [255, 43, 214]];
+function grad(u) {
+  u = Math.min(0.999, Math.max(0, u)) * (GRAD.length - 1);
+  const i = Math.floor(u), f = u - i;
+  return `rgb(${[0, 1, 2].map(c => Math.round(GRAD[i][c] * (1 - f) + GRAD[i + 1][c] * f)).join(",")})`;
+}
+function stats() {
+  let s2 = 0, n = 0;
+  for (const p of parts) if (p !== gros) { s2 += p.vx * p.vx + p.vy * p.vy; n++; }
+  return { v2: s2 / n, n };
+}
+function dessiner() {
+  C.effacer();
+  const st = stats(), vq = Math.sqrt(st.v2);
+  // boîte
+  ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 2;
+  ctx.strokeRect(boite.x0, boite.y0, boite.x1 - boite.x0, boite.y1 - boite.y0);
+  if (P.scen === "piston") { ctx.fillStyle = "#4a3d73"; ctx.fillRect(boite.x1, boite.y0 - 6, 14, boite.y1 - boite.y0 + 12); ctx.fillRect(boite.x1 + 14, (boite.y0 + boite.y1) / 2 - 5, C.W - boite.x1, 10); }
+  if (cloison) { ctx.strokeStyle = "#ffe600"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo((boite.x0 + boite.x1) / 2, boite.y0); ctx.lineTo((boite.x0 + boite.x1) / 2, boite.y1); ctx.stroke(); }
+  // trajectoire du gros disque
+  if (gros && trace.length > 1) {
+    ctx.strokeStyle = "rgba(255,230,0,0.85)"; ctx.lineWidth = 1.5; ctx.beginPath();
+    trace.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.stroke();
+  }
+  // disques, groupés par couleur
+  const seaux = new Map();
+  for (const p of parts) {
+    let c;
+    if (p === gros) c = "#ffffff";
+    else if (P.couleur === "vitesse" && P.scen !== "melange") c = grad(Math.hypot(p.vx, p.vy) / (2.2 * vq));
+    else c = p.esp ? "#00f0ff" : "#ff2bd6";
+    if (!seaux.has(c)) seaux.set(c, []);
+    seaux.get(c).push(p);
+  }
+  for (const [c, l] of seaux) {
+    ctx.fillStyle = c; ctx.beginPath();
+    for (const p of l) { ctx.moveTo(p.x + p.r, p.y); ctx.arc(p.x, p.y, p.r, 0, 6.2832); }
+    ctx.fill();
+  }
+  if (gros) { ctx.globalCompositeOperation = "lighter"; C.halo(gros.x, gros.y, gros.r * 2, "rgba(255,230,0,1)", 0.5); ctx.globalCompositeOperation = "source-over"; }
+  histogramme(st);
+  if (P.scen === "joule" || P.scen === "melange") courbeGauche();
+  majHud(st);
+}
+function histogramme(st) {
+  const x0 = 20, y0 = C.H - 190, w = Math.min(520, C.W / 2 - 30), h = 170;
+  if (boite.y1 > y0) return;
+  ctx.fillStyle = "rgba(14,11,24,0.92)"; ctx.fillRect(x0, y0, w, h);
+  ctx.strokeStyle = "rgba(255,43,214,0.45)"; ctx.lineWidth = 1; ctx.strokeRect(x0, y0, w, h);
+  const sig2 = st.v2 / 2, vmax = 4 * Math.sqrt(sig2), nb = 40, comptes = new Array(nb).fill(0);
+  for (const p of parts) if (p !== gros) { const k = Math.floor(Math.hypot(p.vx, p.vy) / vmax * nb); if (k < nb) comptes[k]++; }
+  const dv = vmax / nb, fmax = 1 / Math.sqrt(sig2) * Math.exp(-0.5) * 1.25;
+  const X = v => x0 + 30 + (w - 40) * v / vmax, Y = f => y0 + h - 20 - (h - 40) * f / fmax;
+  for (let k = 0; k < nb; k++) {
+    const f = comptes[k] / st.n / dv;
+    ctx.fillStyle = grad((k + 0.5) / nb * vmax / (2.2 * Math.sqrt(st.v2)));
+    ctx.fillRect(X(k * dv) + 0.5, Y(f), (w - 40) / nb - 1, Y(0) - Y(f));
+  }
+  ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.beginPath();
+  for (let k = 0; k <= 200; k++) { const v = vmax * k / 200, f = v / sig2 * Math.exp(-v * v / (2 * sig2)); k ? ctx.lineTo(X(v), Y(f)) : ctx.moveTo(X(v), Y(f)); }
+  ctx.stroke();
+  ctx.fillStyle = "#fff"; ctx.font = "12px system-ui";
+  ctx.fillText("distribution des vitesses (barres) et loi de Maxwell à 2D (courbe)", x0 + 10, y0 + 15);
+  ctx.fillStyle = "#a8a2c0"; ctx.textAlign = "right"; ctx.fillText("v", x0 + w - 6, y0 + h - 6); ctx.textAlign = "left";
+}
+function courbeGauche() {
+  const w = Math.min(420, C.W / 2 - 30), x0 = C.W - w - 20, y0 = C.H - 190, h = 170;
+  if (boite.y1 > y0) return;
+  ctx.fillStyle = "rgba(14,11,24,0.92)"; ctx.fillRect(x0, y0, w, h);
+  ctx.strokeStyle = "rgba(255,43,214,0.45)"; ctx.strokeRect(x0, y0, w, h);
+  const tmax = Math.max(10, t), X = u => x0 + 30 + (w - 40) * u / tmax, Y = f => y0 + h - 20 - (h - 40) * f;
+  ctx.strokeStyle = "rgba(255,255,255,0.2)"; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(X(0), Y(0.5)); ctx.lineTo(X(tmax), Y(0.5)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = "#ff2bd6"; ctx.lineWidth = 2; ctx.beginPath();
+  histoG.forEach((p, i) => i ? ctx.lineTo(X(p[0]), Y(p[1])) : ctx.moveTo(X(p[0]), Y(p[1]))); ctx.stroke();
+  ctx.fillStyle = "#fff"; ctx.font = "12px system-ui";
+  ctx.fillText(P.scen === "joule" ? "fraction des particules dans la moitié gauche" : "fraction des particules magenta à gauche", x0 + 10, y0 + 15);
+  ctx.fillStyle = "#a8a2c0"; ctx.fillText("1", x0 + 14, Y(1) + 4); ctx.fillText("½", x0 + 14, Y(0.5) + 4); ctx.fillText("0", x0 + 14, Y(0) + 4);
+}
+let ch = 0;
+function majHud(st) {
+  if (ch++ % 8) return;
+  const f = C.fr, V = (boite.x1 - boite.x0) * (boite.y1 - boite.y0) / 1e4;
+  let h = `<span class="grand">${st.n} disques</span> · t = <span class="v">${f(t, 1)}</span> s<br>température (kT/m = ‹v²›/2): <span class="v">${Math.round(st.v2 / 2)}</span> px²/s²`;
+  if (P.scen === "piston") h += `<br>« volume » V = <span class="v">${f(V, 1)}</span> · pression P = <span class="v">${f(Pmes, 1)}</span> · PV² = <span class="v">${f(Pmes * V * V, 0)}</span> · TV = <span class="v">${f(st.v2 / 2 * V / 1000, 1)}</span>`;
+  if (gros) h += `<br>le gros disque (masse ×60) est bousculé au hasard: mouvement brownien`;
+  C.hud.innerHTML = h;
+}
+// ---------------------------------------------------------------- panneau
+const s1 = C.section("Situation");
+C.radios(s1, [["maxwell", "Toutes les particules ont la même vitesse au départ"], ["joule", "Détente de Joule (gaz dans la moitié gauche)"], ["piston", "Compression et détente par un piston"], ["melange", "Mélange de deux gaz"], ["brownien", "Mouvement brownien d'une grosse particule"]], P, "scen", () => { majPanneau(); recommencer(); });
+const bJ = C.el("div", {}, s1);
+const btJ = C.boutons(bJ);
+C.bouton(btJ, "Retirer la cloison", () => { cloison = false; });
+C.bouton(btJ, "Renverser toutes les vitesses", () => { for (const p of parts) { p.vx = -p.vx; p.vy = -p.vy; } });
+C.note(bJ, "Renverser les vitesses juste après avoir retiré la cloison: le gaz revient presque à gauche… puis la moindre erreur numérique est amplifiée par les chocs, et il se redisperse. Plus on attend, moins le retour est possible.");
+const bP = C.el("div", {}, s1);
+const curP = C.curseur(bP, "Vitesse du piston (négative: compression)", P, "piston", -150, 150, 5, v => v + " px/s");
+const btP = C.boutons(bP);
+C.bouton(btP, "Compression lente", () => curP.fixer(-20));
+C.bouton(btP, "Compression rapide", () => curP.fixer(-150));
+C.bouton(btP, "Détente lente", () => curP.fixer(20));
+C.bouton(btP, "Arrêt", () => curP.fixer(0));
+C.note(bP, "Pour un gaz parfait 2D monoatomique, γ = 2: une compression lente (quasi statique) conserve PV² et TV. Une compression rapide chauffe davantage.");
+const s2 = C.section("Gaz");
+C.curseur(s2, "Nombre de disques", P, "N", 50, 3000, 50, v => v, recommencer);
+C.curseur(s2, "Rayon des disques", P, "r", 1.5, 10, 0.5, v => C.fr(v, 1) + " px", recommencer);
+C.curseur(s2, "Vitesse initiale", P, "v0", 40, 400, 10, v => v + " px/s", recommencer);
+C.radios(s2, [["vitesse", "Couleur selon la vitesse"], ["espece", "Couleur selon l'espèce"]], P, "couleur");
+const s3 = C.section("Ce qu'on observe");
+C.texte(s3, "Les disques ne font que se cogner élastiquement: l'énergie cinétique totale est conservée. Pourtant, quelle que soit la répartition de départ, les vitesses se répartissent très vite selon la <b>loi de Maxwell</b> (ici à deux dimensions): c'est l'état d'équilibre, le plus probable.");
+C.texte(s3, "La détente de Joule et le mélange sont <b>irréversibles</b>: les lois du mouvement sont réversibles, mais revenir à l'état initial demanderait une précision inaccessible. La température est la moyenne de l'énergie cinétique, la pression vient des chocs sur les parois.");
+C.note(s3, "Le mouvement brownien a été observé par Brown en 1827 et expliqué par Einstein en 1905; sa mesure par Perrin (1908) a établi l'existence des atomes.");
+C.temps(recommencer, { vmin: 0.25, vmax: 3 });
+function majPanneau() {
+  bJ.style.display = P.scen === "joule" ? "" : "none";
+  bP.style.display = P.scen === "piston" ? "" : "none";
+  if (P.scen !== "piston") P.piston = 0;
+}
+majPanneau();
+C.surRedim(() => recommencer());
+C.ajuster();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>
