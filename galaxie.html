@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formation d'une galaxie — MP* Malherbe</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px; color: #e6e6f0; background: #05040a;
+}
+#app { display: flex; height: 100vh; }
+#principal { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 8px; gap: 8px; }
+.zone { position: relative; flex: 1; min-height: 0; min-width: 0; background: #000;
+  border: 1px solid #2a2340; border-radius: 6px; overflow: hidden; }
+.zone canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.zone canvas.tire { cursor: grabbing; }
+#panneau { width: 340px; flex: none; overflow-y: auto; background: #0e0b18;
+  border-left: 1px solid #2a2340; padding: 10px 14px 20px; }
+#panneau h1 { font-size: 16px; margin: 4px 0 2px; color: #fff; }
+.haut { display: flex; justify-content: space-between; align-items: center; }
+.retour { font-size: 12px; text-decoration: none; }
+.retour:hover { text-decoration: underline; }
+html[data-domaine] a.retour { color: #f9a8ff; }
+.etiquette { font-size: 11.5px; font-weight: 600; color: #fff; background: #3b5f96;
+  border-radius: 10px; padding: 2px 9px; letter-spacing: 0.02em; }
+.section { margin: 8px 0; padding-bottom: 8px; border-bottom: 1px solid #241d36; }
+.section:last-child { border-bottom: none; }
+.titre { font-weight: 600; margin-bottom: 4px; color: #ff8cf0; }
+.choix { display: flex; align-items: center; gap: 6px; padding: 2px 0; cursor: pointer; user-select: none; }
+.choix input { margin: 0 2px 0 0; accent-color: #ff2bd6; }
+.curseur { margin: 7px 0; }
+.curseur .tete { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.curseur .valeur { color: #7ff9ff; font-variant-numeric: tabular-nums; white-space: nowrap; }
+input[type=range] { width: 100%; margin: 3px 0 0; accent-color: #ff2bd6; }
+select { font: inherit; background: #1a1528; color: #fff; border: 1px solid #3d3360; border-radius: 4px; padding: 3px 5px; width: 100%; }
+.boutons { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+button.b { padding: 5px 10px; border: 1px solid #4a3d73; background: #1a1528; color: #fff;
+  border-radius: 4px; cursor: pointer; font: inherit; }
+button.b:hover { background: #2a2140; border-color: #ff2bd6; }
+button.b.actif { background: #ff2bd6; border-color: #ff2bd6; color: #000; font-weight: 600; }
+.note { font-size: 11.5px; color: #a8a2c0; font-style: italic; line-height: 1.45; }
+.redem { font-size: 10.5px; color: #ffd84d; font-style: normal; margin-left: 4px; }
+.cache { display: none; }
+#hud { position: absolute; left: 12px; top: 10px; z-index: 4; pointer-events: none;
+  font-size: 14px; line-height: 1.45; text-shadow: 0 0 6px #000; }
+#hud .grand { font-size: 18px; font-weight: 700; color: #fff; }
+#hud .t { color: #7ff9ff; font-variant-numeric: tabular-nums; }
+#legende { position: absolute; left: 12px; bottom: 12px; z-index: 4; pointer-events: none;
+  display: flex; flex-direction: column; gap: 3px; font-size: 13px; text-shadow: 0 0 5px #000; }
+#legende i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+#legende .degrade { display: inline-block; width: 120px; height: 10px; border-radius: 5px; margin: 0 6px; vertical-align: -1px; }
+#principal .filigrane { position: absolute; right: 14px; bottom: 12px; z-index: 5; pointer-events: none;
+  font-size: 13px; font-weight: 700; color: #ff8cf0 !important; background: rgba(10, 5, 20, 0.7);
+  border: 1px solid rgba(255, 43, 214, 0.55); border-radius: 12px; padding: 3px 11px;
+  text-shadow: 0 0 6px rgba(255, 43, 214, 0.8); }
+#message { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 6;
+  background: #1a1528; border: 1px solid #ff2bd6; border-radius: 8px; padding: 14px 18px; max-width: 420px; display: none; }
+.zone:fullscreen { border: none; border-radius: 0; }
+@media (max-width: 900px) {
+  #app { flex-direction: column; height: auto; }
+  #principal { height: 75vh; }
+  #panneau { width: 100%; border-left: none; border-top: 1px solid #2a2340; }
+}
+</style>
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<div id="app">
+  <div id="principal">
+    <div class="zone" id="zone" data-mt-nom="Galaxie">
+      <canvas id="ciel"></canvas>
+      <div id="hud"></div>
+      <div id="legende"></div>
+      <div class="filigrane">MP* Malherbe</div>
+      <div id="message"></div>
+    </div>
+  </div>
+  <div id="panneau"></div>
+</div>
+<script>
+"use strict";
+/* =====================================================================
+   Formation d'une galaxie — MP* Malherbe
+   Unités internes : longueur 1 kpc, masse 1e10 masses solaires, G = 1.
+   Unité de temps = sqrt(L^3/(G M)) = 4,72 Ma ; unité de vitesse = 207 km/s.
+   Scénario 1 : effondrement d'un nuage de gaz en rotation dans un halo de matière noire
+                (autogravité par arbre de Barnes-Hut, refroidissement du gaz, formation d'étoiles).
+   Scénario 2 : collision de deux galaxies (méthode de Toomre : particules-test dans le champ
+                de deux noyaux massifs, friction dynamique entre les noyaux).
+   ===================================================================== */
+const MA = 4.72;          // Ma par unité de temps
+const KMS = 207.4;        // km/s par unité de vitesse
+
+// ---------------------------------------------------------------- palettes fluo
+const PALETTES = {
+  neon:  { nom: "Néon (magenta, cyan, jaune)", gaz: "#ff2bd6", jeune: "#00f0ff", vieille: "#ffe600",
+           A: "#00f0ff", B: "#ff2bd6", noyau: "#ffffff", grad: ["#4d00ff", "#00f0ff", "#39ff14", "#ffe600", "#ff2bd6"] },
+  acide: { nom: "Acide (vert, jaune, orange)", gaz: "#39ff14", jeune: "#ccff00", vieille: "#ff6a00",
+           A: "#39ff14", B: "#ff6a00", noyau: "#ffffff", grad: ["#0040ff", "#00ffa2", "#39ff14", "#ccff00", "#ff6a00"] },
+  uv:    { nom: "Ultraviolet (violet, bleu, rose)", gaz: "#b026ff", jeune: "#3d7bff", vieille: "#ff3dbb",
+           A: "#5a7bff", B: "#ff3dbb", noyau: "#ffffff", grad: ["#2a00ff", "#7a00ff", "#b026ff", "#ff3dbb", "#ffb3f0"] },
+  synth: { nom: "Synthwave (rose, cyan, orange)", gaz: "#ff007f", jeune: "#00e5ff", vieille: "#ff9e00",
+           A: "#00e5ff", B: "#ff007f", noyau: "#ffffff", grad: ["#3b00ff", "#00e5ff", "#ff007f", "#ff9e00", "#fff200"] },
+  arc:   { nom: "Arc-en-ciel fluo", gaz: "#ff1f5a", jeune: "#00ffd5", vieille: "#ffef00",
+           A: "#00ffd5", B: "#ff8a00", noyau: "#ffffff", grad: ["#7a00ff", "#0066ff", "#00ffd5", "#39ff14", "#ffef00", "#ff8a00", "#ff1f5a"] }
+};
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
+const PAL = {};
+for (const k in PALETTES) {
+  const p = PALETTES[k], q = {};
+  for (const c of ["gaz", "jeune", "vieille", "A", "B", "noyau"]) q[c] = hexRgb(p[c]);
+  q.grad = p.grad.map(hexRgb);
+  PAL[k] = q;
+}
+function degrade(g, u, out, o) {
+  u = Math.min(Math.max(u, 0), 1) * (g.length - 1);
+  const i = Math.min(Math.floor(u), g.length - 2), f = u - i, a = g[i], b = g[i + 1];
+  out[o] = a[0] + (b[0] - a[0]) * f; out[o + 1] = a[1] + (b[1] - a[1]) * f; out[o + 2] = a[2] + (b[2] - a[2]) * f;
+}
+
+// ---------------------------------------------------------------- paramètres
+const P = {
+  scenario: "nuage", lecture: true, pasParImage: 3,
+  // nuage
+  N: 4000, rayon: 20, lambda: 0.6, disp: 0.06, halo: 220, refroid: 0.10, sfe: 1.0, masseB: 3,
+  // collision
+  Ng: 12000, q: 0.6, rp: 14, exc: 1.0, i1: 15, i2: 60, friction: 0.007,
+  // affichage
+  palette: "neon", couleur: "nature", lum: 1.0, taille: 1.0, trainees: 0.0, fond: true, autoRot: true, infos: true
+};
+let dt = 0.04, temps = 0;
+
+// ---------------------------------------------------------------- état des particules
+let n = 0;                    // nombre de particules simulées
+let X, V, A, typ, naiss;      // positions, vitesses, accélérations, type, date de naissance
+// types : 0 gaz, 1 étoile, 2 disque 1, 3 disque 2, 4 bulbe
+let mPart = 0, eps = 0.3;
+// collision : deux noyaux
+const C = { M: [0, 0], x: new Float64Array(6), v: new Float64Array(6), a: new Float64Array(6), eps: [1, 1] };
+
+function allouer(nb) {
+  n = nb;
+  X = new Float32Array(3 * n); V = new Float32Array(3 * n); A = new Float32Array(3 * n);
+  typ = new Uint8Array(n); naiss = new Float32Array(n);
+}
+function gauss() { let u = 0, v = 0; while (u === 0) u = Math.random(); v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+
+// ================================================================ scénario 1 : nuage
+const RC_HALO = 2.0;
+let SMIN = 0.12, EPSN = 0.5;   // dispersion plancher du gaz (≈ 25 km/s), adoucissement (kpc)
+function vHalo() { return P.halo / KMS; }
+function initNuage() {
+  allouer(P.N);
+  temps = 0; dt = 0.05;
+  mPart = P.masseB / n; eps = EPSN;
+  const R = P.rayon, v0 = vHalo();
+  const vcR = Math.sqrt(P.masseB / R + v0 * v0 * R * R / (R * R + RC_HALO * RC_HALO));
+  const vc = r => Math.sqrt(P.masseB * r * r / (R * R * R) + v0 * v0 * r * r / (r * r + RC_HALO * RC_HALO));
+  for (let i = 0; i < n; i++) {
+    let x, y, z;
+    do { x = 2 * Math.random() - 1; y = 2 * Math.random() - 1; z = 2 * Math.random() - 1; } while (x * x + y * y + z * z > 1);
+    x *= R; y *= R; z *= R;
+    X[3 * i] = x; X[3 * i + 1] = y; X[3 * i + 2] = z;
+    // rotation autour de (Oz) : v_phi = lambda v_c(r) R/r, soit un moment cinétique croissant avec R
+    const r = Math.hypot(x, y, z) + 1e-9, om = P.lambda * vc(r) / r;
+    V[3 * i] = -om * y + P.disp * vcR * gauss();
+    V[3 * i + 1] = om * x + P.disp * vcR * gauss();
+    V[3 * i + 2] = P.disp * vcR * gauss();
+    typ[i] = 0; naiss[i] = 0;
+  }
+  retirerCentreMasse();
+  accelNuage();
+}
+function retirerCentreMasse() {
+  let cx = 0, cy = 0, cz = 0, vx = 0, vy = 0, vz = 0;
+  for (let i = 0; i < n; i++) { cx += X[3 * i]; cy += X[3 * i + 1]; cz += X[3 * i + 2]; vx += V[3 * i]; vy += V[3 * i + 1]; vz += V[3 * i + 2]; }
+  cx /= n; cy /= n; cz /= n; vx /= n; vy /= n; vz /= n;
+  for (let i = 0; i < n; i++) { X[3 * i] -= cx; X[3 * i + 1] -= cy; X[3 * i + 2] -= cz; V[3 * i] -= vx; V[3 * i + 1] -= vy; V[3 * i + 2] -= vz; }
+}
+
+// ---------- arbre de Barnes-Hut (tableaux typés), feuilles de B particules,
+//            interactions évaluées par groupes (une liste d'interaction par feuille)
+let cap = 0, nN = 0;
+let ch, par, feuille, tete, cnt, nm, sx, sy, sz, cx, cy, cz, demi;
+let suiv = new Int32Array(0);
+const MAXPROF = 22, THETA = 0.9, BFEUILLE = 12;
+const pile = new Int32Array(8192);
+let listeM = new Float64Array(4 * 4096), listeD = new Int32Array(4096);
+function allouerArbre(c) {
+  cap = c;
+  ch = new Int32Array(8 * c); par = new Int32Array(c); feuille = new Uint8Array(c);
+  tete = new Int32Array(c); cnt = new Int32Array(c);
+  nm = new Float64Array(c); sx = new Float64Array(c); sy = new Float64Array(c); sz = new Float64Array(c);
+  cx = new Float64Array(c); cy = new Float64Array(c); cz = new Float64Array(c); demi = new Float64Array(c);
+}
+function nouveauNoeud(p, o) {
+  if (nN >= cap) return -1;
+  const k = nN++, h = demi[p] / 2;
+  ch.fill(-1, 8 * k, 8 * k + 8);
+  par[k] = p; feuille[k] = 1; tete[k] = -1; cnt[k] = 0; demi[k] = h;
+  cx[k] = cx[p] + ((o & 1) ? h : -h); cy[k] = cy[p] + ((o & 2) ? h : -h); cz[k] = cz[p] + ((o & 4) ? h : -h);
+  ch[8 * p + o] = k;
+  return k;
+}
+function octant(k, i) { return (X[3 * i] >= cx[k] ? 1 : 0) | (X[3 * i + 1] >= cy[k] ? 2 : 0) | (X[3 * i + 2] >= cz[k] ? 4 : 0); }
+function inserer(i) {
+  let k = 0, prof = 0;
+  for (;;) {
+    if (feuille[k] === 0) {
+      const o = octant(k, i);
+      let c = ch[8 * k + o];
+      if (c < 0) { c = nouveauNoeud(k, o); if (c < 0) return false; }
+      k = c; prof++; continue;
+    }
+    suiv[i] = tete[k]; tete[k] = i; cnt[k]++;
+    if (cnt[k] > BFEUILLE && prof < MAXPROF) {       // on subdivise la feuille
+      feuille[k] = 0;
+      let j = tete[k]; tete[k] = -1; cnt[k] = 0;
+      while (j >= 0) {
+        const s = suiv[j], o = octant(k, j);
+        let c = ch[8 * k + o];
+        if (c < 0) { c = nouveauNoeud(k, o); if (c < 0) return false; }
+        suiv[j] = tete[c]; tete[c] = j; cnt[c]++;
+        j = s;
+      }
+    }
+    return true;
+  }
+}
+function construireArbre() {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (let i = 0; i < n; i++) {
+    const x = X[3 * i], y = X[3 * i + 1], z = X[3 * i + 2];
+    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; if (z < z0) z0 = z; if (z > z1) z1 = z;
+  }
+  if (suiv.length < n) suiv = new Int32Array(n);
+  if (cap < n + 64) allouerArbre(n + 64);
+  for (;;) {
+    nN = 1;
+    ch.fill(-1, 0, 8); par[0] = -1; feuille[0] = 1; tete[0] = -1; cnt[0] = 0;
+    cx[0] = (x0 + x1) / 2; cy[0] = (y0 + y1) / 2; cz[0] = (z0 + z1) / 2;
+    demi[0] = Math.max(x1 - x0, y1 - y0, z1 - z0) / 2 * 1.0001 + 1e-6;
+    let ok = true;
+    for (let i = 0; i < n && ok; i++) ok = inserer(i);
+    if (ok) break;
+    allouerArbre(2 * cap);
+  }
+  const m = mPart;
+  for (let k = 0; k < nN; k++) {
+    let a = 0, b = 0, c = 0;
+    if (feuille[k]) for (let j = tete[k]; j >= 0; j = suiv[j]) { a += X[3 * j]; b += X[3 * j + 1]; c += X[3 * j + 2]; }
+    nm[k] = feuille[k] ? m * cnt[k] : 0; sx[k] = m * a; sy[k] = m * b; sz[k] = m * c;
+  }
+  for (let k = nN - 1; k > 0; k--) { const p = par[k]; nm[p] += nm[k]; sx[p] += sx[k]; sy[p] += sy[k]; sz[p] += sz[k]; }
+  for (let k = 0; k < nN; k++) if (nm[k] > 0) { sx[k] /= nm[k]; sy[k] /= nm[k]; sz[k] /= nm[k]; }
+}
+function accelNuage() {
+  construireArbre();
+  const e2 = eps * eps, v02 = vHalo() * vHalo(), rc2 = RC_HALO * RC_HALO, m = mPart, iTh = 2 / THETA;
+  for (let g = 0; g < nN; g++) {
+    if (!feuille[g] || cnt[g] === 0) continue;
+    // liste d'interaction commune aux particules de la feuille g
+    const gx = cx[g], gy = cy[g], gz = cz[g], Rg = demi[g] * 1.7320508;
+    let nM = 0, nD = 0, sp = 0;
+    pile[sp++] = 0;
+    while (sp > 0) {
+      const k = pile[--sp];
+      if (nm[k] === 0) continue;
+      let loin = false;
+      if (k !== g) {
+        const dx = sx[k] - gx, dy = sy[k] - gy, dz = sz[k] - gz;
+        const d = Math.sqrt(dx * dx + dy * dy + dz * dz) - Rg;
+        loin = d > 0 && d > iTh * demi[k] && !(feuille[k] && cnt[k] <= 2);
+      }
+      if (loin) {
+        if (4 * nM + 4 > listeM.length) { const t = new Float64Array(2 * listeM.length); t.set(listeM); listeM = t; }
+        listeM[4 * nM] = sx[k]; listeM[4 * nM + 1] = sy[k]; listeM[4 * nM + 2] = sz[k]; listeM[4 * nM + 3] = nm[k]; nM++;
+      } else if (feuille[k]) {
+        if (nD + cnt[k] > listeD.length) { const t = new Int32Array(2 * listeD.length + cnt[k]); t.set(listeD); listeD = t; }
+        for (let j = tete[k]; j >= 0; j = suiv[j]) listeD[nD++] = j;
+      } else {
+        const b = 8 * k;
+        for (let o = 0; o < 8; o++) { const c = ch[b + o]; if (c >= 0) pile[sp++] = c; }
+      }
+    }
+    for (let i = tete[g]; i >= 0; i = suiv[i]) {
+      const x = X[3 * i], y = X[3 * i + 1], z = X[3 * i + 2];
+      let ax = 0, ay = 0, az = 0;
+      for (let q = 0; q < 4 * nM; q += 4) {
+        const dx = listeM[q] - x, dy = listeM[q + 1] - y, dz = listeM[q + 2] - z;
+        const r2 = dx * dx + dy * dy + dz * dz + e2, f = listeM[q + 3] / (r2 * Math.sqrt(r2));
+        ax += f * dx; ay += f * dy; az += f * dz;
+      }
+      let bx = 0, by = 0, bz = 0;
+      for (let q = 0; q < nD; q++) {
+        const j = listeD[q];
+        if (j === i) continue;
+        const dx = X[3 * j] - x, dy = X[3 * j + 1] - y, dz = X[3 * j + 2] - z;
+        const r2 = dx * dx + dy * dy + dz * dz + e2, f = 1 / (r2 * Math.sqrt(r2));
+        bx += f * dx; by += f * dy; bz += f * dz;
+      }
+      // halo de matière noire : potentiel logarithmique à cœur (courbe de rotation plate)
+      const r2 = x * x + y * y + z * z, h = v02 / (r2 + rc2);
+      A[3 * i] = ax + m * bx - h * x; A[3 * i + 1] = ay + m * by - h * y; A[3 * i + 2] = az + m * bz - h * z;
+    }
+  }
+}
+
+// ---------- gaz : refroidissement (amortissement des mouvements désordonnés) et formation d'étoiles
+const HB = 16, HT = 1 << HB, MASQUE = HT - 1, CELLULE = 1.0;
+// table de hachage à adressage ouvert : chaque case mémorise les indices (ix, iy, iz) de sa cellule
+const hc = new Int32Array(HT), hvx = new Float32Array(HT), hvy = new Float32Array(HT), hvz = new Float32Array(HT);
+const hix = new Int32Array(HT), hiy = new Int32Array(HT), hiz = new Int32Array(HT);
+let cle = new Int32Array(0);
+function gaz(h) {
+  if (cle.length < n) cle = new Int32Array(n);
+  hc.fill(0); hvx.fill(0); hvy.fill(0); hvz.fill(0);
+  for (let i = 0; i < n; i++) {
+    if (typ[i] !== 0) { cle[i] = -1; continue; }
+    const ix = Math.floor(X[3 * i] / CELLULE), iy = Math.floor(X[3 * i + 1] / CELLULE), iz = Math.floor(X[3 * i + 2] / CELLULE);
+    let k = ((ix * 73856093) ^ (iy * 19349663) ^ (iz * 83492791)) & MASQUE;
+    while (hc[k] > 0 && (hix[k] !== ix || hiy[k] !== iy || hiz[k] !== iz)) k = (k + 1) & MASQUE;
+    if (hc[k] === 0) { hix[k] = ix; hiy[k] = iy; hiz[k] = iz; }
+    cle[i] = k; hc[k]++; hvx[k] += V[3 * i]; hvy[k] += V[3 * i + 1]; hvz[k] += V[3 * i + 2];
+  }
+  const f = 1 - Math.exp(-P.refroid * h);
+  const smin = SMIN;                          // dispersion plancher du gaz (gaz « tiède »)
+  const rhoSeuil = 0.012;                     // seuil de densité de formation d'étoiles (1e10 Ms/kpc^3)
+  const vol = CELLULE * CELLULE * CELLULE, tauSF = 150;
+  for (let i = 0; i < n; i++) {
+    const k = cle[i];
+    if (k < 0) continue;
+    const c = hc[k];
+    if (c < 2) continue;
+    const mx = hvx[k] / c, my = hvy[k] / c, mz = hvz[k] / c;
+    const dx = V[3 * i] - mx, dy = V[3 * i + 1] - my, dz = V[3 * i + 2] - mz;
+    const s = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (s > smin && f > 0) {
+      const r = 1 - f * (1 - smin / s);
+      V[3 * i] = mx + dx * r; V[3 * i + 1] = my + dy * r; V[3 * i + 2] = mz + dz * r;
+    }
+    if (P.sfe > 0) {
+      const rho = c * mPart / vol;
+      if (rho > rhoSeuil) {
+        const p = P.sfe * h / tauSF * Math.min(Math.sqrt(rho / rhoSeuil), 3);
+        if (Math.random() < p) { typ[i] = 1; naiss[i] = temps; }
+      }
+    }
+  }
+}
+function pasNuage() {
+  const h = dt;
+  for (let j = 0; j < 3 * n; j++) V[j] += 0.5 * h * A[j];
+  for (let j = 0; j < 3 * n; j++) X[j] += h * V[j];
+  accelNuage();
+  for (let j = 0; j < 3 * n; j++) V[j] += 0.5 * h * A[j];
+  gaz(h);
+  temps += h;
+}
+
+// ================================================================ scénario 2 : collision
+function rotation(i, w) {   // matrice : rotation d'angle w autour de z puis inclinaison i autour de x
+  const ci = Math.cos(i), si = Math.sin(i), cw = Math.cos(w), sw = Math.sin(w);
+  return [cw, -sw * ci, sw * si, sw, cw * ci, -cw * si, 0, si, ci];
+}
+function app(m, x, y, z) { return [m[0] * x + m[1] * y + m[2] * z, m[3] * x + m[4] * y + m[5] * z, m[6] * x + m[7] * y + m[8] * z]; }
+function vcirc(M, e, r) { return Math.sqrt(M * r * r / Math.pow(r * r + e * e, 1.5)); }
+function initCollision() {
+  const ng = P.Ng;
+  const nb = Math.round(0.12 * ng);           // bulbe
+  const n2 = Math.max(400, Math.round(ng * Math.sqrt(P.q)));
+  const nb2 = Math.round(0.12 * n2);
+  allouer(ng + n2);
+  temps = 0; dt = 0.05;
+  const M1 = 10, M2 = 10 * P.q, Mt = M1 + M2;
+  C.M[0] = M1; C.M[1] = M2; C.eps[0] = 1.0; C.eps[1] = 1.0 * Math.sqrt(P.q);
+  // orbite relative képlérienne d'excentricité e et de péricentre rp
+  const e = P.exc, rp = P.rp;
+  let d0 = 70;
+  if (e < 1) d0 = Math.min(d0, 0.95 * rp * (1 + e) / (1 - e));
+  const L = Math.sqrt(Mt * rp * (1 + e));
+  const E = -Mt * (1 - e) / (2 * rp);
+  const v2 = 2 * (E + Mt / d0), vt = L / d0, vr = -Math.sqrt(Math.max(v2 - vt * vt, 0));
+  // position relative r = x2 - x1, sur l'axe x ; vitesse (vr, vt)
+  const rx = d0, ry = 0, vx = vr, vy = vt;
+  C.x[0] = -M2 / Mt * rx; C.x[1] = -M2 / Mt * ry; C.x[2] = 0;
+  C.x[3] = M1 / Mt * rx; C.x[4] = M1 / Mt * ry; C.x[5] = 0;
+  C.v[0] = -M2 / Mt * vx; C.v[1] = -M2 / Mt * vy; C.v[2] = 0;
+  C.v[3] = M1 / Mt * vx; C.v[4] = M1 / Mt * vy; C.v[5] = 0;
+  let i = 0;
+  const gal = [
+    { M: M1, e: C.eps[0], nd: ng - nb, nb: nb, Rd: 3.0, Rmax: 13, t: 2, m: rotation(P.i1 * Math.PI / 180, 0.3), o: 0 },
+    { M: M2, e: C.eps[1], nd: n2 - nb2, nb: nb2, Rd: 3.0 * Math.sqrt(P.q), Rmax: 13 * Math.sqrt(P.q), t: 3, m: rotation(P.i2 * Math.PI / 180, 1.2), o: 3 }
+  ];
+  for (const g of gal) {
+    for (let k = 0; k < g.nd; k++) {
+      let r;
+      do { r = -g.Rd * Math.log(Math.random() * Math.random()); } while (r < 0.15 * g.Rd || r > g.Rmax);
+      const ph = 2 * Math.PI * Math.random(), z = 0.05 * g.Rd * gauss();
+      const v = vcirc(g.M, g.e, r);
+      const p = app(g.m, r * Math.cos(ph), r * Math.sin(ph), z), w = app(g.m, -v * Math.sin(ph), v * Math.cos(ph), 0);
+      X[3 * i] = C.x[g.o] + p[0]; X[3 * i + 1] = C.x[g.o + 1] + p[1]; X[3 * i + 2] = C.x[g.o + 2] + p[2];
+      V[3 * i] = C.v[g.o] + w[0]; V[3 * i + 1] = C.v[g.o + 1] + w[1]; V[3 * i + 2] = C.v[g.o + 2] + w[2];
+      typ[i] = g.t; naiss[i] = -1000; i++;
+    }
+    for (let k = 0; k < g.nb; k++) {     // bulbe : orbites circulaires dans des plans quelconques
+      const r = Math.min(-0.5 * g.Rd * 0.4 * Math.log(Math.random()) + 0.2, 0.8 * g.Rd);
+      let ux = gauss(), uy = gauss(), uz = gauss(); const nu = Math.hypot(ux, uy, uz); ux /= nu; uy /= nu; uz /= nu;
+      let wx = gauss(), wy = gauss(), wz = gauss(); const s = wx * ux + wy * uy + wz * uz;
+      wx -= s * ux; wy -= s * uy; wz -= s * uz; const nw = Math.hypot(wx, wy, wz); wx /= nw; wy /= nw; wz /= nw;
+      const v = vcirc(g.M, g.e, r);
+      X[3 * i] = C.x[g.o] + r * ux; X[3 * i + 1] = C.x[g.o + 1] + r * uy; X[3 * i + 2] = C.x[g.o + 2] + r * uz;
+      V[3 * i] = C.v[g.o] + v * wx; V[3 * i + 1] = C.v[g.o + 1] + v * wy; V[3 * i + 2] = C.v[g.o + 2] + v * wz;
+      typ[i] = 4; naiss[i] = -1000; i++;
+    }
+  }
+  accelCollision();
+}
+function accelCollision() {
+  const M1 = C.M[0], M2 = C.M[1], e1 = C.eps[0] ** 2, e2 = C.eps[1] ** 2;
+  const x1 = C.x[0], y1 = C.x[1], z1 = C.x[2], x2 = C.x[3], y2 = C.x[4], z2 = C.x[5];
+  for (let i = 0; i < n; i++) {
+    const x = X[3 * i], y = X[3 * i + 1], z = X[3 * i + 2];
+    let dx = x1 - x, dy = y1 - y, dz = z1 - z, r2 = dx * dx + dy * dy + dz * dz + e1, f = M1 / (r2 * Math.sqrt(r2));
+    let ax = f * dx, ay = f * dy, az = f * dz;
+    dx = x2 - x; dy = y2 - y; dz = z2 - z; r2 = dx * dx + dy * dy + dz * dz + e2; f = M2 / (r2 * Math.sqrt(r2));
+    A[3 * i] = ax + f * dx; A[3 * i + 1] = ay + f * dy; A[3 * i + 2] = az + f * dz;
+  }
+  // noyaux (interaction adoucie : halos étendus)
+  const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1, r2 = dx * dx + dy * dy + dz * dz + 4, f = 1 / (r2 * Math.sqrt(r2));
+  C.a[0] = M2 * f * dx; C.a[1] = M2 * f * dy; C.a[2] = M2 * f * dz;
+  C.a[3] = -M1 * f * dx; C.a[4] = -M1 * f * dy; C.a[5] = -M1 * f * dz;
+}
+function pasCollision() {
+  const h = dt;
+  for (let j = 0; j < 3 * n; j++) V[j] += 0.5 * h * A[j];
+  for (let j = 0; j < 6; j++) C.v[j] += 0.5 * h * C.a[j];
+  for (let j = 0; j < 3 * n; j++) X[j] += h * V[j];
+  for (let j = 0; j < 6; j++) C.x[j] += h * C.v[j];
+  accelCollision();
+  for (let j = 0; j < 3 * n; j++) V[j] += 0.5 * h * A[j];
+  for (let j = 0; j < 6; j++) C.v[j] += 0.5 * h * C.a[j];
+  // friction dynamique : freine le mouvement relatif des noyaux quand les halos se recouvrent
+  if (P.friction > 0) {
+    const M1 = C.M[0], M2 = C.M[1], Mt = M1 + M2;
+    const dx = C.x[3] - C.x[0], dy = C.x[4] - C.x[1], dz = C.x[5] - C.x[2], d2 = dx * dx + dy * dy + dz * dz;
+    const g = P.friction * Math.exp(-d2 / 450), k = 1 - Math.exp(-g * h);
+    for (let c = 0; c < 3; c++) {
+      const vr = C.v[3 + c] - C.v[c];
+      C.v[c] += k * vr * M2 / Mt; C.v[3 + c] -= k * vr * M1 / Mt;
+    }
+  }
+  temps += h;
+}
+
+// ================================================================ rendu WebGL
+const canvas = document.getElementById("ciel");
+// WebGL2 + tampon flottant : on accumule la lumière sans saturation, puis on la « compresse » en gardant
+// la teinte (les cœurs denses restent colorés au lieu de virer au blanc). Sinon : WebGL1 direct.
+let gl = canvas.getContext("webgl2", { antialias: false, alpha: false, premultipliedAlpha: false });
+const HDR = !!(gl && gl.getExtension("EXT_color_buffer_float"));
+if (!HDR) gl = canvas.getContext("webgl", { preserveDrawingBuffer: true, antialias: false, alpha: false, premultipliedAlpha: false });
+const VS = `
+attribute vec3 a_pos; attribute vec3 a_col; attribute float a_taille;
+uniform mat4 u_mvp; uniform float u_echelle; uniform float u_fixe;
+varying vec3 v_col;
+void main() {
+  vec4 p = u_mvp * vec4(a_pos, 1.0);
+  gl_Position = p;
+  float s = u_fixe > 0.5 ? a_taille : a_taille * u_echelle / max(p.w, 0.5);
+  gl_PointSize = clamp(s, 1.0, 64.0);
+  v_col = a_col * (s < 1.0 ? s * s : 1.0);
+}`;
+const FS = `
+precision mediump float;
+varying vec3 v_col;
+void main() {
+  vec2 d = gl_PointCoord * 2.0 - 1.0;
+  float r2 = dot(d, d);
+  if (r2 > 1.0) discard;
+  float a = exp(-r2 * 9.0) + 0.22 * exp(-r2 * 2.5);
+  gl_FragColor = vec4(v_col * a, 1.0);
+}`;
+const VSQ = `attribute vec2 a_q; void main(){ gl_Position = vec4(a_q, 0.0, 1.0); }`;
+const FSQ = `precision mediump float; uniform vec4 u_c; void main(){ gl_FragColor = u_c; }`;
+const FST = `precision highp float; uniform sampler2D u_tex; uniform vec2 u_res;
+void main() {
+  vec3 c = texture2D(u_tex, gl_FragCoord.xy / u_res).rgb;
+  float L = max(max(c.r, c.g), c.b);
+  vec3 t = L > 1e-5 ? c * (1.0 - exp(-1.3 * L)) / L : c;
+  float b = 1.0 - exp(-1.3 * L);
+  t = mix(t, vec3(b), 0.35 * smoothstep(5.0, 40.0, L));   // seuls les cœurs très denses blanchissent
+  gl_FragColor = vec4(t, 1.0);
+}`;
+let progT, locT = {}, fbo = null, tex = null, fboW = 0, fboH = 0;
+function programme(vs, fs) {
+  const p = gl.createProgram();
+  for (const [t, s] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) {
+    const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+    gl.attachShader(p, sh);
+  }
+  gl.linkProgram(p);
+  return p;
+}
+let prog, progQ, bufPos, bufCol, bufTai, bufQ, bufFondP, bufFondC, bufFondT, loc = {}, locQ = {};
+let colArr = new Float32Array(0), taiArr = new Float32Array(0), posAff = new Float32Array(0);
+const NFOND = 2500;
+if (gl) {
+  prog = programme(VS, FS); progQ = programme(VSQ, FSQ);
+  for (const a of ["a_pos", "a_col", "a_taille"]) loc[a] = gl.getAttribLocation(prog, a);
+  for (const u of ["u_mvp", "u_echelle", "u_fixe"]) loc[u] = gl.getUniformLocation(prog, u);
+  locQ.a_q = gl.getAttribLocation(progQ, "a_q"); locQ.u_c = gl.getUniformLocation(progQ, "u_c");
+  if (HDR) {
+    progT = programme(VSQ, FST);
+    locT.a_q = gl.getAttribLocation(progT, "a_q"); locT.u_tex = gl.getUniformLocation(progT, "u_tex"); locT.u_res = gl.getUniformLocation(progT, "u_res");
+  }
+  bufPos = gl.createBuffer(); bufCol = gl.createBuffer(); bufTai = gl.createBuffer();
+  bufQ = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, bufQ);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  // étoiles de fond, sur une grande sphère
+  const fp = new Float32Array(3 * NFOND), fc = new Float32Array(3 * NFOND), ft = new Float32Array(NFOND);
+  for (let i = 0; i < NFOND; i++) {
+    let x = gauss(), y = gauss(), z = gauss(); const r = Math.hypot(x, y, z);
+    fp[3 * i] = 3000 * x / r; fp[3 * i + 1] = 3000 * y / r; fp[3 * i + 2] = 3000 * z / r;
+    const b = 0.08 + 0.35 * Math.pow(Math.random(), 4), t = Math.random();
+    fc[3 * i] = b * (0.75 + 0.25 * t); fc[3 * i + 1] = b * 0.85; fc[3 * i + 2] = b * (1 - 0.25 * t);
+    ft[i] = 1.5 + 2.5 * Math.random() * Math.random();
+  }
+  bufFondP = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, bufFondP); gl.bufferData(gl.ARRAY_BUFFER, fp, gl.STATIC_DRAW);
+  bufFondC = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, bufFondC); gl.bufferData(gl.ARRAY_BUFFER, fc, gl.STATIC_DRAW);
+  bufFondT = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, bufFondT); gl.bufferData(gl.ARRAY_BUFFER, ft, gl.STATIC_DRAW);
+}
+
+// ---------- caméra
+const cam = { lacet: 0.6, tangage: 0.55, dist: 70, cible: [0, 0, 0] };
+function mvp(asp) {
+  const cy = Math.cos(cam.lacet), sy = Math.sin(cam.lacet), cp = Math.cos(cam.tangage), sp = Math.sin(cam.tangage);
+  const t = cam.cible, ex = t[0] + cam.dist * cp * cy, ey = t[1] + cam.dist * cp * sy, ez = t[2] + cam.dist * sp;
+  let fx = t[0] - ex, fy = t[1] - ey, fz = t[2] - ez; let l = Math.hypot(fx, fy, fz); fx /= l; fy /= l; fz /= l;
+  // droite = f × haut(0,0,1)
+  let rx = fy, ry = -fx, rz = 0; l = Math.hypot(rx, ry) || 1; rx /= l; ry /= l;
+  const ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+  const fov = 45 * Math.PI / 180, f = 1 / Math.tan(fov / 2), pn = 0.5, pf = 20000;
+  const view = [rx, ux, -fx, 0, ry, uy, -fy, 0, rz, uz, -fz, 0,
+    -(rx * ex + ry * ey + rz * ez), -(ux * ex + uy * ey + uz * ez), (fx * ex + fy * ey + fz * ez), 1];
+  const proj = [f / asp, 0, 0, 0, 0, f, 0, 0, 0, 0, (pf + pn) / (pn - pf), -1, 0, 0, 2 * pf * pn / (pn - pf), 0];
+  const m = new Float32Array(16);
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
+    let s = 0; for (let k = 0; k < 4; k++) s += proj[k * 4 + r] * view[c * 4 + k]; m[c * 4 + r] = s;
+  }
+  return { m, droite: [rx, ry, rz], hautv: [ux, uy, uz] };
+}
+
+// ---------- couleurs
+function couleurs() {
+  const tot = P.scenario === "collision" ? n + 2 : n;
+  if (colArr.length < 3 * tot) { colArr = new Float32Array(3 * tot); taiArr = new Float32Array(tot); }
+  if (posAff.length < 3 * tot) posAff = new Float32Array(3 * tot);
+  const pal = PAL[P.palette], vit = P.couleur === "vitesse";
+  const base = P.lum * Math.pow(6000 / Math.max(n, 500), 0.4) * 0.6;
+  const T = 3.0 * base;
+  const tmp = [0, 0, 0];
+  for (let i = 0; i < n; i++) {
+    const t = typ[i]; let s = 1, b = base, c;
+    if (vit) {
+      const vx = V[3 * i], vy = V[3 * i + 1], vz = V[3 * i + 2];
+      degrade(pal.grad, Math.sqrt(vx * vx + vy * vy + vz * vz) / 1.6, tmp, 0); c = tmp;
+      if (t === 0) { s = 1.5; b = base * 0.6; }
+    } else if (t === 0) { c = pal.gaz; s = 1.7; b = base * 0.55; }
+    else if (t === 1) {
+      const age = (temps - naiss[i]) * MA;
+      const u = Math.min(Math.max((age - 60) / 1400, 0), 1);
+      tmp[0] = pal.jeune[0] + (pal.vieille[0] - pal.jeune[0]) * u;
+      tmp[1] = pal.jeune[1] + (pal.vieille[1] - pal.jeune[1]) * u;
+      tmp[2] = pal.jeune[2] + (pal.vieille[2] - pal.jeune[2]) * u;
+      c = tmp; b = base * (1.6 - 0.7 * u); s = 1.1 - 0.25 * u;
+    }
+    else if (t === 2) c = pal.A;
+    else if (t === 3) c = pal.B;
+    else { c = pal.vieille; b = base * 0.8; }
+    colArr[3 * i] = c[0] * b; colArr[3 * i + 1] = c[1] * b; colArr[3 * i + 2] = c[2] * b;
+    taiArr[i] = s;
+  }
+  posAff.set(X.subarray(0, 3 * n));
+  if (tot > n) for (let k = 0; k < 2; k++) {
+    const j = n + k;
+    posAff[3 * j] = C.x[3 * k]; posAff[3 * j + 1] = C.x[3 * k + 1]; posAff[3 * j + 2] = C.x[3 * k + 2];
+    colArr[3 * j] = pal.noyau[0] * T; colArr[3 * j + 1] = pal.noyau[1] * T; colArr[3 * j + 2] = pal.noyau[2] * T;
+    taiArr[j] = 5;
+  }
+  return tot;
+}
+
+function attrib(buf, l, k) { gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, k, gl.FLOAT, false, 0, 0); }
+function dessiner() {
+  if (!gl) return;
+  const w = canvas.width, h = canvas.height;
+  if (HDR) preparerTampon(w, h);
+  gl.viewport(0, 0, w, h);
+  gl.disable(gl.DEPTH_TEST);
+  gl.enable(gl.BLEND);
+  if (P.trainees > 0) {
+    gl.useProgram(progQ);
+    attrib(bufQ, locQ.a_q, 2);
+    gl.blendEquation(gl.FUNC_ADD);
+    gl.blendFunc(gl.ZERO, gl.CONSTANT_ALPHA);
+    gl.blendColor(0, 0, 0, P.trainees);
+    gl.uniform4f(locQ.u_c, 0, 0, 0, 1);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);   // retire les traces résiduelles
+    gl.blendFunc(gl.ONE, gl.ONE);
+    const r = HDR ? 0.004 : 1.5 / 255;
+    gl.uniform4f(locQ.u_c, r, r, r, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.disableVertexAttribArray(locQ.a_q);
+  } else {
+    gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+  gl.blendEquation(gl.FUNC_ADD);
+  gl.blendFunc(gl.ONE, gl.ONE);
+  gl.useProgram(prog);
+  const M = mvp(w / h);
+  gl.uniformMatrix4fv(loc.u_mvp, false, M.m);
+  const echelle = 5.5 * P.taille * h / 900 * 60;
+  if (P.fond) {
+    gl.uniform1f(loc.u_fixe, 1);
+    gl.uniform1f(loc.u_echelle, 1);
+    attrib(bufFondP, loc.a_pos, 3); attrib(bufFondC, loc.a_col, 3); attrib(bufFondT, loc.a_taille, 1);
+    gl.drawArrays(gl.POINTS, 0, NFOND);
+  }
+  const tot = couleurs();
+  gl.uniform1f(loc.u_fixe, 0);
+  gl.uniform1f(loc.u_echelle, echelle);
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufPos); gl.bufferData(gl.ARRAY_BUFFER, posAff.subarray(0, 3 * tot), gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(loc.a_pos); gl.vertexAttribPointer(loc.a_pos, 3, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufCol); gl.bufferData(gl.ARRAY_BUFFER, colArr.subarray(0, 3 * tot), gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(loc.a_col); gl.vertexAttribPointer(loc.a_col, 3, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufTai); gl.bufferData(gl.ARRAY_BUFFER, taiArr.subarray(0, tot), gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(loc.a_taille); gl.vertexAttribPointer(loc.a_taille, 1, gl.FLOAT, false, 0, 0);
+  gl.drawArrays(gl.POINTS, 0, tot);
+  for (const l of [loc.a_pos, loc.a_col, loc.a_taille]) gl.disableVertexAttribArray(l);
+  if (HDR) {     // compression de la lumière accumulée vers l'écran
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.disable(gl.BLEND);
+    gl.useProgram(progT);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.uniform1i(locT.u_tex, 0); gl.uniform2f(locT.u_res, w, h);
+    attrib(bufQ, locT.a_q, 2);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.disableVertexAttribArray(locT.a_q);
+  }
+}
+function preparerTampon(w, h) {
+  if (!fbo) { fbo = gl.createFramebuffer(); tex = gl.createTexture(); }
+  if (fboW !== w || fboH !== h) {
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+    for (const [a, b] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, a, b);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+    fboW = w; fboH = h;
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+}
+
+// ---------- taille du canvas
+const zone = document.getElementById("zone");
+function ajuster() {
+  const r = window.devicePixelRatio || 1, d = Math.min(r, 2);
+  const w = Math.max(1, Math.round(zone.clientWidth * d)), h = Math.max(1, Math.round(zone.clientHeight * d));
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w; canvas.height = h;
+    if (gl && !HDR) { gl.viewport(0, 0, w, h); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
+  }
+}
+new ResizeObserver(ajuster).observe(zone);
+window.addEventListener("resize", ajuster);
+
+// ---------- souris / tactile : tourner, zoomer, déplacer
+let glisse = null;
+canvas.addEventListener("contextmenu", e => e.preventDefault());
+canvas.addEventListener("pointerdown", e => {
+  canvas.setPointerCapture(e.pointerId);
+  glisse = { x: e.clientX, y: e.clientY, depl: e.button === 2 || e.shiftKey, id: e.pointerId };
+  canvas.classList.add("tire");
+});
+canvas.addEventListener("pointermove", e => {
+  if (!glisse || e.pointerId !== glisse.id) return;
+  const dx = e.clientX - glisse.x, dy = e.clientY - glisse.y;
+  glisse.x = e.clientX; glisse.y = e.clientY;
+  if (glisse.depl) {
+    const M = mvp(canvas.width / canvas.height), k = cam.dist / zone.clientHeight * 0.83;
+    for (let c = 0; c < 3; c++) cam.cible[c] += (-dx * M.droite[c] + dy * M.hautv[c]) * k;
+  } else {
+    cam.lacet -= dx * 0.006;
+    cam.tangage = Math.min(Math.max(cam.tangage + dy * 0.006, -1.55), 1.55);
+  }
+  effacerTraces();
+});
+function finGlisse() { glisse = null; canvas.classList.remove("tire"); }
+canvas.addEventListener("pointerup", finGlisse);
+canvas.addEventListener("pointercancel", finGlisse);
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  cam.dist = Math.min(Math.max(cam.dist * Math.exp(e.deltaY * 0.0012), 5), 800);
+  effacerTraces();
+}, { passive: false });
+function effacerTraces() {
+  if (!gl || P.trainees === 0) return;
+  if (HDR) { if (!fbo) return; gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); }
+  gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+}
+
+// ================================================================ panneau de commandes
+function el(tag, at, parent) {
+  const e = document.createElement(tag);
+  if (at) for (const k in at) {
+    if (k === "text") e.textContent = at[k];
+    else if (k === "html") e.innerHTML = at[k];
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), at[k]);
+    else e.setAttribute(k, at[k]);
+  }
+  if (parent) parent.appendChild(e);
+  return e;
+}
+const pan = document.getElementById("panneau");
+const haut = el("div", { class: "haut" }, pan);
+el("a", { class: "retour", href: "index.html", text: "← Sommaire" }, haut);
+el("span", { class: "etiquette", text: "MP* Malherbe" }, haut);
+el("h1", { text: "Formation d'une galaxie" }, pan);
+
+function section(titre, parent) { const s = el("div", { class: "section" }, parent || pan); if (titre) el("div", { class: "titre", text: titre }, s); return s; }
+function curseur(parent, lab, cle, min, max, pas, fmt, redem, apres) {
+  const c = el("div", { class: "curseur" }, parent);
+  const t = el("div", { class: "tete" }, c);
+  const l = el("span", { html: lab }, t);
+  if (redem) el("span", { class: "redem", text: "↻", title: "Pris en compte au redémarrage" }, l);
+  const v = el("span", { class: "valeur" }, t);
+  const r = el("input", { type: "range", min, max, step: pas }, c);
+  r.value = P[cle];
+  const maj = () => { v.innerHTML = fmt(P[cle]); };
+  r.addEventListener("input", () => { P[cle] = parseFloat(r.value); maj(); if (apres) apres(); });
+  maj();
+  return r;
+}
+function caseC(parent, lab, cle, apres) {
+  const l = el("label", { class: "choix" }, parent);
+  const i = el("input", { type: "checkbox" }, l); i.checked = P[cle];
+  el("span", { html: lab }, l);
+  i.addEventListener("change", () => { P[cle] = i.checked; if (apres) apres(); });
+  return i;
+}
+const fr = (x, d) => x.toFixed(d).replace(".", ",");
+
+// scénario
+const sScen = section("Scénario");
+const radios = {};
+for (const [k, lab] of [["nuage", "Effondrement d'un nuage de gaz en rotation"], ["collision", "Collision de deux galaxies"]]) {
+  const l = el("label", { class: "choix" }, sScen);
+  const r = el("input", { type: "radio", name: "scen" }, l); r.checked = P.scenario === k;
+  el("span", { text: lab }, l);
+  r.addEventListener("change", () => { if (r.checked) { P.scenario = k; majScenario(); recommencer(true); } });
+  radios[k] = r;
+}
+const noteScen = el("div", { class: "note" }, sScen);
+
+// temps
+const sTemps = section("Temps");
+const bt = el("div", { class: "boutons" }, sTemps);
+const bLecture = el("button", { class: "b", onclick: () => { P.lecture = !P.lecture; majLecture(); } }, bt);
+el("button", { class: "b", text: "↻ Recommencer", onclick: () => recommencer(false) }, bt);
+el("button", { class: "b", text: "⛶ Plein écran", onclick: pleinEcran }, bt);
+curseur(sTemps, "Vitesse de la simulation", "pasParImage", 1, 10, 1, v => "×" + v);
+function majLecture() { bLecture.textContent = P.lecture ? "❚❚ Pause" : "▶ Lecture"; bLecture.classList.toggle("actif", !P.lecture); }
+majLecture();
+
+// paramètres physiques : nuage
+const sNuage = section("Paramètres physiques");
+curseur(sNuage, "Nombre de particules", "N", 1000, 14000, 500, v => v, true);
+curseur(sNuage, "Masse de gaz", "masseB", 2, 12, 0.5, v => fr(v, 1) + "×10<sup>10</sup> M<sub>☉</sub>", true);
+curseur(sNuage, "Rayon initial du nuage", "rayon", 8, 35, 1, v => v + " kpc", true);
+curseur(sNuage, "Rotation initiale (fraction de v<sub>circ</sub>)", "lambda", 0, 1.2, 0.05, v => fr(v, 2), true);
+curseur(sNuage, "Agitation initiale (fraction de v<sub>circ</sub>)", "disp", 0, 0.5, 0.01, v => fr(v, 2), true);
+curseur(sNuage, "Halo de matière noire (v<sub>circ</sub> du halo)", "halo", 0, 320, 10, v => v + " km/s");
+curseur(sNuage, "Refroidissement du gaz", "refroid", 0, 0.5, 0.01, v => v === 0 ? "aucun" : "τ ≈ " + Math.round(MA / v) + " Ma");
+curseur(sNuage, "Efficacité de formation d'étoiles", "sfe", 0, 2, 0.05, v => v === 0 ? "aucune" : fr(v, 2));
+el("div", { class: "note", html: "↻ : pris en compte au redémarrage. Les autres réglages agissent immédiatement." }, sNuage);
+
+// paramètres physiques : collision
+const sColl = section("Paramètres physiques");
+curseur(sColl, "Particules par galaxie", "Ng", 2000, 40000, 1000, v => v, true);
+curseur(sColl, "Rapport des masses M<sub>2</sub>/M<sub>1</sub>", "q", 0.1, 1, 0.05, v => fr(v, 2), true);
+curseur(sColl, "Distance au péricentre", "rp", 2, 40, 1, v => v + " kpc", true);
+curseur(sColl, "Excentricité de l'orbite", "exc", 0.5, 1.5, 0.05, v => fr(v, 2) + (Math.abs(v - 1) < 1e-9 ? " (parabole)" : v < 1 ? " (ellipse)" : " (hyperbole)"), true);
+curseur(sColl, "Inclinaison du disque 1", "i1", 0, 180, 5, v => v + "°" + (v > 90 ? " (rétrograde)" : ""), true);
+curseur(sColl, "Inclinaison du disque 2", "i2", 0, 180, 5, v => v + "°" + (v > 90 ? " (rétrograde)" : ""), true);
+curseur(sColl, "Friction dynamique (fusion)", "friction", 0, 0.05, 0.001, v => v === 0 ? "aucune" : fr(v, 3));
+el("div", { class: "note", html: "↻ : pris en compte au redémarrage. Inclinaisons mesurées par rapport au plan de l'orbite; au-delà de 90°, le disque tourne en sens inverse du mouvement orbital." }, sColl);
+
+// affichage
+const sAff = section("Couleurs et affichage");
+const selPal = el("select", {}, sAff);
+for (const k in PALETTES) el("option", { value: k, text: PALETTES[k].nom }, selPal);
+selPal.value = P.palette;
+selPal.addEventListener("change", () => { P.palette = selPal.value; majLegende(); });
+const lc = el("div", { style: "margin-top:6px" }, sAff);
+for (const [k, lab] of [["nature", "Couleur selon la nature (gaz, étoiles, galaxie)"], ["vitesse", "Couleur selon la vitesse"]]) {
+  const l = el("label", { class: "choix" }, lc);
+  const r = el("input", { type: "radio", name: "coul" }, l); r.checked = P.couleur === k;
+  el("span", { text: lab }, l);
+  r.addEventListener("change", () => { if (r.checked) { P.couleur = k; majLegende(); } });
+}
+curseur(sAff, "Luminosité", "lum", 0.2, 3, 0.05, v => fr(v, 2));
+curseur(sAff, "Taille des points", "taille", 0.4, 3, 0.05, v => fr(v, 2));
+curseur(sAff, "Traînées lumineuses", "trainees", 0, 0.97, 0.01, v => v === 0 ? "aucune" : fr(v, 2), false, effacerTraces);
+caseC(sAff, "Étoiles d'arrière-plan", "fond");
+caseC(sAff, "Afficher le temps et la légende", "infos", majLegende);
+
+// caméra
+const sCam = section("Caméra");
+caseC(sCam, "Rotation automatique", "autoRot");
+const bc = el("div", { class: "boutons" }, sCam);
+el("button", { class: "b", text: "De face", onclick: () => vue(1.5) }, bc);
+el("button", { class: "b", text: "Oblique", onclick: () => vue(0.55) }, bc);
+el("button", { class: "b", text: "De profil", onclick: () => vue(0.02) }, bc);
+el("button", { class: "b", text: "Recentrer", onclick: () => { cam.cible = [0, 0, 0]; cam.dist = P.scenario === "nuage" ? 45 : 110; effacerTraces(); } }, bc);
+el("div", { class: "note", html: "Glisser: tourner. Molette: zoomer. Clic droit ou Maj + glisser: déplacer.<br>Clavier: Espace = pause, R = recommencer, F = plein écran." }, sCam);
+
+const sModele = section("Le modèle");
+const noteModele = el("div", { class: "note" }, sModele);
+
+function vue(t) { cam.tangage = t; effacerTraces(); }
+function majScenario() {
+  const nu = P.scenario === "nuage";
+  sNuage.classList.toggle("cache", !nu);
+  sColl.classList.toggle("cache", nu);
+  noteScen.innerHTML = nu
+    ? "Un nuage de gaz en rotation s'effondre sous sa propre gravité. Le gaz dissipe son énergie mais conserve son moment cinétique: il s'aplatit en un disque où naissent des étoiles, puis des bras spiraux."
+    : "Deux galaxies spirales se croisent sur une orbite képlérienne. Les forces de marée arrachent des queues et des ponts d'étoiles; la friction dynamique finit par faire fusionner les deux noyaux.";
+  noteModele.innerHTML = nu
+    ? "Unités: 1 kpc, 10<sup>10</sup> M<sub>☉</sub>, G = 1 (unité de temps 4,7 Ma). Autogravité des particules calculée par un arbre de Barnes-Hut (θ = 0,9, adoucissement 0,3 kpc), halo de matière noire fixe de potentiel Φ = ½ v<sub>h</sub><sup>2</sup> ln(r<sup>2</sup> + r<sub>c</sub><sup>2</sup>). Le refroidissement amortit la dispersion des vitesses du gaz dans chaque cellule de 1 kpc (sans toucher à la vitesse moyenne locale, donc au moment cinétique). Le gaz assez dense se transforme en étoiles, qui n'interagissent plus que par gravité. Intégration saute-mouton."
+    : "Méthode de Toomre (1972): chaque galaxie est réduite à un noyau massif (potentiel de Plummer) entouré d'un disque et d'un bulbe de particules-test sur orbites circulaires. Les noyaux s'attirent mutuellement; les particules ne ressentent que les deux noyaux. La friction dynamique (freinage du mouvement relatif quand les halos se recouvrent) permet la fusion. Intégration saute-mouton.";
+  majLegende();
+}
+
+// légende
+const leg = document.getElementById("legende"), hud = document.getElementById("hud");
+function css(c) { return "rgb(" + c.map(x => Math.round(255 * x)).join(",") + ")"; }
+function majLegende() {
+  leg.style.display = hud.style.display = P.infos ? "" : "none";
+  const pal = PAL[P.palette], p = PALETTES[P.palette];
+  const pt = (c, t) => `<div><i style="background:${css(c)};box-shadow:0 0 8px ${css(c)}"></i>${t}</div>`;
+  if (P.couleur === "vitesse") {
+    leg.innerHTML = `<div>lente<span class="degrade" style="background:linear-gradient(90deg,${p.grad.join(",")})"></span>rapide (≥ ${Math.round(1.6 * KMS)} km/s)</div>`;
+  } else if (P.scenario === "nuage") {
+    leg.innerHTML = pt(pal.gaz, "gaz") + pt(pal.jeune, "étoiles jeunes") + pt(pal.vieille, "étoiles âgées (> 1,5 Ga)");
+  } else {
+    leg.innerHTML = pt(pal.A, "disque de la galaxie 1") + pt(pal.B, "disque de la galaxie 2") + pt(pal.vieille, "bulbes") + pt(pal.noyau, "noyaux");
+  }
+}
+function majHud() {
+  if (!P.infos) return;
+  let s = `<div class="grand">${P.scenario === "nuage" ? "Effondrement d'un nuage en rotation" : "Collision de deux galaxies"}</div>`;
+  s += `<div>t = <span class="t">${Math.round(temps * MA)} Ma</span></div>`;
+  if (P.scenario === "nuage") {
+    let ne = 0; for (let i = 0; i < n; i++) ne += typ[i];
+    s += `<div>étoiles formées: <span class="t">${Math.round(100 * ne / n)} %</span> de la masse</div>`;
+  } else {
+    const d = Math.hypot(C.x[3] - C.x[0], C.x[4] - C.x[1], C.x[5] - C.x[2]);
+    s += `<div>distance des noyaux: <span class="t">${Math.round(d)} kpc</span></div>`;
+  }
+  hud.innerHTML = s;
+}
+
+// ---------- démarrage, boucle
+function recommencer(changement) {
+  if (P.scenario === "nuage") initNuage(); else initCollision();
+  if (changement) { cam.cible = [0, 0, 0]; cam.dist = P.scenario === "nuage" ? 45 : 110; cam.tangage = P.scenario === "nuage" ? 0.95 : 0.9; }
+  effacerTraces();
+  majHud();
+}
+function pleinEcran() {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else if (zone.requestFullscreen) zone.requestFullscreen();
+}
+window.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" && e.target.type !== "range" && e.target.type !== "radio" && e.target.type !== "checkbox") return;
+  if (e.key === " ") { e.preventDefault(); P.lecture = !P.lecture; majLecture(); }
+  else if (e.key === "r" || e.key === "R") recommencer(false);
+  else if (e.key === "f" || e.key === "F") pleinEcran();
+});
+
+let tPrec = performance.now(), compte = 0;
+function boucle(t) {
+  const ecart = Math.min((t - tPrec) / 1000, 0.1); tPrec = t;
+  if (P.lecture) {
+    const debut = performance.now();
+    for (let k = 0; k < P.pasParImage; k++) {
+      if (P.scenario === "nuage") pasNuage(); else pasCollision();
+      if (performance.now() - debut > 45) break;     // garde l'animation fluide
+    }
+  }
+  if (P.autoRot && !glisse) cam.lacet += ecart * 0.12;
+  dessiner();
+  if (++compte % 6 === 0) majHud();
+  requestAnimationFrame(boucle);
+}
+
+if (!gl) {
+  const m = document.getElementById("message");
+  m.style.display = "block";
+  m.textContent = "Votre navigateur ne prend pas en charge WebGL: l'affichage est impossible.";
+} else {
+  ajuster();
+  majScenario();
+  recommencer(true);
+  requestAnimationFrame(boucle);
+}
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

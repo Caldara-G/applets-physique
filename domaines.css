@@ -16,6 +16,7 @@
 [data-domaine="optique"]   { --dom: #6d28d9; --dom-vif: #8b5cf6; --nom: "Optique"; }
 [data-domaine="quantique"] { --dom: #be185d; --dom-vif: #ec4899; --nom: "Quantique"; }
 [data-domaine="stat"]      { --dom: #7c4a1e; --dom-vif: #b45309; --nom: "Physique statistique"; }
+[data-domaine="complements"] { --dom: #a3008f; --dom-vif: #ff2bd6; --nom: "Compléments"; }
 
 /* ---------- dans les applets ---------- */
 html[data-domaine] body::before {
