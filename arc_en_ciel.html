@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L'arc-en-ciel — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Arc-en-ciel : tracé de rayons dans une goutte sphérique (coupe plane), lois de Snell-Descartes,
+   coefficients de Fresnel (lumière non polarisée), dispersion de l'eau n(λ) = A + B/λ² (Cauchy).
+   Vue du ciel : intensité diffusée en fonction de l'angle avec le point antisolaire, obtenue en
+   accumulant les rayons (histogramme pondéré par Fresnel), puis convertie en couleur. */
+const C = Cadre("L'arc-en-ciel", "Arc-en-ciel");
+const ctx = C.ctx;
+const P = { vue: "goutte", ordre: "1", lumiere: "blanche", nRayons: 120, lambda: 600, hauteur: 15, descartes: true, balayage: true };
+const A_C = 1.3251, B_C = 2945;             // n(400 nm) = 1,3435 ; n(700 nm) = 1,3311
+const nEau = l => A_C + B_C / (l * l);
+function couleurOnde(l) {
+  // approximation usuelle de la couleur perçue d'une radiation monochromatique
+  let r = 0, g = 0, b = 0;
+  if (l < 440) { r = -(l - 440) / 60; b = 1; } else if (l < 490) { g = (l - 440) / 50; b = 1; }
+  else if (l < 510) { g = 1; b = -(l - 510) / 20; } else if (l < 580) { r = (l - 510) / 70; g = 1; }
+  else if (l < 645) { r = 1; g = -(l - 645) / 65; } else r = 1;
+  const f = l < 420 ? 0.3 + 0.7 * (l - 380) / 40 : l > 700 ? 0.3 + 0.7 * (780 - l) / 80 : 1;
+  return [r * f, g * f, b * f].map(v => Math.round(255 * Math.pow(Math.max(0, v), 0.8)));
+}
+function fresnelR(cosi, cost, n1, n2) {
+  const rs = (n1 * cosi - n2 * cost) / (n1 * cosi + n2 * cost), rp = (n2 * cosi - n1 * cost) / (n2 * cosi + n1 * cost);
+  return 0.5 * (rs * rs + rp * rp);
+}
+// Rayon horizontal de paramètre d'impact b (rayon de la goutte = 1) : renvoie la liste des points et l'intensité
+function tracer(b, n, k) {
+  const i = Math.asin(b), r = Math.asin(b / n);
+  const ci = Math.cos(i), cr = Math.cos(r);
+  const R1 = fresnelR(ci, cr, 1, n), Rint = fresnelR(cr, ci, n, 1);
+  let I = (1 - R1) * Math.pow(Rint, k) * (1 - Rint);
+  // géométrie : on avance de corde en corde ; angle polaire du point d'entrée π − i
+  let phi = Math.PI - i;
+  const pts = [[Math.cos(phi), Math.sin(phi)]];
+  const pasAngle = Math.PI - 2 * r;              // angle au centre d'une corde
+  for (let m = 0; m <= k; m++) { phi -= pasAngle; pts.push([Math.cos(phi), Math.sin(phi)]); }
+  // direction de sortie : déviation totale D = (i − r) + k(π − 2r) + (i − r) dans le sens horaire
+  const D = 2 * (i - r) + k * (Math.PI - 2 * r);
+  return { pts, I, D, dir: [Math.cos(-D), Math.sin(-D)] };
+}
+// angle de l'arc par rapport au point antisolaire (en degrés)
+function angleArc(D) { let a = Math.abs(Math.PI - (D % (2 * Math.PI))); return a * 180 / Math.PI; }
+
+// ---------------------------------------------------------------- vue « goutte »
+let tBal = 0;
+function lambdas() {
+  if (P.lumiere === "mono") return [P.lambda];
+  const L = []; for (let l = 400; l <= 700; l += 20) L.push(l); return L;
+}
+function dessinerGoutte() {
+  C.effacer();
+  const R = Math.min(C.W * 0.26, C.H * 0.3), cx = C.W * 0.55, cy = C.H * 0.42;
+  // goutte
+  const g = ctx.createRadialGradient(cx - R * 0.3, cy - R * 0.3, R * 0.1, cx, cy, R);
+  g.addColorStop(0, "rgba(120,190,255,0.20)"); g.addColorStop(1, "rgba(60,120,255,0.07)");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.2832); ctx.fill();
+  ctx.strokeStyle = "rgba(140,200,255,0.7)"; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.globalCompositeOperation = "lighter";
+  const ordres = P.ordre === "12" ? [1, 2] : [+P.ordre];
+  const Ls = lambdas(), nR = Math.round(P.nRayons);
+  const Lfar = Math.max(C.W, C.H) * 1.5;
+  for (const k of ordres) for (const l of Ls) {
+    const n = nEau(l), col = couleurOnde(l);
+    for (let j = 0; j < nR; j++) {
+      const b = (j + 0.5) / nR;
+      const tr = tracer(b, n, k);
+      const mono = P.lumiere === "mono";
+      const a = Math.min(1, tr.I * (mono ? 9 : 0.9)) * (k === 2 ? 1.8 : 1);
+      // rayon incident venant de la gauche (ordre 1 : rayons au-dessus de l'axe ; ordre 2 : au-dessous, pour séparer)
+      const s = k === 2 ? -1 : 1;
+      const p0 = tr.pts[0];
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},${mono ? 0.3 : 0.045})`;
+      ctx.beginPath(); ctx.moveTo(0, cy - s * p0[1] * R); ctx.lineTo(cx + p0[0] * R, cy - s * p0[1] * R); ctx.stroke();
+      ctx.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},${a})`;
+      ctx.beginPath();
+      ctx.moveTo(cx + p0[0] * R, cy - s * p0[1] * R);
+      for (let m = 1; m < tr.pts.length; m++) ctx.lineTo(cx + tr.pts[m][0] * R, cy - s * tr.pts[m][1] * R);
+      const pe = tr.pts[tr.pts.length - 1];
+      ctx.lineTo(cx + pe[0] * R + tr.dir[0] * Lfar, cy - s * (pe[1] * R + tr.dir[1] * Lfar));
+      ctx.stroke();
+    }
+  }
+  // rayon de Descartes (déviation minimale) pour la longueur d'onde médiane
+  if (P.descartes) {
+    for (const k of ordres) {
+      const n = nEau(P.lumiere === "mono" ? P.lambda : 580);
+      const b = Math.sqrt(((k + 1) ** 2 - n * n) / ((k + 1) ** 2 - 1));   // cos²i = (n² − 1)/(k(k + 2))
+      const tr = tracer(b, n, k), s = k === 2 ? -1 : 1;
+      ctx.globalCompositeOperation = "source-over";
+      ctx.setLineDash([6, 5]); ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      const p0 = tr.pts[0];
+      ctx.moveTo(0, cy - s * p0[1] * R); ctx.lineTo(cx + p0[0] * R, cy - s * p0[1] * R);
+      for (let m = 1; m < tr.pts.length; m++) ctx.lineTo(cx + tr.pts[m][0] * R, cy - s * tr.pts[m][1] * R);
+      const pe = tr.pts[tr.pts.length - 1];
+      ctx.lineTo(cx + pe[0] * R + tr.dir[0] * Lfar, cy - s * (pe[1] * R + tr.dir[1] * Lfar));
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = "#fff"; ctx.font = "13px system-ui";
+      const ang = angleArc(tr.D);
+      const ex = cx + pe[0] * R + tr.dir[0] * R * 1.25, ey = cy - s * (pe[1] * R + tr.dir[1] * R * 1.25);
+      ctx.fillText(`rayon de Descartes (${k === 1 ? "arc primaire" : "arc secondaire"}): ${C.fr(ang, 1)}°`, Math.max(8, Math.min(C.W - 320, ex - 120)), Math.max(110, Math.min(C.H - 70, ey + (s > 0 ? 18 : -8))));
+    }
+  }
+  ctx.globalCompositeOperation = "source-over";
+  // soleil
+  ctx.fillStyle = "#ffe600"; ctx.font = "bold 13px system-ui"; ctx.fillText("lumière du Soleil →", 14, 96);
+  encartDeviation();
+}
+// encart : angle avec l'antisolaire en fonction du paramètre d'impact
+function encartDeviation() {
+  const w = 280, h = 160, x0 = C.W - w - 14, y0 = C.H - h - 50;
+  ctx.fillStyle = "rgba(10,5,20,0.85)"; ctx.fillRect(x0, y0, w, h);
+  ctx.strokeStyle = "rgba(255,43,214,0.5)"; ctx.lineWidth = 1; ctx.strokeRect(x0, y0, w, h);
+  const X = b => x0 + 34 + (w - 44) * b, Y = a => y0 + h - 22 - (h - 40) * a / 60;
+  ctx.font = "11px system-ui"; ctx.fillStyle = "#a8a2c0"; ctx.textAlign = "right";
+  for (const a of [0, 20, 40, 60]) { ctx.fillText(a + "°", x0 + 30, Y(a) + 4); ctx.strokeStyle = "rgba(255,255,255,0.08)"; ctx.beginPath(); ctx.moveTo(x0 + 34, Y(a)); ctx.lineTo(x0 + w - 8, Y(a)); ctx.stroke(); }
+  ctx.textAlign = "left"; ctx.fillStyle = "#fff"; ctx.fillText("angle avec le point antisolaire", x0 + 8, y0 + 13);
+  ctx.fillStyle = "#a8a2c0"; ctx.textAlign = "right"; ctx.fillText("b/R", x0 + w - 6, y0 + h - 6); ctx.textAlign = "left";
+  const ordres = P.ordre === "12" ? [1, 2] : [+P.ordre];
+  for (const k of ordres) for (const l of [410, 470, 530, 590, 650, 700]) {
+    const c = couleurOnde(l); ctx.strokeStyle = `rgb(${c[0]},${c[1]},${c[2]})`; ctx.lineWidth = 1.3; ctx.beginPath();
+    for (let j = 0; j <= 100; j++) { const b = j / 100 * 0.999, a = angleArc(tracer(b, nEau(l), k).D); j ? ctx.lineTo(X(b), Y(Math.min(62, a))) : ctx.moveTo(X(b), Y(Math.min(62, a))); }
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#ffe600"; ctx.fillText("extremum: les rayons s'accumulent", x0 + 40, y0 + 28);
+}
+
+// ---------------------------------------------------------------- vue « ciel »
+let ciel = null, cielH = -1;
+function calculerCiel() {
+  // intensité I(θ) pour chaque longueur d'onde, θ de 0 à 70° par pas de 0,05°
+  const NB = 1400, dth = 70 / NB, rgb = new Float32Array(3 * NB);
+  for (let l = 400; l <= 700; l += 5) {
+    const n = nEau(l), c = couleurOnde(l);
+    const hist = new Float32Array(NB);
+    for (const k of [1, 2]) for (let j = 0; j < 20000; j++) {
+      const b = (j + 0.5) / 20000, tr = tracer(b, n, k);
+      const a = angleArc(tr.D), m = Math.floor(a / dth);
+      // poids : b db (section efficace d'une goutte sphérique) × Fresnel, divisé par sin θ (angle solide)
+      if (m >= 0 && m < NB) hist[m] += b * tr.I / Math.max(0.02, Math.sin(a * Math.PI / 180));
+    }
+    for (let m = 0; m < NB; m++) for (let q = 0; q < 3; q++) rgb[3 * m + q] += hist[m] * c[q];
+  }
+  // lissage léger (taille angulaire du Soleil ≈ 0,5°)
+  const lis = new Float32Array(3 * NB), w = 5;
+  for (let m = 0; m < NB; m++) for (let q = 0; q < 3; q++) {
+    let s = 0, cpt = 0; for (let d = -w; d <= w; d++) { const k = m + d; if (k >= 0 && k < NB) { s += rgb[3 * k + q]; cpt++; } }
+    lis[3 * m + q] = s / cpt;
+  }
+  let mx = 0; for (let m = Math.round(30 / dth); m < NB; m++) mx = Math.max(mx, lis[3 * m], lis[3 * m + 1], lis[3 * m + 2]);
+  ciel = { rgb: lis, NB, dth, mx };
+}
+function dessinerCiel() {
+  if (!ciel) calculerCiel();
+  // fond : ciel d'orage gris-bleu, plus clair à l'intérieur de l'arc primaire
+  const W = C.W, H = C.H, hor = H * 0.78;
+  const echelle = Math.min(W / 2, hor) / 62;              // pixels par degré
+  const ax = W / 2, ay = hor + P.hauteur * echelle;         // point antisolaire, sous l'horizon
+  const cv = document.createElement("canvas"), w2 = Math.round(W / 2), h2 = Math.round(H / 2);
+  cv.width = w2; cv.height = h2;
+  const c2 = cv.getContext("2d"), im = c2.createImageData(w2, h2), d = im.data;
+  for (let j = 0; j < h2; j++) for (let i = 0; i < w2; i++) {
+    const X = i * 2, Y = j * 2, k = 4 * (j * w2 + i);
+    const th = Math.hypot(X - ax, Y - ay) / echelle;
+    const m = Math.floor(th / ciel.dth);
+    let r = 40 + 25 * (1 - Y / H), g = 45 + 30 * (1 - Y / H), b = 70 + 45 * (1 - Y / H);
+    if (m < ciel.NB) {
+      const f = 230 / ciel.mx;
+      r += ciel.rgb[3 * m] * f; g += ciel.rgb[3 * m + 1] * f; b += ciel.rgb[3 * m + 2] * f;
+    }
+    if (Y > hor) { const p = Math.min(1, (Y - hor) / (H - hor)); r = 20 + 10 * (1 - p); g = 30 + 20 * (1 - p); b = 20; }
+    d[k] = Math.min(255, r); d[k + 1] = Math.min(255, g); d[k + 2] = Math.min(255, b); d[k + 3] = 255;
+  }
+  c2.putImageData(im, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(cv, 0, 0, W, H);
+  // collines
+  ctx.fillStyle = "#0b1a0e"; ctx.beginPath(); ctx.moveTo(0, H);
+  for (let x = 0; x <= W; x += 8) ctx.lineTo(x, hor - 10 * Math.sin(x / 90) - 6 * Math.sin(x / 37 + 1));
+  ctx.lineTo(W, H); ctx.fill();
+  // annotations
+  ctx.font = "13px system-ui"; ctx.textAlign = "left";
+  const lab = (deg, txt, coul) => { const y = ay - deg * echelle; if (y > 20) { ctx.fillStyle = coul; ctx.fillText(txt, ax + 8, y + (deg > 45 ? -8 : 16)); } };
+  lab(42, "arc primaire (≈ 42°): rouge à l'extérieur", "#fff");
+  lab(51, "arc secondaire (≈ 51°): couleurs inversées", "#fff");
+  const yb = ay - 46.5 * echelle;
+  if (yb > 20) { ctx.fillStyle = "#ffe600"; ctx.fillText("bande sombre d'Alexandre", ax - 210, yb + 4); }
+  ctx.fillStyle = "#ffe600"; ctx.textAlign = "center";
+  ctx.fillText("ombre de l'observateur (point antisolaire) sous l'horizon", W / 2, H - 16); ctx.textAlign = "left";
+  ctx.strokeStyle = "rgba(255,230,0,0.6)"; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(W / 2, H - 30); ctx.lineTo(ax, Math.min(ay, H)); ctx.stroke(); ctx.setLineDash([]);
+}
+function dessiner() {
+  if (P.vue === "goutte") dessinerGoutte(); else dessinerCiel();
+  majHud();
+}
+function pas(dt) {
+  if (P.vue === "goutte" && P.balayage && P.lumiere === "mono") {
+    tBal += dt * 0.25; P.lambda = 550 + 150 * Math.sin(tBal); curL.fixer(Math.round(P.lambda));
+  }
+}
+let ch = 0;
+function majHud() {
+  if (ch++ % 6) return;
+  if (P.vue === "goutte") {
+    const l = P.lumiere === "mono" ? P.lambda : 580, n = nEau(l);
+    C.hud.innerHTML = `<span class="grand">Dans une goutte d'eau</span><br>${P.lumiere === "mono" ? `λ = <span class="v">${Math.round(l)}</span> nm · ` : "lumière blanche · "}n = <span class="v">${C.fr(n, 4)}</span>`;
+  } else C.hud.innerHTML = `<span class="grand">Vu par l'observateur, dos au Soleil</span><br>hauteur du Soleil: <span class="v">${P.hauteur}°</span>`;
+}
+// ---------------------------------------------------------------- panneau
+const s0 = C.section("Vue");
+C.radios(s0, [["goutte", "Les rayons dans une goutte"], ["ciel", "L'arc-en-ciel dans le ciel"]], P, "vue", majPanneau);
+const bG = C.el("div", {}, C.pan);
+const s1 = C.section("Rayons", bG);
+C.radios(s1, [["1", "Une réflexion interne (arc primaire)"], ["2", "Deux réflexions internes (arc secondaire)"], ["12", "Les deux"]], P, "ordre", majPanneau);
+C.radios(s1, [["blanche", "Lumière blanche"], ["mono", "Lumière monochromatique"]], P, "lumiere", majPanneau);
+const bL = C.el("div", {}, s1);
+const curL = C.curseur(bL, "Longueur d'onde λ", P, "lambda", 400, 700, 1, v => Math.round(v) + " nm");
+C.caseC(bL, "Balayer le spectre", P, "balayage");
+C.curseur(s1, "Nombre de rayons", P, "nRayons", 20, 400, 10, v => v);
+C.caseC(s1, "Rayon de Descartes (déviation extrémale)", P, "descartes");
+const bC = C.el("div", {}, C.pan);
+const s2 = C.section("Ciel", bC);
+C.curseur(s2, "Hauteur du Soleil au-dessus de l'horizon", P, "hauteur", 0, 45, 1, v => v + "°");
+C.note(s2, "Quand le Soleil est à plus de 42° au-dessus de l'horizon, l'arc primaire passe entièrement sous l'horizon: on ne voit pas d'arc-en-ciel à midi en été.");
+const s3 = C.section("Ce qu'on observe");
+C.texte(s3, "Un rayon entre dans la goutte, s'y réfléchit une fois (ou deux), puis ressort. Sa déviation dépend du point d'entrée, mais elle passe par un <b>extremum</b>: autour de cette direction, les rayons sortent tous presque parallèles, et la lumière renvoyée est très intense. C'est le rayon de Descartes (1637).");
+C.texte(s3, "L'indice de l'eau dépend de la longueur d'onde (dispersion): l'angle de l'arc vaut ≈ 42,3° pour le rouge et ≈ 40,6° pour le violet. L'arc secondaire (deux réflexions) est vers 51°, plus pâle, couleurs inversées. Entre les deux, aucun rayon ne revient: c'est la bande sombre d'Alexandre.");
+C.temps(null, { vitesse: false });
+function majPanneau() {
+  bG.style.display = P.vue === "goutte" ? "" : "none";
+  bC.style.display = P.vue === "ciel" ? "" : "none";
+  bL.style.display = P.lumiere === "mono" ? "" : "none";
+  C.legende.innerHTML = P.vue === "goutte" && P.ordre !== "1" ? "<span>les rayons de l'arc secondaire sont tracés sous l'axe de la goutte</span>" : "";
+}
+majPanneau();
+C.ajuster();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

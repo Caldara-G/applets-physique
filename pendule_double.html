@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pendule double — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Pendule double (tiges sans masse, masses ponctuelles m1, m2, longueurs l1, l2), équations de Lagrange,
+   intégration RK4. Mode « gerbe » : N pendules dont les angles initiaux diffèrent de ε. */
+const C = Cadre("Pendule double: le chaos en direct", "Pendule double");
+const ctx = C.ctx;
+const P = { mode: "gerbe", th1: 150, th2: 150, N: 300, eps: -6, m: 1, l: 1, traces: true };
+const g = 9.81;
+let pend = [], t = 0;
+
+function deriv(s, o) {
+  const [a1, a2, w1, w2] = s, m1 = 1, m2 = P.m, l1 = 1, l2 = P.l, d = a1 - a2;
+  const den = 2 * m1 + m2 - m2 * Math.cos(2 * d);
+  o[0] = w1; o[1] = w2;
+  o[2] = (-g * (2 * m1 + m2) * Math.sin(a1) - m2 * g * Math.sin(a1 - 2 * a2) - 2 * Math.sin(d) * m2 * (w2 * w2 * l2 + w1 * w1 * l1 * Math.cos(d))) / (l1 * den);
+  o[3] = (2 * Math.sin(d) * (w1 * w1 * l1 * (m1 + m2) + g * (m1 + m2) * Math.cos(a1) + w2 * w2 * l2 * m2 * Math.cos(d))) / (l2 * den);
+}
+const K = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]], T = [0, 0, 0, 0];
+function rk4(s, h) {
+  deriv(s, K[0]);
+  for (let i = 0; i < 4; i++) T[i] = s[i] + h / 2 * K[0][i]; deriv(T, K[1]);
+  for (let i = 0; i < 4; i++) T[i] = s[i] + h / 2 * K[1][i]; deriv(T, K[2]);
+  for (let i = 0; i < 4; i++) T[i] = s[i] + h * K[2][i]; deriv(T, K[3]);
+  for (let i = 0; i < 4; i++) s[i] += h / 6 * (K[0][i] + 2 * K[1][i] + 2 * K[2][i] + K[3][i]);
+}
+function teinte(u) {
+  // arc-en-ciel fluo
+  const h = (u * 300 + 280) % 360;
+  return `hsl(${h},100%,60%)`;
+}
+function recommencer() {
+  t = 0; pend = [];
+  const rad = Math.PI / 180, n = P.mode === "gerbe" ? P.N : P.mode === "deux" ? 2 : 1;
+  for (let k = 0; k < n; k++) {
+    const d = P.mode === "gerbe" ? (k - n / 2) * Math.pow(10, P.eps) : P.mode === "deux" ? k * Math.pow(10, P.eps) : 0;
+    pend.push({ s: [P.th1 * rad + d, P.th2 * rad, 0, 0], c: P.mode === "gerbe" ? teinte(k / n) : ["#00f0ff", "#ff2bd6"][k], prec: null });
+  }
+  C.effacer();
+}
+function pas(dt) {
+  const h = 0.002, n = Math.round(dt / h);
+  for (let k = 0; k < n; k++) for (const p of pend) rk4(p.s, h);
+  t += n * h;
+}
+const calque = document.createElement("canvas");
+calque.style.cssText = "position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none";
+C.zone.insertBefore(calque, C.hud);
+const cc = calque.getContext("2d");
+C.surRedim(() => { calque.width = C.canvas.width; calque.height = C.canvas.height; cc.setTransform(C.dpr, 0, 0, C.dpr, 0, 0); for (const p of pend) p.prec = null; });
+function dessiner() {
+  const L = 1 + P.l, s = Math.min(C.W, C.H) * 0.45 / L, ox = C.W / 2, oy = C.H / 2 - (P.mode === "gerbe" ? 0 : 0);
+  const pos = p => {
+    const [a1, a2] = p.s;
+    const x1 = ox + s * Math.sin(a1), y1 = oy + s * Math.cos(a1);
+    return [x1, y1, x1 + s * P.l * Math.sin(a2), y1 + s * P.l * Math.cos(a2)];
+  };
+  // traînées sur le canvas principal
+  C.estomper(P.traces ? (P.mode === "gerbe" ? 0.06 : 0.008) : 1);
+  ctx.globalCompositeOperation = "lighter"; ctx.lineCap = "round";
+  for (const p of pend) {
+    const q = pos(p);
+    if (p.prec && P.traces) {
+      ctx.strokeStyle = p.c; ctx.globalAlpha = P.mode === "gerbe" ? 0.35 : 0.9; ctx.lineWidth = P.mode === "gerbe" ? 1.2 : 2;
+      ctx.beginPath(); ctx.moveTo(p.prec[2], p.prec[3]); ctx.lineTo(q[2], q[3]); ctx.stroke();
+      if (P.mode !== "gerbe") { ctx.globalAlpha = 0.15; ctx.lineWidth = 9; ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    }
+    p.prec = q;
+  }
+  ctx.globalCompositeOperation = "source-over";
+  // tiges et masses sur le calque
+  cc.clearRect(0, 0, C.W, C.H);
+  cc.globalCompositeOperation = "lighter"; cc.lineCap = "round";
+  const a = P.mode === "gerbe" ? Math.max(0.05, 6 / P.N) : 0.9;
+  for (const p of pend) {
+    const [x1, y1, x2, y2] = p.prec;
+    cc.strokeStyle = p.c; cc.globalAlpha = a; cc.lineWidth = P.mode === "gerbe" ? 2 : 3;
+    cc.beginPath(); cc.moveTo(ox, oy); cc.lineTo(x1, y1); cc.lineTo(x2, y2); cc.stroke();
+    if (P.mode !== "gerbe") {
+      cc.globalAlpha = 1;
+      for (const [x, y, r] of [[x1, y1, 9], [x2, y2, 9 * Math.cbrt(P.m)]]) {
+        const gr = cc.createRadialGradient(x, y, 0, x, y, r * 2.4); gr.addColorStop(0, "#fff"); gr.addColorStop(0.3, p.c); gr.addColorStop(1, "rgba(0,0,0,0)");
+        cc.fillStyle = gr; cc.beginPath(); cc.arc(x, y, r * 2.4, 0, 6.2832); cc.fill();
+      }
+    } else {
+      cc.fillStyle = p.c; cc.globalAlpha = Math.min(1, a * 3);
+      cc.beginPath(); cc.arc(x2, y2, 2.2, 0, 6.2832); cc.fill();
+    }
+  }
+  cc.globalAlpha = 1; cc.globalCompositeOperation = "source-over";
+  cc.fillStyle = "#fff"; cc.beginPath(); cc.arc(ox, oy, 4, 0, 6.2832); cc.fill();
+  majHud();
+}
+let ch = 0;
+function majHud() {
+  if (ch++ % 8) return;
+  const f = C.fr;
+  let h = `<span class="grand">t = <span class="v">${f(t, 1)}</span> s</span>`;
+  if (P.mode === "gerbe") {
+    // dispersion des positions de la seconde masse
+    let mx = 0, my = 0; const n = pend.length;
+    for (const p of pend) { mx += Math.sin(p.s[0]) + P.l * Math.sin(p.s[1]); my += Math.cos(p.s[0]) + P.l * Math.cos(p.s[1]); }
+    mx /= n; my /= n;
+    let d = 0; for (const p of pend) d += (Math.sin(p.s[0]) + P.l * Math.sin(p.s[1]) - mx) ** 2 + (Math.cos(p.s[0]) + P.l * Math.cos(p.s[1]) - my) ** 2;
+    d = Math.sqrt(d / n);
+    h += `<br>${n} pendules, angles initiaux étalés sur <span class="v">${(n * Math.pow(10, P.eps) * 180 / Math.PI).toExponential(1).replace(".", ",")}°</span><br>dispersion de la masse du bas: <span class="v">${f(d, 3)}</span> l₁`;
+  } else if (P.mode === "deux") {
+    const a = pend[0].s, b = pend[1].s;
+    const e = Math.hypot(Math.sin(a[0]) - Math.sin(b[0]) + P.l * (Math.sin(a[1]) - Math.sin(b[1])), Math.cos(a[0]) - Math.cos(b[0]) + P.l * (Math.cos(a[1]) - Math.cos(b[1])));
+    h += `<br>écart entre les deux masses du bas: <span class="v">${e < 1e-3 ? e.toExponential(1).replace(".", ",") : f(e, 3)}</span> l₁`;
+  }
+  C.hud.innerHTML = h;
+}
+// ---------------------------------------------------------------- panneau
+const s1 = C.section("Situation");
+C.radios(s1, [["un", "Un pendule double"], ["deux", "Deux pendules presque identiques"], ["gerbe", "Une gerbe de pendules presque identiques"]], P, "mode", () => { majPanneau(); recommencer(); });
+const s2 = C.section("Conditions initiales (lâchés sans vitesse)");
+C.curseur(s2, "θ₁ initial", P, "th1", -180, 180, 1, v => v + "°", recommencer);
+C.curseur(s2, "θ₂ initial", P, "th2", -180, 180, 1, v => v + "°", recommencer);
+const bEps = C.el("div", {}, s2);
+C.curseur(bEps, "Écart entre deux pendules voisins", P, "eps", -12, -2, 1, v => "10<sup>" + v + "</sup> rad", recommencer);
+const bN = C.el("div", {}, s2);
+C.curseur(bN, "Nombre de pendules", P, "N", 20, 1000, 10, v => v, recommencer);
+const bt = C.boutons(s2);
+C.bouton(bt, "Petits angles (10°, 10°)", () => { s2.querySelectorAll("input")[0].fixer(10); s2.querySelectorAll("input")[1].fixer(10); recommencer(); });
+C.bouton(bt, "Grands angles (150°, 150°)", () => { s2.querySelectorAll("input")[0].fixer(150); s2.querySelectorAll("input")[1].fixer(150); recommencer(); });
+const s3 = C.section("Pendule");
+C.curseur(s3, "Rapport des masses m₂/m₁", P, "m", 0.2, 5, 0.1, v => C.fr(v, 1), recommencer);
+C.curseur(s3, "Rapport des longueurs l₂/l₁", P, "l", 0.3, 2, 0.05, v => C.fr(v, 2), recommencer);
+C.caseC(s3, "Traînées", P, "traces");
+const s4 = C.section("Ce qu'on observe");
+C.texte(s4, "Le pendule double est un système conservatif à deux degrés de liberté, décrit par deux équations différentielles parfaitement déterministes. Aux petits angles, il oscille régulièrement (superposition de deux modes propres). Aux grands angles, son mouvement devient <b>chaotique</b>.");
+C.texte(s4, "La gerbe montre des centaines de pendules lâchés presque au même endroit: ils restent groupés un moment, puis s'éparpillent brusquement. Une incertitude de 10⁻⁹ rad suffit à rendre la position imprévisible au bout de quelques secondes.");
+C.note(s4, "Essayer les petits angles avec la gerbe: les pendules restent groupés indéfiniment.");
+C.temps(recommencer);
+function majPanneau() { bEps.style.display = P.mode === "un" ? "none" : ""; bN.style.display = P.mode === "gerbe" ? "" : "none"; }
+majPanneau();
+C.ajuster();
+recommencer();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

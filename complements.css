@@ -1,0 +1,64 @@
+@charset "utf-8";
+/* complements.css — habillage commun des applets de la page Compléments (MP* Malherbe).
+   Fond noir, couleurs fluo, pour la projection en classe. */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px; color: #e6e6f0; background: #05040a;
+}
+#app { display: flex; height: 100vh; }
+#principal { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 8px; gap: 8px; }
+.zone { position: relative; flex: 1; min-height: 0; min-width: 0; background: #000;
+  border: 1px solid #2a2340; border-radius: 6px; overflow: hidden; }
+.zone canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; touch-action: none; }
+.zone canvas.prise { cursor: grab; }
+.zone canvas.tire { cursor: grabbing; }
+#panneau { width: 340px; flex: none; overflow-y: auto; background: #0e0b18;
+  border-left: 1px solid #2a2340; padding: 10px 14px 20px; }
+#panneau h1 { font-size: 16px; margin: 4px 0 2px; color: #fff; }
+.haut { display: flex; justify-content: space-between; align-items: center; }
+.retour { font-size: 12px; text-decoration: none; }
+.retour:hover { text-decoration: underline; }
+html[data-domaine] a.retour { color: #f9a8ff; }
+.etiquette { font-size: 11.5px; font-weight: 600; color: #fff; background: #3b5f96;
+  border-radius: 10px; padding: 2px 9px; letter-spacing: 0.02em; }
+.section { margin: 8px 0; padding-bottom: 8px; border-bottom: 1px solid #241d36; }
+.section:last-child { border-bottom: none; }
+.titre { font-weight: 600; margin-bottom: 4px; color: #ff8cf0; }
+.choix { display: flex; align-items: center; gap: 6px; padding: 2px 0; cursor: pointer; user-select: none; }
+.choix input { margin: 0 2px 0 0; accent-color: #ff2bd6; }
+.curseur { margin: 7px 0; }
+.curseur .tete { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.curseur .valeur { color: #7ff9ff; font-variant-numeric: tabular-nums; white-space: nowrap; }
+input[type=range] { width: 100%; margin: 3px 0 0; accent-color: #ff2bd6; }
+select { font: inherit; background: #1a1528; color: #fff; border: 1px solid #3d3360; border-radius: 4px; padding: 3px 5px; width: 100%; }
+.boutons { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+button.b { padding: 5px 10px; border: 1px solid #4a3d73; background: #1a1528; color: #fff;
+  border-radius: 4px; cursor: pointer; font: inherit; }
+button.b:hover { background: #2a2140; border-color: #ff2bd6; }
+button.b.actif { background: #ff2bd6; border-color: #ff2bd6; color: #000; font-weight: 600; }
+.note { font-size: 11.5px; color: #a8a2c0; font-style: italic; line-height: 1.45; margin-top: 4px; }
+.texte { font-size: 12.5px; color: #d8d4ea; line-height: 1.5; }
+.texte b { color: #7ff9ff; }
+#hud { position: absolute; left: 12px; top: 10px; z-index: 4; pointer-events: none;
+  font-size: 14px; line-height: 1.5; text-shadow: 0 0 6px #000, 0 0 3px #000;
+  background: rgba(5, 3, 12, 0.55); border-radius: 8px; padding: 4px 10px; }
+#hud:empty, #legende:empty { display: none; }
+#hud .grand { font-size: 18px; font-weight: 700; color: #fff; }
+#hud .v { color: #7ff9ff; font-variant-numeric: tabular-nums; }
+#legende { position: absolute; left: 12px; bottom: 12px; z-index: 4; pointer-events: none;
+  display: flex; flex-direction: column; gap: 3px; font-size: 13px; text-shadow: 0 0 5px #000;
+  background: rgba(5, 3, 12, 0.55); border-radius: 8px; padding: 4px 10px; }
+#legende i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+#legende .degrade { display: inline-block; width: 120px; height: 10px; border-radius: 5px; margin: 0 6px; vertical-align: -1px; }
+#principal .filigrane { position: absolute; right: 14px; bottom: 12px; z-index: 5; pointer-events: none;
+  font-size: 13px; font-weight: 700; color: #ff8cf0 !important; background: rgba(10, 5, 20, 0.7);
+  border: 1px solid rgba(255, 43, 214, 0.55); border-radius: 12px; padding: 3px 11px;
+  text-shadow: 0 0 6px rgba(255, 43, 214, 0.8); }
+.zone:fullscreen { border: none; border-radius: 0; }
+@media (max-width: 900px) {
+  #app { flex-direction: column; height: auto; }
+  #principal { height: 75vh; }
+  #panneau { width: 100%; border-left: none; border-top: 1px solid #2a2340; }
+}

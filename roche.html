@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Limite de Roche et anneaux — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Limite de Roche — un satellite « tas de gravats » (N grains en autogravité, contacts élastiques amortis,
+   sans frottement : il se comporte comme un fluide) en orbite autour d'une planète de rayon 1 et de masse 1 (G = 1).
+   Limite de Roche fluide : d = 2,44 R (ρ_P / ρ_s)^(1/3). */
+const C = Cadre("Limite de Roche et formation d'un anneau", "Roche");
+const ctx = C.ctx;
+const P = { d: 2.5, rho: 0.4, N: 450, scenario: "spirale", spirale: 5, vue: "fixe" };
+const RS = 0.22;            // rayon du satellite
+let N, x, y, vx, vy, ax, ay, coul, vivant, t, a, mg, kRes, gam, nChutes, couleurs;
+
+function dRoche() { return 2.44 * Math.cbrt(1 / P.rho); }
+function dAgregat() { return Math.cbrt(3 / P.rho); }   // le satellite remplit sa sphère de Hill
+function recommencer() {
+  if (typeof majPanneau === "function") majPanneau();
+  N = P.N;
+  x = new Float64Array(N); y = new Float64Array(N); vx = new Float64Array(N); vy = new Float64Array(N);
+  ax = new Float64Array(N); ay = new Float64Array(N); vivant = new Uint8Array(N).fill(1); coul = new Array(N);
+  // masse du satellite : densité ρ_s = ρ_P / rapport... ici P.rho = ρ_s/ρ_P
+  const Ms = P.rho * RS ** 3;            // ρ_P = 3/(4π), donc M_s = ρ_s (4/3)π RS³ = (ρ_s/ρ_P) RS³
+  mg = Ms / N;
+  a = RS * Math.sqrt(0.907 / N) * 1.002; // rayon d'un grain (empilement hexagonal dans le disque)
+  // contact : temps de collision ~ 0,05
+  const tc = 0.05; kRes = mg * (Math.PI / tc) ** 2 / 2; gam = 2 * Math.sqrt(kRes * mg / 2) * 0.55;
+  // grains sur un réseau hexagonal compact remplissant le disque du satellite
+  const pts = [];
+  const pasH = 2 * a;
+  for (let j = -40; j <= 40; j++) for (let i = -40; i <= 40; i++) {
+    const px = (i + (j & 1) * 0.5) * pasH, py = j * pasH * Math.sqrt(3) / 2;
+    if (px * px + py * py <= RS * RS) pts.push([px + (Math.random() - 0.5) * 0.02 * a, py + (Math.random() - 0.5) * 0.02 * a]);
+  }
+  N = pts.length;
+  x = new Float64Array(N); y = new Float64Array(N); vx = new Float64Array(N); vy = new Float64Array(N);
+  ax = new Float64Array(N); ay = new Float64Array(N); vivant = new Uint8Array(N).fill(1); coul = new Array(N);
+  mg = Ms / N;
+  kRes = mg * (Math.PI / tc) ** 2 / 2; gam = 2 * Math.sqrt(kRes * mg / 2) * 0.55;
+  const d0 = P.d, Om = Math.sqrt(1 / d0 ** 3), v0 = d0 * Om;
+  const pal = ["#ff2bd6", "#00f0ff", "#ffe600", "#39ff14", "#ff6a00"];
+  for (let i = 0; i < N; i++) {
+    const [px, py] = pts[i];
+    x[i] = d0 + px; y[i] = py;
+    // rotation synchrone (le satellite montre toujours la même face)
+    vx[i] = -Om * py; vy[i] = v0 + Om * px;
+    // couleurs en couches concentriques
+    const r = Math.hypot(px, py) / RS;
+    coul[i] = pal[Math.min(4, Math.floor(r * 5))];
+  }
+  couleurs = pal;
+  t = 0; nChutes = 0;
+  forces();
+  C.effacer();
+}
+// grille pour les contacts
+let grille = new Map();
+function forces() {
+  ax.fill(0); ay.fill(0);
+  const eps2 = (2 * a) ** 2;
+  for (let i = 0; i < N; i++) {
+    if (!vivant[i]) continue;
+    // planète
+    const r2 = x[i] * x[i] + y[i] * y[i], r3 = r2 * Math.sqrt(r2);
+    ax[i] -= x[i] / r3; ay[i] -= y[i] / r3;
+    // autogravité (adoucie) et contacts
+    for (let j = i + 1; j < N; j++) {
+      if (!vivant[j]) continue;
+      const dx = x[j] - x[i], dy = y[j] - y[i], d2 = dx * dx + dy * dy;
+      const g = mg / ((d2 + eps2) * Math.sqrt(d2 + eps2));
+      let fx = g * dx, fy = g * dy;
+      if (d2 < 4 * a * a) {
+        const d = Math.sqrt(d2) + 1e-12, ex = dx / d, ey = dy / d, recouv = 2 * a - d;
+        const vn = (vx[j] - vx[i]) * ex + (vy[j] - vy[i]) * ey;
+        const F = (kRes * recouv - gam * vn) / mg;
+        fx -= F * ex; fy -= F * ey;
+      }
+      ax[i] += fx; ay[i] += fy; ax[j] -= fx; ay[j] -= fy;
+    }
+  }
+  if (P.scenario === "spirale") {
+    const e = P.spirale * 5e-4;
+    for (let i = 0; i < N; i++) { ax[i] -= e * vx[i]; ay[i] -= e * vy[i]; }
+  }
+}
+function pas(dt) {
+  const h = 0.006;
+  let n = Math.round(dt * 7 / h);
+  const debut = performance.now();
+  for (let k = 0; k < n; k++) {
+    for (let i = 0; i < N; i++) { vx[i] += 0.5 * h * ax[i]; vy[i] += 0.5 * h * ay[i]; x[i] += h * vx[i]; y[i] += h * vy[i]; }
+    forces();
+    for (let i = 0; i < N; i++) {
+      vx[i] += 0.5 * h * ax[i]; vy[i] += 0.5 * h * ay[i];
+      if (vivant[i] && x[i] * x[i] + y[i] * y[i] < 1) { vivant[i] = 0; nChutes++; flashs.push([x[i], y[i], 1]); }
+    }
+    t += h;
+    if (performance.now() - debut > 40) break;
+  }
+}
+// ---------------------------------------------------------------- dessin
+let flashs = [];
+const calque = document.createElement("canvas");
+calque.style.cssText = "position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none";
+C.zone.insertBefore(calque, C.hud);
+const cc = calque.getContext("2d");
+C.surRedim(() => { calque.width = C.canvas.width; calque.height = C.canvas.height; cc.setTransform(C.dpr, 0, 0, C.dpr, 0, 0); });
+function dessiner() {
+  const s = Math.min(C.W, C.H) / (2 * Math.max(P.d, dRoche()) * 1.15);
+  let ang = 0;
+  if (P.vue === "tourne") {
+    // vue qui suit le centre de masse du satellite
+    let mx = 0, my = 0, n = 0;
+    for (let i = 0; i < N; i++) if (vivant[i]) { mx += x[i]; my += y[i]; n++; }
+    ang = Math.atan2(my, mx);
+  }
+  const co = Math.cos(-ang), si = Math.sin(-ang);
+  const X = (u, v) => C.W / 2 + (u * co - v * si) * s, Y = (u, v) => C.H / 2 - (u * si + v * co) * s;
+  C.estomper(P.vue === "tourne" ? 0.25 : 0.05);
+  ctx.globalCompositeOperation = "lighter";
+  const r = Math.max(1.3, a * s);
+  for (let i = 0; i < N; i++) {
+    if (!vivant[i]) continue;
+    ctx.fillStyle = C.rgba(coul[i], 0.12);
+    ctx.fillRect(X(x[i], y[i]) - 1, Y(x[i], y[i]) - 1, 2, 2);
+  }
+  ctx.globalCompositeOperation = "source-over";
+  // calque : planète, limite de Roche, éclairs d'impact
+  cc.clearRect(0, 0, C.W, C.H);
+  const cx = C.W / 2, cy = C.H / 2;
+  let g = cc.createRadialGradient(cx, cy, s * 0.9, cx, cy, s * 1.6);
+  g.addColorStop(0, "rgba(255,170,60,0.55)"); g.addColorStop(1, "rgba(0,0,0,0)");
+  cc.fillStyle = g; cc.beginPath(); cc.arc(cx, cy, s * 1.6, 0, 6.2832); cc.fill();
+  g = cc.createRadialGradient(cx - s * 0.35, cy - s * 0.35, s * 0.1, cx, cy, s);
+  g.addColorStop(0, "#fff3c4"); g.addColorStop(0.45, "#ffb347"); g.addColorStop(1, "#7a2d00");
+  cc.fillStyle = g; cc.beginPath(); cc.arc(cx, cy, s, 0, 6.2832); cc.fill();
+  // bandes
+  cc.save(); cc.beginPath(); cc.arc(cx, cy, s, 0, 6.2832); cc.clip();
+  cc.globalAlpha = 0.18; cc.fillStyle = "#5a1800";
+  for (const b of [-0.55, -0.2, 0.15, 0.5]) cc.fillRect(cx - s, cy + b * s, 2 * s, 0.09 * s);
+  cc.restore(); cc.globalAlpha = 1;
+  // limite de Roche
+  cc.setLineDash([7, 7]); cc.strokeStyle = "rgba(255,230,0,0.75)"; cc.lineWidth = 1.5;
+  cc.beginPath(); cc.arc(cx, cy, dRoche() * s, 0, 6.2832); cc.stroke(); cc.setLineDash([]);
+  cc.fillStyle = "#ffe600"; cc.font = "13px system-ui"; cc.textAlign = "left";
+  cc.fillText("limite de Roche (satellite fluide)", cx + dRoche() * s * 0.71 + 6, cy - dRoche() * s * 0.71);
+  cc.setLineDash([3, 6]); cc.strokeStyle = "rgba(0,240,255,0.8)";
+  cc.beginPath(); cc.arc(cx, cy, dAgregat() * s, 0, 6.2832); cc.stroke(); cc.setLineDash([]);
+  cc.fillStyle = "#00f0ff"; cc.textAlign = "right";
+  cc.fillText("limite pour un agrégat de grains", cx - dAgregat() * s * 0.71 - 6, cy + dAgregat() * s * 0.71 + 14);
+  for (let i = 0; i < N; i++) {
+    if (!vivant[i]) continue;
+    cc.fillStyle = coul[i];
+    cc.beginPath(); cc.arc(X(x[i], y[i]), Y(x[i], y[i]), r, 0, 6.2832); cc.fill();
+  }
+  for (const f of flashs) {
+    const fx = X(f[0], f[1]), fy = Y(f[0], f[1]);
+    const gr = cc.createRadialGradient(fx, fy, 0, fx, fy, 14 * f[2] + 2);
+    gr.addColorStop(0, "rgba(255,255,255," + f[2] + ")"); gr.addColorStop(1, "rgba(255,120,0,0)");
+    cc.fillStyle = gr; cc.beginPath(); cc.arc(fx, fy, 14 * f[2] + 2, 0, 6.2832); cc.fill();
+    f[2] -= 0.04;
+  }
+  flashs = flashs.filter(f => f[2] > 0);
+  majHud();
+}
+let ch = 0;
+function majHud() {
+  if (ch++ % 8) return;
+  let mx = 0, my = 0, n = 0;
+  for (let i = 0; i < N; i++) if (vivant[i]) { mx += x[i]; my += y[i]; n++; }
+  // étalement du satellite : écart-type angulaire
+  const f = C.fr, dist = Math.hypot(mx / n, my / n), T = 2 * Math.PI * Math.sqrt(P.d ** 3);
+  let disp = 0; for (let i = 0; i < N; i++) if (vivant[i]) disp += (x[i] - mx / n) ** 2 + (y[i] - my / n) ** 2;
+  disp = Math.sqrt(disp / n);
+  const etat = disp > 3 * RS ? (disp > 0.4 * P.d ? "<span style='color:#ffe600'>le satellite s'est étalé en anneau</span>" : "<span style='color:#ff8cf0'>le satellite se disloque</span>") : "le satellite reste cohérent";
+  C.hud.innerHTML = `<span class="grand">${etat}</span><br>t = <span class="v">${f(t / T, 1)}</span> périodes orbitales · distance du centre de masse: <span class="v">${f(dist, 2)}</span> R<br>limites: fluide <span class="v">${f(dRoche(), 2)}</span> R, agrégat <span class="v">${f(dAgregat(), 2)}</span> R · grains tombés sur la planète: <span class="v">${nChutes}</span>`;
+}
+
+// ---------------------------------------------------------------- panneau
+const s1 = C.section("Situation");
+C.radios(s1, [["circ", "Satellite en orbite circulaire"], ["spirale", "Satellite qui se rapproche lentement (freinage)"]], P, "scenario", recommencer);
+C.curseur(s1, "Distance initiale d (en rayons planétaires R)", P, "d", 1.2, 5, 0.05, v => C.fr(v, 2) + " R", recommencer);
+C.curseur(s1, "Rapport des masses volumiques ρ<sub>satellite</sub>/ρ<sub>planète</sub>", P, "rho", 0.3, 3, 0.05, v => C.fr(v, 2), recommencer);
+const blocSp = C.el("div", {}, s1);
+C.curseur(blocSp, "Intensité du freinage", P, "spirale", 1, 10, 1, v => v);
+C.curseur(s1, "Nombre de grains", P, "N", 150, 900, 50, v => v, recommencer);
+const sv = C.section("Affichage");
+C.radios(sv, [["fixe", "Référentiel de la planète (traînées)"], ["tourne", "Vue qui suit le satellite"]], P, "vue", () => C.effacer());
+const s2 = C.section("Ce qu'on observe");
+C.texte(s2, "Le satellite est un tas de grains liés seulement par leur propre gravitation. La planète attire plus fort la face proche que la face éloignée: c'est la <b>force de marée</b>, en 2GMa/d³ pour un satellite de rayon a. Elle l'emporte sur la cohésion gravitationnelle, en Gm/a², quand le satellite s'approche trop.");
+C.texte(s2, "Un tas de grains est arraché quand il déborde de sa <b>sphère de Hill</b>, de rayon d(m/3M)<sup>1/3</sup>: c'est le cas pour d &lt; (3ρ<sub>P</sub>/ρ<sub>s</sub>)<sup>1/3</sup> R, soit 1,44 R pour des masses volumiques égales (cercle cyan). Un satellite fluide, qui s'allonge sous l'effet de la marée, se brise plus tôt: d &lt; 2,44 R (ρ<sub>P</sub>/ρ<sub>s</sub>)<sup>1/3</sup>, la <b>limite de Roche</b> (cercle jaune).");
+C.note(s2, "Une fois disloqué, le satellite s'étire en un arc puis s'étale en anneau: les anneaux de Saturne sont à l'intérieur de sa limite de Roche. Simulation plane: les grains restent dans le plan de l'orbite.");
+C.temps(recommencer);
+function majPanneau() { blocSp.style.display = P.scenario === "spirale" ? "" : "none"; }
+C.legende.innerHTML = `<span><i style="background:#ff2bd6"></i><i style="background:#00f0ff"></i><i style="background:#ffe600"></i><i style="background:#39ff14"></i><i style="background:#ff6a00"></i>couches du satellite, du centre vers la surface</span>`;
+C.ajuster();
+recommencer();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

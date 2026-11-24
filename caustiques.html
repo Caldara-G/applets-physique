@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caustiques: piscine et tasse de café — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Caustiques.
+   Piscine : surface h(x, y, t) (houle + rides solution de l'équation d'onde amortie). La lumière du Soleil,
+   verticale, est réfractée par la surface : au fond (profondeur H), un rayon est décalé de
+   δ ≈ H (1 − 1/n) ∇h. On accumule l'éclairement reçu par chaque point du fond.
+   Tasse : rayons parallèles (ou issus d'un point du bord) réfléchis à l'intérieur d'un cercle ;
+   leur enveloppe est une néphroïde (ou une cardioïde). */
+const C = Cadre("Caustiques: la lumière qui danse", "Caustiques");
+const ctx = C.ctx;
+const P = { mode: "piscine", houle: 0.6, pluie: true, prof: 12, nRayons: 400, source: "infini", angle: 0, tourne: true, reflexions: 1 };
+let NX, NY, h, h1, lum, img, cv, t = 0;
+function initPiscine() {
+  NX = Math.round(Math.sqrt(70000 * C.W / C.H)); NY = Math.round(NX * C.H / C.W);
+  h = new Float32Array(NX * NY); h1 = new Float32Array(NX * NY); lum = new Float32Array(NX * NY);
+  cv = document.createElement("canvas"); cv.width = NX; cv.height = NY;
+  img = cv.getContext("2d").createImageData(NX, NY);
+}
+function goutte(x, y, a) {
+  const r = 3;
+  for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) {
+    const X = Math.round(x) + i, Y = Math.round(y) + j;
+    if (X > 0 && X < NX - 1 && Y > 0 && Y < NY - 1) h[Y * NX + X] -= a * Math.exp(-(i * i + j * j) / 3);
+  }
+}
+function pasOnde() {
+  // schéma explicite de l'équation d'onde (c Δt/Δx = 0,5), avec amortissement
+  const c2 = 0.25, amort = 0.996;
+  for (let y = 1; y < NY - 1; y++) for (let x = 1; x < NX - 1; x++) {
+    const i = y * NX + x;
+    const v = 2 * h[i] - h1[i] + c2 * (h[i - 1] + h[i + 1] + h[i - NX] + h[i + NX] - 4 * h[i]);
+    h1[i] = v * amort;
+  }
+  const tmp = h; h = h1; h1 = tmp;
+}
+// houle : superposition de quelques ondes progressives
+const HOULE = [];
+{ // 16 ondes de directions et longueurs d'onde variées (tirage pseudo-aléatoire fixe), relation de dispersion ω ∝ √k
+  let g = 7;
+  const alea = () => { g = (g * 16807) % 2147483647; return g / 2147483647; };
+  for (let m = 0; m < 16; m++) {
+    const k = 0.12 + 0.3 * alea(), a = 2 * Math.PI * alea();
+    HOULE.push([k * Math.cos(a), k * Math.sin(a), 3.2 * Math.sqrt(k), 0.1 / k]);
+  }
+}
+function hauteur(x, y, i) {
+  let s = h[i];
+  if (P.houle > 0) for (const [kx, ky, w, a] of HOULE) s += P.houle * a * Math.sin(kx * x + ky * y - w * t);
+  return s;
+}
+function calculerCaustique() {
+  lum.fill(0);
+  const k = P.prof * 0.6;
+  for (let y = 1; y < NY - 1; y++) for (let x = 1; x < NX - 1; x++) {
+    const i = y * NX + x;
+    const gx = (hauteur(x + 1, y, i + 1) - hauteur(x - 1, y, i - 1)) / 2, gy = (hauteur(x, y + 1, i + NX) - hauteur(x, y - 1, i - NX)) / 2;
+    // point d'arrivée au fond, puis dépôt bilinéaire de l'énergie
+    let fx = x + k * gx, fy = y + k * gy;
+    if (fx < 0 || fy < 0 || fx >= NX - 1 || fy >= NY - 1) continue;
+    const x0 = fx | 0, y0 = fy | 0, ax = fx - x0, ay = fy - y0, j = y0 * NX + x0;
+    lum[j] += (1 - ax) * (1 - ay); lum[j + 1] += ax * (1 - ay); lum[j + NX] += (1 - ax) * ay; lum[j + NX + 1] += ax * ay;
+  }
+}
+let lum2;
+function lisser() {
+  // flou 3×3 : atténue le bruit d'échantillonnage du dépôt d'énergie
+  if (!lum2 || lum2.length !== lum.length) lum2 = new Float32Array(lum.length);
+  for (let y = 1; y < NY - 1; y++) for (let x = 1; x < NX - 1; x++) {
+    const i = y * NX + x;
+    lum2[i] = (4 * lum[i] + 2 * (lum[i - 1] + lum[i + 1] + lum[i - NX] + lum[i + NX]) + lum[i - NX - 1] + lum[i - NX + 1] + lum[i + NX - 1] + lum[i + NX + 1]) / 16;
+  }
+  const tmp = lum; lum = lum2; lum2 = tmp;
+}
+function dessinerPiscine() {
+  calculerCaustique(); lisser();
+  const d = img.data, cs = Math.max(6, Math.round(NX / 14));
+  for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+    const i = y * NX + x, k = 4 * i;
+    // carrelage : joints plus sombres
+    const joint = (x % cs === 0 || y % cs === 0) ? 0.55 : 1;
+    const L = Math.max(0, lum[i]);
+    const e = Math.pow(L, 1.6);
+    const sur = Math.max(0, e - 1);
+    d[k] = Math.min(255, (5 + 45 * e) * joint + 110 * sur);
+    d[k + 1] = Math.min(255, (35 + 100 * e) * joint + 90 * sur);
+    d[k + 2] = Math.min(255, (85 + 105 * e) * joint + 50 * sur);
+    d[k + 3] = 255;
+  }
+  cv.getContext("2d").putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(cv, 0, 0, C.W, C.H);
+}
+
+// ---------------------------------------------------------------- tasse
+function dessinerTasse(dt) {
+  C.effacer();
+  const R = Math.min(C.W, C.H) * 0.42, cx = C.W / 2, cy = C.H / 2;
+  // fond de café
+  const g = ctx.createRadialGradient(cx, cy, R * 0.1, cx, cy, R);
+  g.addColorStop(0, "#2a1406"); g.addColorStop(1, "#140802");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.2832); ctx.fill();
+  ctx.strokeStyle = "#e8e8f0"; ctx.lineWidth = 6; ctx.stroke();
+  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R - 3, 0, 6.2832); ctx.clip();
+  ctx.globalCompositeOperation = "lighter";
+  const a0 = P.angle * Math.PI / 180, n = Math.round(P.nRayons);
+  ctx.lineWidth = 1;
+  for (let k = 0; k < n; k++) {
+    let px, py, dx, dy;
+    if (P.source === "infini") {
+      // rayons parallèles de direction a0, répartis sur toute la largeur du cercle
+      const b = -1 + 2 * (k + 0.5) / n;
+      dx = Math.cos(a0); dy = Math.sin(a0);
+      px = -dx * 2 - dy * b; py = -dy * 2 + dx * b;
+    } else {
+      // source ponctuelle sur le bord du cercle, en S = −(cos a0, sin a0) ; rayons émis vers l'intérieur
+      const u = -Math.PI / 2 + Math.PI * (k + 0.5) / n;
+      px = -Math.cos(a0); py = -Math.sin(a0);
+      dx = Math.cos(a0 + u); dy = Math.sin(a0 + u);
+      px += dx * 1e-6; py += dy * 1e-6;
+    }
+    // premier point d'impact sur le cercle
+    let I = (P.source === "infini" ? 0.2 : 0.26) * Math.sqrt(400 / n);
+    for (let m = 0; m <= P.reflexions; m++) {
+      const bq = px * dx + py * dy, cq = px * px + py * py - 1, disc = bq * bq - cq;
+      if (disc < 0) break;
+      const s = -bq + Math.sqrt(disc);
+      const qx = px + s * dx, qy = py + s * dy;
+      if (m > 0 || P.source !== "infini") {
+        ctx.strokeStyle = `rgba(255,${190 - 50 * m},${80 - 30 * m},${I})`;
+        ctx.beginPath(); ctx.moveTo(cx + px * R, cy + py * R); ctx.lineTo(cx + qx * R, cy + qy * R); ctx.stroke();
+      } else {
+        ctx.strokeStyle = `rgba(255,240,200,${I * 0.35})`;
+        ctx.beginPath(); ctx.moveTo(cx + (qx - 2 * dx) * R, cy + (qy - 2 * dy) * R); ctx.lineTo(cx + qx * R, cy + qy * R); ctx.stroke();
+      }
+      // réflexion : d' = d − 2 (d·n) n, avec n = q (cercle unité)
+      const dn = dx * qx + dy * qy;
+      dx -= 2 * dn * qx; dy -= 2 * dn * qy;
+      px = qx - dx * 1e-6; py = qy - dy * 1e-6;
+      I *= 0.75;
+    }
+  }
+  ctx.globalCompositeOperation = "source-over";
+  ctx.restore();
+  // enveloppe théorique (après une réflexion), tracée pour une lumière dans la direction a0
+  if (P.theorie) {
+    ctx.strokeStyle = "rgba(0,240,255,0.85)"; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5; ctx.beginPath();
+    for (let k = 0; k <= 300; k++) {
+      let x, y;
+      if (P.source === "infini") { const u = -Math.PI / 2 + Math.PI * k / 300; x = (3 * Math.cos(u) - Math.cos(3 * u)) / 4; y = (3 * Math.sin(u) - Math.sin(3 * u)) / 4; }   // demi-néphroïde
+      else { const u = 2 * Math.PI * k / 300; x = -(2 * Math.cos(u) + Math.cos(2 * u)) / 3; y = (2 * Math.sin(u) + Math.sin(2 * u)) / 3; }                   // cardioïde
+      const X = x * Math.cos(a0) - y * Math.sin(a0), Y = x * Math.sin(a0) + y * Math.cos(a0);
+      k ? ctx.lineTo(cx + X * R, cy + Y * R) : ctx.moveTo(cx + X * R, cy + Y * R);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+P.theorie = false;
+function pas(dt) {
+  t += dt * 1.6;
+  if (P.mode === "piscine") {
+    if (P.pluie && Math.random() < dt * 2.5) goutte(Math.random() * NX, Math.random() * NY, 0.6 + Math.random() * 0.9);
+    for (let k = 0; k < 2; k++) pasOnde();
+  } else if (P.tourne) { P.angle = (P.angle + dt * 12) % 360; curA.fixer(Math.round(P.angle)); }
+}
+function dessiner(dt) {
+  if (P.mode === "piscine") { if (h) dessinerPiscine(); } else dessinerTasse(dt);
+  majHud();
+}
+let ch = 0;
+function majHud() {
+  if (ch++ % 8) return;
+  C.hud.innerHTML = P.mode === "piscine" ? `<span class="grand">Fond d'une piscine au soleil</span><br>profondeur: <span class="v">${C.fr(P.prof / 10, 1)}</span> m · cliquer pour faire des rides` : `<span class="grand">Réflexion sur la paroi d'une tasse</span><br>${P.source === "infini" ? "Soleil lointain: néphroïde" : "source sur le bord: cardioïde"}`;
+}
+let enfonce = false;
+C.pointeur({
+  bas: (x, y) => { if (P.mode === "piscine") goutte(x / C.W * NX, y / C.H * NY, 4); },
+  glisse: (x, y) => { if (P.mode === "piscine") goutte(x / C.W * NX, y / C.H * NY, 1.2); else { P.angle = (Math.atan2(y - C.H / 2, x - C.W / 2) * 180 / Math.PI + 180) % 360; curA.fixer(Math.round(P.angle)); } },
+});
+// ---------------------------------------------------------------- panneau
+const s0 = C.section("Situation");
+C.radios(s0, [["piscine", "Le fond d'une piscine (réfraction)"], ["tasse", "Une tasse au soleil (réflexion)"]], P, "mode", majPanneau);
+const bP = C.el("div", {}, C.pan);
+const s1 = C.section("Piscine", bP);
+C.curseur(s1, "Houle (vent à la surface)", P, "houle", 0, 1.5, 0.05, v => C.fr(v, 2));
+C.curseur(s1, "Profondeur", P, "prof", 2, 25, 0.5, v => C.fr(v / 10, 1) + " m");
+C.caseC(s1, "Gouttes de pluie", P, "pluie");
+C.bouton(C.boutons(s1), "Eau calme", () => { h.fill(0); h1.fill(0); s1.querySelector("input[type=range]").fixer(0); });
+const bT = C.el("div", {}, C.pan);
+const s2 = C.section("Tasse", bT);
+C.radios(s2, [["infini", "Soleil lointain (rayons parallèles)"], ["bord", "Source ponctuelle sur le bord"]], P, "source");
+const curA = C.curseur(s2, "Direction de la lumière", P, "angle", 0, 359, 1, v => v + "°");
+C.caseC(s2, "Rotation automatique", P, "tourne");
+C.curseur(s2, "Nombre de rayons", P, "nRayons", 50, 1500, 50, v => v);
+C.curseur(s2, "Nombre de réflexions", P, "reflexions", 1, 3, 1, v => v);
+C.caseC(s2, "Courbe théorique (après une réflexion)", P, "theorie");
+const s3 = C.section("Ce qu'on observe");
+const tP = C.texte(s3, "La surface ondulée agit comme une multitude de lentilles convergentes (creux) et divergentes (bosses). Au fond, la lumière se concentre sur des lignes brillantes: les <b>caustiques</b>, enveloppes des rayons réfractés. Plus l'eau est profonde, plus les rayons ont le temps de se croiser: le réseau devient plus net puis plus fin.");
+const tT = C.texte(s3, "Les rayons réfléchis par la paroi circulaire de la tasse ne passent pas par un foyer unique (aberration de sphéricité): leur <b>enveloppe</b> est une courbe brillante avec une pointe, une néphroïde pour un Soleil lointain, une cardioïde si la source est sur le bord.");
+C.note(s3, "Une caustique est le lieu où l'éclairement est maximal: c'est l'équivalent du rayon de Descartes de l'arc-en-ciel.");
+C.temps(null, { vmin: 0.25, vmax: 3 });
+function majPanneau() {
+  bP.style.display = tP.style.display = P.mode === "piscine" ? "" : "none";
+  bT.style.display = tT.style.display = P.mode === "tasse" ? "" : "none";
+  C.legende.innerHTML = P.mode === "tasse" ? "<span>glisser la souris pour orienter la lumière</span>" : "";
+}
+majPanneau();
+C.surRedim(() => { if (!h || Math.abs(Math.round(NX * C.H / C.W) - NY) > 6) initPiscine(); });
+C.ajuster();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

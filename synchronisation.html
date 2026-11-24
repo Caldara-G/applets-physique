@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Synchronisation spontanée — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Modèle de Kuramoto : dθ_i/dt = ω_i + (K/N) Σ_j sin(θ_j − θ_i) = ω_i + K r sin(ψ − θ_i),
+   r e^(iψ) = (1/N) Σ e^(iθ_j) (paramètre d'ordre). Pulsations propres ω_i tirées selon une gaussienne
+   de moyenne ω0 et d'écart-type σ ; couplage critique K_c = 2/(π g(0)) = σ √(8/π) ≈ 1,60 σ.
+   Variante « couplage local » : chaque luciole ne voit que ses voisines (rayon réglable). */
+const C = Cadre("Synchronisation spontanée", "Synchronisation");
+const ctx = C.ctx;
+const P = { vue: "lucioles", N: 400, K: 0, sigma: 0.5, local: false, rayon: 0.12, w0: 2 * Math.PI * 0.6 };
+let osc = [], t = 0, histo = [], r = 0, psi = 0;
+function gauss() { return Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random()); }
+function recommencer() {
+  const n = P.vue === "metronomes" ? Math.min(P.N, 32) : P.N;
+  osc = [];
+  for (let k = 0; k < n; k++) osc.push({ th: Math.random() * 2 * Math.PI, w: P.w0 + P.sigma * gauss(), x: Math.random(), y: Math.random(), v: [] });
+  t = 0; histo = [];
+  voisins();
+}
+function retirer() {           // nouvelles pulsations propres sans toucher aux phases
+  for (const o of osc) o.w = P.w0 + P.sigma * gauss();
+}
+function voisins() {
+  if (!P.local) return;
+  for (const o of osc) { o.v = []; for (const q of osc) if (q !== o && (o.x - q.x) ** 2 + (o.y - q.y) ** 2 < P.rayon ** 2) o.v.push(q); }
+}
+function pas(dt) {
+  const h = 0.01, n = Math.max(1, Math.round(dt / h));
+  for (let k = 0; k < n; k++) {
+    let cx = 0, sy = 0;
+    for (const o of osc) { cx += Math.cos(o.th); sy += Math.sin(o.th); }
+    cx /= osc.length; sy /= osc.length;
+    r = Math.hypot(cx, sy); psi = Math.atan2(sy, cx);
+    if (!P.local) for (const o of osc) o.d = o.w + P.K * r * Math.sin(psi - o.th);
+    else for (const o of osc) {
+      let s = 0; for (const q of o.v) s += Math.sin(q.th - o.th);
+      o.d = o.w + (o.v.length ? P.K * s / o.v.length : 0);
+    }
+    for (const o of osc) o.th += h * o.d;
+    t += h;
+  }
+  histo.push([t, r]); while (histo.length && histo[0][0] < t - 40) histo.shift();
+}
+// ---------------------------------------------------------------- dessin
+function eclat(o) {
+  // éclair bref quand la phase passe par 0 (mod 2π)
+  const p = ((o.th % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  return Math.exp(-Math.pow(Math.min(p, 2 * Math.PI - p) / 0.35, 2));
+}
+function dessiner() {
+  C.effacer();
+  const W = C.W, H = C.H;
+  if (P.vue === "lucioles") {
+    // nuit : quelques étoiles et la silhouette d'arbres
+    ctx.globalCompositeOperation = "lighter";
+    for (const o of osc) {
+      const e = eclat(o), x = 20 + o.x * (W - 40), y = 80 + o.y * (H - 290);
+      if (e > 0.02) C.halo(x, y, 6 + 20 * e, "rgba(190,255,60,1)", e);
+      ctx.fillStyle = `rgba(200,255,90,${0.12 + 0.88 * e})`;
+      ctx.beginPath(); ctx.arc(x, y, 1.8 + 1.5 * e, 0, 6.2832); ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
+  } else if (P.vue === "metronomes") {
+    const n = osc.length, cols = Math.ceil(Math.sqrt(n * 2)), rows = Math.ceil(n / cols);
+    const cw = (W - 40) / cols, rh = (H - 280) / rows;
+    osc.forEach((o, k) => {
+      const i = k % cols, j = Math.floor(k / cols);
+      const bx = 20 + (i + 0.5) * cw, by = 75 + (j + 0.85) * rh, L = Math.min(cw, rh) * 0.7;
+      const a = 0.5 * Math.sin(o.th), x = bx + L * Math.sin(a), y = by - L * Math.cos(a);
+      // socle pyramidal
+      ctx.fillStyle = "#1a1528"; ctx.strokeStyle = "#4a3d73"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(bx - L * 0.32, by + 6); ctx.lineTo(bx + L * 0.32, by + 6); ctx.lineTo(bx + L * 0.12, by - L * 0.95); ctx.lineTo(bx - L * 0.12, by - L * 0.95); ctx.closePath(); ctx.fill(); ctx.stroke();
+      const col = `hsl(${(k * 47) % 360},100%,62%)`;
+      ctx.strokeStyle = col; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(x, y); ctx.stroke();
+      ctx.globalCompositeOperation = "lighter";
+      C.halo(x, y, 10, col, 0.9);
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(x, y, 3, 0, 6.2832); ctx.fill();
+    });
+    // planche commune
+  } else {
+    // cercle des phases
+    const R = Math.min(W, H - 260) * 0.4, cx = W / 2, cy = 70 + (H - 260) / 2;
+    ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.2832); ctx.stroke();
+    ctx.globalCompositeOperation = "lighter";
+    osc.forEach((o, k) => {
+      const dw = (o.w - P.w0) / (2.5 * P.sigma + 1e-9);
+      const col = `hsl(${200 - 160 * Math.max(-1, Math.min(1, dw))},100%,60%)`;
+      C.halo(cx + R * Math.cos(o.th), cy - R * Math.sin(o.th), 7, col, 0.9);
+    });
+    ctx.globalCompositeOperation = "source-over";
+    ctx.strokeStyle = "#ffe600"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + R * r * Math.cos(psi), cy - R * r * Math.sin(psi)); ctx.stroke();
+    ctx.fillStyle = "#ffe600"; ctx.font = "bold 14px system-ui";
+    ctx.fillText("r e^(iψ)", cx + R * r * Math.cos(psi) + 6, cy - R * r * Math.sin(psi));
+  }
+  graphe();
+  majHud();
+}
+function graphe() {
+  const x0 = 20, y0 = C.H - 180, w = C.W - 40, h = 150;
+  ctx.fillStyle = "rgba(14,11,24,0.9)"; ctx.fillRect(x0, y0, w, h);
+  ctx.strokeStyle = "rgba(255,43,214,0.45)"; ctx.strokeRect(x0, y0, w, h);
+  ctx.fillStyle = "#a8a2c0"; ctx.font = "11px system-ui"; ctx.textAlign = "right";
+  for (const v of [0, 0.5, 1]) { const y = y0 + h - 14 - (h - 30) * v; ctx.fillText(C.fr(v, 1), x0 + 28, y + 4); ctx.strokeStyle = "rgba(255,255,255,0.08)"; ctx.beginPath(); ctx.moveTo(x0 + 34, y); ctx.lineTo(x0 + w - 6, y); ctx.stroke(); }
+  ctx.textAlign = "left"; ctx.fillStyle = "#fff"; ctx.fillText("paramètre d'ordre r (0: désordre, 1: synchronisation parfaite) — 40 dernières secondes", x0 + 40, y0 + 13);
+  ctx.strokeStyle = "#ffe600"; ctx.lineWidth = 2; ctx.beginPath();
+  histo.forEach((p, i) => { const x = x0 + 34 + (w - 40) * (p[0] - (t - 40)) / 40, y = y0 + h - 14 - (h - 30) * p[1]; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+  ctx.stroke();
+  // seuil théorique r∞ = sqrt(1 − Kc/K) (gaussienne : approximation près du seuil)
+}
+let ch = 0;
+function majHud() {
+  if (ch++ % 6) return;
+  const f = C.fr, Kc = P.sigma * Math.sqrt(8 / Math.PI);
+  const etat = r > 0.8 ? "<span style='color:#ffe600'>synchronisation</span>" : r > 0.35 ? "<span style='color:#ff8cf0'>un groupe synchronisé se forme</span>" : "oscillateurs indépendants";
+  C.hud.innerHTML = `<span class="grand">${etat}</span><br>K = <span class="v">${f(P.K, 2)}</span> s⁻¹ · couplage critique K<sub>c</sub> ≈ <span class="v">${f(Kc, 2)}</span> s⁻¹${P.local ? " (valeur pour un couplage global)" : ""} · r = <span class="v">${f(r, 2)}</span>`;
+}
+// ---------------------------------------------------------------- panneau
+const s0 = C.section("Vue");
+C.radios(s0, [["lucioles", "Lucioles dans la nuit"], ["metronomes", "Métronomes"], ["cercle", "Cercle des phases"]], P, "vue", recommencer);
+const s1 = C.section("Couplage");
+const curK = C.curseur(s1, "Intensité du couplage K", P, "K", 0, 4, 0.02, v => C.fr(v, 2) + " s⁻¹");
+C.curseur(s1, "Dispersion des fréquences propres σ", P, "sigma", 0, 1.5, 0.02, v => C.fr(v, 2) + " rad/s", retirer);
+C.caseC(s1, "Couplage local (chaque oscillateur ne voit que ses voisins)", P, "local", voisins);
+C.curseur(s1, "Portée du couplage local", P, "rayon", 0.04, 0.3, 0.01, v => C.fr(v, 2), voisins);
+C.curseur(s1, "Nombre d'oscillateurs", P, "N", 50, 1500, 50, v => v, recommencer);
+const bt = C.boutons(s1);
+C.bouton(bt, "K = 0", () => curK.fixer(0));
+C.bouton(bt, "K = 2 K_c", () => curK.fixer(Math.round(2 * P.sigma * Math.sqrt(8 / Math.PI) * 50) / 50));
+C.bouton(bt, "Phases au hasard", () => { for (const o of osc) o.th = Math.random() * 6.2832; });
+const s2 = C.section("Ce qu'on observe");
+C.texte(s2, "Chaque oscillateur a sa propre pulsation ω<sub>i</sub> et est un peu entraîné par les autres: dθ<sub>i</sub>/dt = ω<sub>i</sub> + K r sin(ψ − θ<sub>i</sub>), où r e<sup>iψ</sup> est la phase moyenne de la population (modèle de Kuramoto, 1975).");
+C.texte(s2, "Sous un couplage critique K<sub>c</sub>, proportionnel à la dispersion des fréquences, rien ne se passe. Au-delà, un noyau d'oscillateurs se met spontanément en phase et entraîne les autres: c'est une <b>transition de phase</b>, comme l'aimantation d'un ferromagnétique.");
+C.note(s2, "Exemples réels: lucioles d'Asie du Sud-Est qui clignotent ensemble, métronomes posés sur une planche mobile, cellules du pacemaker cardiaque, applaudissements, réseau électrique. Commencer avec K = 0 puis augmenter K progressivement.");
+C.temps(recommencer);
+C.ajuster();
+recommencer();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

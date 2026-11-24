@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modèle d'Ising: aimantation et transition de phase — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Modèle d'Ising 2D (réseau carré, conditions périodiques) : E = −J Σ s_i s_j − h Σ s_i.
+   Algorithme de Metropolis (balayage en damier), ou algorithme de Wolff (amas) près de T_c.
+   Température critique d'Onsager : k T_c / J = 2 / ln(1 + √2) ≈ 2,269. */
+const C = Cadre("Modèle d'Ising: domaines magnétiques", "Ising");
+const ctx = C.ctx;
+const TC = 2 / Math.log(1 + Math.SQRT2);
+const P = { T: 1.6, h: 0, algo: "metro", taille: 2, pinceau: 1, depart: "hasard" };
+let NX, NY, s, img, cv, t = 0, histM = [], M = 0, E = 0;
+function initGrille() {
+  NX = Math.max(40, Math.round(C.W / (P.taille + 1))); NY = Math.max(30, Math.round(C.H / (P.taille + 1)));
+  s = new Int8Array(NX * NY);
+  cv = document.createElement("canvas"); cv.width = NX; cv.height = NY;
+  img = cv.getContext("2d").createImageData(NX, NY);
+}
+function recommencer() {
+  initGrille();
+  for (let i = 0; i < s.length; i++) s[i] = P.depart === "haut" ? 1 : Math.random() < 0.5 ? 1 : -1;
+  t = 0; histM = [];
+}
+function balayageMetropolis() {
+  const b = 1 / P.T, h = P.h;
+  // probabilités d'acceptation tabulées : ΔE = 2 s (Σ voisins + h)
+  const acc = {};
+  for (const si of [-1, 1]) for (let sv = -4; sv <= 4; sv += 2) acc[si * 10 + sv] = Math.min(1, Math.exp(-2 * b * si * (sv + h)));
+  for (let par = 0; par < 2; par++) for (let y = 0; y < NY; y++) {
+    const yn = (y + 1) % NY, ys = (y + NY - 1) % NY;
+    for (let x = (y + par) & 1; x < NX; x += 2) {
+      const i = y * NX + x, si = s[i];
+      const sv = s[y * NX + (x + 1) % NX] + s[y * NX + (x + NX - 1) % NX] + s[yn * NX + x] + s[ys * NX + x];
+      if (Math.random() < acc[si * 10 + sv]) s[i] = -si;
+    }
+  }
+}
+function pasWolff() {
+  // un amas construit par ajouts successifs de voisins alignés avec probabilité 1 − e^(−2J/kT)
+  const p = 1 - Math.exp(-2 / P.T), i0 = Math.floor(Math.random() * s.length), s0 = s[i0];
+  const pile = [i0]; s[i0] = -s0; let n = 1;
+  while (pile.length) {
+    const i = pile.pop(), x = i % NX, y = (i / NX) | 0;
+    const vs = [y * NX + (x + 1) % NX, y * NX + (x + NX - 1) % NX, ((y + 1) % NY) * NX + x, ((y + NY - 1) % NY) * NX + x];
+    for (const j of vs) if (s[j] === s0 && Math.random() < p) { s[j] = -s0; pile.push(j); n++; }
+  }
+  return n;
+}
+function mesurer() {
+  let m = 0, e = 0;
+  for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+    const i = y * NX + x;
+    m += s[i]; e -= s[i] * (s[y * NX + (x + 1) % NX] + s[((y + 1) % NY) * NX + x]);
+  }
+  M = m / s.length; E = e / s.length;
+}
+function pas(dt) {
+  const debut = performance.now();
+  const nb = Math.max(1, Math.round(dt * 60 * 2));
+  for (let k = 0; k < nb; k++) {
+    if (P.algo === "metro") balayageMetropolis();
+    else { let n = 0; while (n < s.length && performance.now() - debut < 25) n += pasWolff(); }
+    t++;
+    if (performance.now() - debut > 28) break;
+  }
+  mesurer();
+  histM.push(M); if (histM.length > 600) histM.shift();
+}
+// ---------------------------------------------------------------- dessin
+const HAUT = [255, 43, 214], BAS = [0, 200, 255];
+function dessiner() {
+  if (!img) return;
+  const d = img.data;
+  for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+    const i = y * NX + x, k = 4 * i, c = s[i] > 0 ? HAUT : BAS;
+    // parois de domaines plus lumineuses
+    const paroi = s[i] !== s[y * NX + (x + 1) % NX] || s[i] !== s[((y + 1) % NY) * NX + x];
+    const a = paroi ? 1 : 0.55;
+    d[k] = c[0] * a + (paroi ? 60 : 0); d[k + 1] = c[1] * a + (paroi ? 60 : 0); d[k + 2] = c[2] * a + (paroi ? 60 : 0); d[k + 3] = 255;
+  }
+  cv.getContext("2d").putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(cv, 0, 0, C.W, C.H);
+  encart();
+  majHud();
+}
+// encart : |M| en fonction de T (courbe d'Onsager) et M(t)
+function onsager(T) { return T >= TC ? 0 : Math.pow(1 - Math.pow(Math.sinh(2 / T), -4), 1 / 8); }
+function encart() {
+  const w = 260, h = 150, x0 = C.W - w - 14, y0 = 14;
+  ctx.fillStyle = "rgba(10,5,20,0.85)"; ctx.fillRect(x0, y0, w, h);
+  ctx.strokeStyle = "rgba(255,43,214,0.5)"; ctx.lineWidth = 1; ctx.strokeRect(x0, y0, w, h);
+  const X = T => x0 + 30 + (w - 40) * T / 4, Y = m => y0 + h - 20 - (h - 40) * m;
+  ctx.strokeStyle = "rgba(255,255,255,0.15)";
+  ctx.beginPath(); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(4), Y(0)); ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(0), Y(1)); ctx.stroke();
+  ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(X(TC), Y(0)); ctx.lineTo(X(TC), Y(1)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = "#ffe600"; ctx.lineWidth = 2; ctx.beginPath();
+  for (let k = 0; k <= 200; k++) { const T = 0.05 + 3.95 * k / 200; k ? ctx.lineTo(X(T), Y(onsager(T))) : ctx.moveTo(X(T), Y(onsager(T))); }
+  ctx.stroke();
+  ctx.fillStyle = "#fff"; C.halo(X(P.T), Y(Math.abs(M)), 9, "#00f0ff", 1);
+  ctx.beginPath(); ctx.arc(X(P.T), Y(Math.abs(M)), 3, 0, 6.2832); ctx.fill();
+  ctx.font = "11px system-ui"; ctx.fillStyle = "#a8a2c0"; ctx.textAlign = "center";
+  ctx.fillText("kT/J", X(3.7), Y(0) + 14); ctx.fillText("T_c", X(TC), Y(0) + 14);
+  ctx.textAlign = "left"; ctx.fillText("|M|", x0 + 6, Y(1) + 4);
+  ctx.fillStyle = "#ffe600"; ctx.fillText("théorie (Onsager, réseau infini)", X(0.25), y0 + 14);
+}
+let ch = 0;
+function majHud() {
+  if (ch++ % 6) return;
+  const f = C.fr;
+  const etat = P.T < TC * 0.97 ? "phase ordonnée (ferromagnétique): les domaines grossissent" : P.T > TC * 1.03 ? "phase désordonnée (paramagnétique)" : "au voisinage du point critique: domaines de toutes tailles";
+  C.hud.innerHTML = `<span class="grand">kT/J = <span class="v">${f(P.T, 3)}</span> · T/T<sub>c</sub> = <span class="v">${f(P.T / TC, 3)}</span></span><br>${etat}<br>aimantation M = <span class="v">${f(M, 3)}</span> · énergie par spin = <span class="v">${f(E, 3)}</span> J · ${P.algo === "metro" ? "balayages" : "étapes"}: <span class="v">${t}</span>`;
+}
+// pinceau : retourner des spins à la souris
+function peindre(x, y) {
+  const cx = Math.floor(x / C.W * NX), cy = Math.floor(y / C.H * NY), r = 6;
+  for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) if (i * i + j * j <= r * r) s[((cy + j + NY) % NY) * NX + (cx + i + NX) % NX] = P.pinceau;
+}
+C.pointeur({ bas: peindre, glisse: peindre });
+// ---------------------------------------------------------------- panneau
+const s1 = C.section("Température et champ");
+const curT = C.curseur(s1, "Température kT/J", P, "T", 0.5, 4, 0.01, v => C.fr(v, 2) + " (T/T<sub>c</sub> = " + C.fr(v / TC, 2) + ")");
+C.curseur(s1, "Champ magnétique extérieur h (en unités de J)", P, "h", -0.5, 0.5, 0.01, v => C.fr(v, 2));
+const bt = C.boutons(s1);
+C.bouton(bt, "T = 0,5 T_c", () => curT.fixer(+(0.5 * TC).toFixed(2)));
+C.bouton(bt, "T = T_c", () => curT.fixer(+TC.toFixed(2)));
+C.bouton(bt, "T = 1,5 T_c", () => curT.fixer(+(1.5 * TC).toFixed(2)));
+const s2 = C.section("Départ et algorithme");
+C.radios(s2, [["hasard", "Spins au hasard (trempe depuis une température infinie)"], ["haut", "Tous les spins vers le haut"]], P, "depart", recommencer);
+C.radios(s2, [["metro", "Metropolis (un spin à la fois): dynamique réaliste"], ["wolff", "Wolff (amas de spins): équilibre rapide près de T<sub>c</sub>"]], P, "algo");
+C.curseur(s2, "Taille d'un spin à l'écran", P, "taille", 1, 6, 1, v => (v + 1) + " px", recommencer);
+const Q = { p: "1" };
+C.radios(s2, [["1", "Pinceau: spins vers le haut (magenta)"], ["-1", "Pinceau: spins vers le bas (cyan)"]], Q, "p", () => { P.pinceau = +Q.p; });
+const s3 = C.section("Ce qu'on observe");
+C.texte(s3, "Chaque petit carré est un moment magnétique (spin) qui ne peut prendre que deux orientations, haut (magenta) ou bas (cyan). Deux voisins alignés ont une énergie plus basse: l'interaction favorise l'ordre, l'agitation thermique le détruit.");
+C.texte(s3, "En dessous de la <b>température critique</b> T<sub>c</sub> = 2J/(k ln(1 + √2)) (Onsager, 1944), des domaines d'aimantation se forment et grossissent: le matériau s'aimante spontanément. Au-dessus, le désordre l'emporte. Juste à T<sub>c</sub>, on voit des domaines de toutes les tailles: c'est une structure fractale.");
+C.note(s3, "Le même modèle décrit les alliages binaires, le gaz sur réseau (liquide-vapeur) et la démixtion. On peut peindre des spins à la souris.");
+C.temps(recommencer, { vmin: 0.25, vmax: 4 });
+C.legende.innerHTML = `<span><i style="background:#ff2bd6;border-radius:2px"></i>spin vers le haut &nbsp;<i style="background:#00c8ff;border-radius:2px"></i>spin vers le bas</span>`;
+C.surRedim(() => { if (!s) recommencer(); });
+C.ajuster();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

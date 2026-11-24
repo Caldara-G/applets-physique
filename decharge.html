@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Croissance fractale: éclairs et figures de Lichtenberg — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Modèle de claquage diélectrique (Niemeyer, Pietronero, Wiesmann 1984).
+   Le potentiel V vérifie ΔV = 0 hors de la décharge (relaxation SOR), V = 0 sur la décharge (conductrice),
+   V = 1 sur l'électrode opposée. Un site voisin de la décharge est ajouté avec une probabilité ∝ |E|^η ∝ V^η.
+   η = 1 : statistiquement équivalent à l'agrégation limitée par la diffusion (DLA). */
+const C = Cadre("Croissance fractale: éclairs et figures de Lichtenberg", "Décharge");
+const ctx = C.ctx;
+const P = { geom: "radial", eta: 1.2, vitesse2: 6, auto: true };
+let NX, NY, V, amas, age, parent, perim, nAmas, fini, img, cv, flash = 0, canal = null, tFin = 0;
+const NB = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+
+function recommencer() {
+  const cible = 80000;
+  NX = Math.round(Math.sqrt(cible * C.W / C.H)); NY = Math.round(NX * C.H / C.W);
+  const n = NX * NY;
+  V = new Float32Array(n); amas = new Uint8Array(n); age = new Int32Array(n).fill(-1); parent = new Int32Array(n).fill(-1);
+  fixe = new Uint8Array(n);
+  perim = new Set(); nAmas = 0; fini = false; flash = 0; canal = null;
+  cv = document.createElement("canvas"); cv.width = NX; cv.height = NY;
+  img = cv.getContext("2d").createImageData(NX, NY);
+  // conditions aux limites
+  for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+    const i = y * NX + x;
+    if (P.geom === "radial") {
+      const r = Math.hypot(x - NX / 2, y - NY / 2);
+      const Rb = Math.min(NX, NY) / 2 - 2;
+      if (r >= Rb) { fixe[i] = 1; V[i] = 1; } else V[i] = Math.max(0, Math.log(Math.max(r, 1)) / Math.log(Rb));
+    } else {
+      if (y === NY - 1) { fixe[i] = 1; V[i] = 1; } else V[i] = y / (NY - 1);
+    }
+  }
+  if (P.geom === "radial") ajouter(Math.round(NY / 2) * NX + Math.round(NX / 2), -1);
+  else if (P.geom === "eclair") ajouter(Math.round(NX / 2), -1);
+  else for (let x = 0; x < NX; x++) ajouter(x, -1);    // électrode plane : toute la rangée du haut
+  C.effacer();
+}
+let fixe;
+function ajouter(i, p) {
+  amas[i] = 1; V[i] = 0; age[i] = nAmas++; parent[i] = p; perim.delete(i);
+  const x = i % NX, y = (i / NX) | 0;
+  for (const [dx, dy] of NB.slice(0, 4)) {
+    const X = x + dx, Y = y + dy;
+    if (X < 0 || X >= NX || Y < 0 || Y >= NY) continue;
+    const j = Y * NX + X;
+    if (!amas[j]) { if (fixe[j]) { fini = true; finir(i); } else perim.add(j); }
+  }
+}
+function finir(i) {
+  // le canal principal : de l'électrode jusqu'à l'origine, en remontant les parents
+  canal = []; let k = i;
+  while (k >= 0) { canal.push(k); k = parent[k]; }
+  flash = 1; tFin = performance.now();
+}
+function relaxer(n) {
+  const w = 1.85;
+  for (let it = 0; it < n; it++) for (let y = 1; y < NY - 1; y++) for (let x = 1; x < NX - 1; x++) {
+    const i = y * NX + x;
+    if (amas[i] || fixe[i]) continue;
+    V[i] += w * ((V[i - 1] + V[i + 1] + V[i - NX] + V[i + NX]) * 0.25 - V[i]);
+  }
+}
+function croitre(k) {
+  const liste = Array.from(perim), poids = new Float64Array(liste.length);
+  let total = 0;
+  for (let m = 0; m < liste.length; m++) { const v = Math.max(0, V[liste[m]]); total += (poids[m] = Math.pow(v, P.eta)); }
+  if (total <= 0) return;
+  for (let c = 0; c < k && !fini; c++) {
+    let u = Math.random() * total, m = 0;
+    while (m < liste.length - 1 && u > poids[m]) { u -= poids[m]; m++; }
+    const i = liste[m];
+    if (amas[i]) continue;
+    total -= poids[m]; poids[m] = 0;
+    // parent : voisin déjà dans la décharge
+    const x = i % NX, y = (i / NX) | 0;
+    let p = -1;
+    for (const [dx, dy] of NB) { const X = x + dx, Y = y + dy; if (X >= 0 && X < NX && Y >= 0 && Y < NY && amas[Y * NX + X]) { p = Y * NX + X; break; } }
+    ajouter(i, p);
+  }
+}
+function pas(dt) {
+  if (fini) {
+    if (P.auto && performance.now() - tFin > 5000) recommencer();
+    return;
+  }
+  const n = Math.max(1, Math.round(dt * 60));
+  for (let k = 0; k < n; k++) { relaxer(6); croitre(Math.round(P.vitesse2)); }
+}
+// ---------------------------------------------------------------- dessin
+const GRAD = [[255, 255, 255], [0, 240, 255], [138, 92, 255], [255, 43, 214], [255, 106, 0]];
+function couleur(u) {
+  u = Math.min(0.999, Math.max(0, u)) * (GRAD.length - 1);
+  const i = Math.floor(u), f = u - i;
+  return [0, 1, 2].map(c => GRAD[i][c] * (1 - f) + GRAD[i + 1][c] * f);
+}
+function dessiner() {
+  if (!img) return;
+  const d = img.data, n = NX * NY;
+  for (let i = 0; i < n; i++) {
+    const k = 4 * i;
+    if (amas[i]) {
+      const c = couleur(age[i] / Math.max(1, nAmas));
+      d[k] = c[0]; d[k + 1] = c[1]; d[k + 2] = c[2]; d[k + 3] = 255;
+    } else {
+      // fond : équipotentielles discrètes
+      const v = V[i] * 12, l = Math.abs(v - Math.round(v)) < 0.06 ? 28 : 0;
+      d[k] = l * 0.6; d[k + 1] = l * 0.4; d[k + 2] = l * 1.2 + 6 * V[i]; d[k + 3] = 255;
+    }
+  }
+  if (canal) for (const i of canal) { const k = 4 * i; d[k] = d[k + 1] = d[k + 2] = 255; }
+  cv.getContext("2d").putImageData(img, 0, 0);
+  C.effacer();
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(cv, 0, 0, C.W, C.H);
+  // halo lumineux
+  ctx.globalCompositeOperation = "lighter";
+  ctx.filter = "blur(6px)"; ctx.globalAlpha = 0.9; ctx.drawImage(cv, 0, 0, C.W, C.H);
+  ctx.filter = "blur(16px)"; ctx.globalAlpha = 0.6; ctx.drawImage(cv, 0, 0, C.W, C.H);
+  ctx.filter = "none"; ctx.globalAlpha = 1;
+  if (flash > 0) {
+    ctx.fillStyle = `rgba(200,220,255,${0.5 * flash})`; ctx.fillRect(0, 0, C.W, C.H);
+    // canal principal épaissi
+    ctx.strokeStyle = `rgba(255,255,255,${0.4 + 0.6 * flash})`; ctx.lineWidth = 3; ctx.lineJoin = "round";
+    ctx.beginPath();
+    canal.forEach((i, k) => { const x = (i % NX + 0.5) * C.W / NX, y = (((i / NX) | 0) + 0.5) * C.H / NY; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.stroke();
+    flash *= 0.93; if (flash < 0.02) flash = 0;
+  }
+  ctx.globalCompositeOperation = "source-over";
+  majHud();
+}
+let ch = 0;
+function majHud() {
+  if (ch++ % 8) return;
+  // dimension fractale estimée : N(r) ∝ r^D pour la géométrie radiale
+  let txt = `<span class="grand">${fini ? "Décharge: le canal atteint l'électrode" : "Croissance de la décharge"}</span><br>sites: <span class="v">${nAmas}</span> · η = <span class="v">${C.fr(P.eta, 2)}</span>`;
+  if (P.geom === "radial" && nAmas > 300) {
+    let rmax = 0; const cx = NX / 2, cy = NY / 2;
+    for (let i = 0; i < NX * NY; i++) if (amas[i]) rmax = Math.max(rmax, Math.hypot(i % NX - cx, ((i / NX) | 0) - cy));
+    const r1 = rmax * 0.25, r2 = rmax * 0.6; let n1 = 0, n2 = 0;
+    for (let i = 0; i < NX * NY; i++) if (amas[i]) { const r = Math.hypot(i % NX - cx, ((i / NX) | 0) - cy); if (r < r1) n1++; if (r < r2) n2++; }
+    if (n1 > 20) txt += ` · dimension fractale ≈ <span class="v">${C.fr(Math.log(n2 / n1) / Math.log(r2 / r1), 2)}</span>`;
+  }
+  C.hud.innerHTML = txt;
+}
+// ---------------------------------------------------------------- panneau
+const s1 = C.section("Situation");
+C.radios(s1, [["radial", "Figure de Lichtenberg (charge ponctuelle au centre)"], ["eclair", "Éclair (d'un point en haut vers le sol)"], ["plan", "Entre deux électrodes planes"]], P, "geom", recommencer);
+C.curseur(s1, "Exposant η (probabilité ∝ |E|<sup>η</sup>)", P, "eta", 0, 4, 0.05, v => C.fr(v, 2));
+const bt = C.boutons(s1);
+for (const [lab, v] of [["η = 0 (compact)", 0], ["η = 1 (DLA)", 1], ["η = 3 (filiforme)", 3]]) C.bouton(bt, lab, () => { const r = s1.querySelector("input[type=range]"); r.value = v; r.dispatchEvent(new Event("input")); recommencer(); });
+C.curseur(s1, "Sites ajoutés par étape", P, "vitesse2", 1, 20, 1, v => v);
+C.caseC(s1, "Recommencer tout seul après chaque décharge", P, "auto");
+const s2 = C.section("Ce qu'on observe");
+C.texte(s2, "Dans un isolant soumis à un champ intense, la décharge progresse là où le champ électrique est le plus fort. Or le champ est plus intense à la pointe des branches (effet de pointe): les pointes avancent plus vite que les creux, ce qui crée de nouvelles branches.");
+C.texte(s2, "Le potentiel est calculé en résolvant l'<b>équation de Laplace</b> ΔV = 0 autour de la décharge, qui est conductrice. On obtient une structure <b>fractale</b>, de dimension ≈ 1,7 pour η = 1, comme les figures de Lichtenberg gravées dans le plexiglas, les éclairs, la croissance de dépôts électrolytiques ou les doigts visqueux.");
+C.note(s2, "η règle la sensibilité au champ: η = 0 donne une tache compacte, η grand des filaments presque rectilignes. Les lignes violettes du fond sont des équipotentielles.");
+C.temps(recommencer, { vitesse: false });
+C.surRedim(() => { if (!img) recommencer(); });
+C.ajuster();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

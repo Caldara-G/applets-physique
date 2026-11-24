@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Problème à trois corps — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Problème à trois corps — unités G = 1.
+   Modes « huit », « Pythagore », « sensibilité », « aléatoire » : intégration RK4 à pas adaptatif
+   (pas proportionnel au plus petit temps de rencontre r^(3/2)/sqrt(G m)).
+   Mode « Lagrange » : problème restreint dans le référentiel tournant (ω = 1, distance 1, μ réglable),
+   particules-test autour de L4 et L5, courbes de niveau du potentiel effectif. */
+const C = Cadre("Problème à trois corps", "Trois corps");
+const ctx = C.ctx;
+const P = { mode: "huit", traces: true, perturb: -6, mu: 0.01, nTest: 500, lecture: true };
+
+const MODES = [
+  ["huit", "Le « huit » de Chenciner et Montgomery"],
+  ["pytha", "Problème de Pythagore (masses 3, 4, 5)"],
+  ["sensib", "Chaos: deux systèmes presque identiques"],
+  ["alea", "Trois corps au hasard"],
+  ["lagrange", "Points de Lagrange (problème restreint)"],
+];
+const COUL = ["#ff2bd6", "#00f0ff", "#ffe600"];
+const COUL2 = ["#ff9a3c", "#39ff14", "#b18cff"];
+
+// ---------------------------------------------------------------- corps
+let S = [], S2 = null, t = 0, echelle = 1, centre = [0, 0], ecartMax = 0, ejecte = false;
+function etat(m, x, y, vx, vy) { return { m: m.slice(), x: x.slice(), y: y.slice(), vx: vx.slice(), vy: vy.slice() }; }
+function copie(s) { return etat(s.m, s.x, s.y, s.vx, s.vy); }
+function acc(s, x, y) {
+  const n = s.m.length, ax = new Array(n).fill(0), ay = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    const dx = x[j] - x[i], dy = y[j] - y[i];
+    const r2 = dx * dx + dy * dy + 1e-10, r3 = r2 * Math.sqrt(r2);
+    ax[i] += s.m[j] * dx / r3; ay[i] += s.m[j] * dy / r3;
+    ax[j] -= s.m[i] * dx / r3; ay[j] -= s.m[i] * dy / r3;
+  }
+  return [ax, ay];
+}
+function pasRK4(s, h) {
+  const n = s.m.length, add = (a, b, k) => a.map((v, i) => v + k * b[i]);
+  const [a1x, a1y] = acc(s, s.x, s.y);
+  const x2 = add(s.x, s.vx, h / 2), y2 = add(s.y, s.vy, h / 2), vx2 = add(s.vx, a1x, h / 2), vy2 = add(s.vy, a1y, h / 2);
+  const [a2x, a2y] = acc(s, x2, y2);
+  const x3 = add(s.x, vx2, h / 2), y3 = add(s.y, vy2, h / 2), vx3 = add(s.vx, a2x, h / 2), vy3 = add(s.vy, a2y, h / 2);
+  const [a3x, a3y] = acc(s, x3, y3);
+  const x4 = add(s.x, vx3, h), y4 = add(s.y, vy3, h), vx4 = add(s.vx, a3x, h), vy4 = add(s.vy, a3y, h);
+  const [a4x, a4y] = acc(s, x4, y4);
+  for (let i = 0; i < n; i++) {
+    s.x[i] += h / 6 * (s.vx[i] + 2 * vx2[i] + 2 * vx3[i] + vx4[i]);
+    s.y[i] += h / 6 * (s.vy[i] + 2 * vy2[i] + 2 * vy3[i] + vy4[i]);
+    s.vx[i] += h / 6 * (a1x[i] + 2 * a2x[i] + 2 * a3x[i] + a4x[i]);
+    s.vy[i] += h / 6 * (a1y[i] + 2 * a2y[i] + 2 * a3y[i] + a4y[i]);
+  }
+}
+function pasAdapte(s) {
+  let tmin = Infinity;
+  for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) {
+    const r = Math.hypot(s.x[j] - s.x[i], s.y[j] - s.y[i]);
+    tmin = Math.min(tmin, Math.pow(r, 1.5) / Math.sqrt(s.m[i] + s.m[j]));
+  }
+  return Math.min(0.01, 0.01 * tmin);
+}
+function energie(s) {
+  let e = 0;
+  for (let i = 0; i < 3; i++) {
+    e += 0.5 * s.m[i] * (s.vx[i] ** 2 + s.vy[i] ** 2);
+    for (let j = i + 1; j < 3; j++) e -= s.m[i] * s.m[j] / Math.hypot(s.x[j] - s.x[i], s.y[j] - s.y[i]);
+  }
+  return e;
+}
+let E0 = 0;
+
+// ---------------------------------------------------------------- problème restreint
+let L = [], tests = [], fond = null;
+function pointsLagrange(mu) {
+  // L1, L2, L3 sur l'axe par Newton sur dΩ/dx = 0
+  const dOx = x => x - (1 - mu) * (x + mu) / Math.abs(x + mu) ** 3 - mu * (x - 1 + mu) / Math.abs(x - 1 + mu) ** 3;
+  const newton = x => { for (let k = 0; k < 60; k++) { const h = 1e-7, f = dOx(x), d = (dOx(x + h) - f) / h; x -= f / d; } return x; };
+  const r = Math.cbrt(mu / 3);
+  return [[newton(1 - mu - r), 0], [newton(1 - mu + r), 0], [newton(-1 - 5 * mu / 12), 0],
+          [0.5 - mu, Math.sqrt(3) / 2], [0.5 - mu, -Math.sqrt(3) / 2]];
+}
+function initLagrange() {
+  const mu = P.mu;
+  L = pointsLagrange(mu);
+  tests = [];
+  for (let k = 0; k < P.nTest; k++) {
+    const Lk = L[3 + (k % 2)];
+    const a = Math.random() * 2 * Math.PI, d = 0.004 + 0.09 * Math.pow(Math.random(), 1.4);
+    // petit déplacement le long de l'orbite (angle) et en rayon
+    const th = Math.atan2(Lk[1], Lk[0] + mu) + d * Math.cos(a) * 3, rr = 1 + d * Math.sin(a) * 0.25;
+    tests.push({ x: -mu + rr * Math.cos(th), y: rr * Math.sin(th), vx: 0, vy: 0, vivant: true,
+                 c: C.NEON[k % 2 ? 1 : 0], h: [] });
+  }
+  t = 0; fond = null;
+}
+function fRestreint(x, y, vx, vy) {
+  const mu = P.mu;
+  const dx1 = x + mu, dx2 = x - 1 + mu;
+  const r1 = Math.sqrt(dx1 * dx1 + y * y), r2 = Math.sqrt(dx2 * dx2 + y * y);
+  const a = (1 - mu) / (r1 * r1 * r1), b = mu / (r2 * r2 * r2);
+  return [vx, vy, x - a * dx1 - b * dx2 + 2 * vy, y - a * y - b * y - 2 * vx];
+}
+function pasTest(p, h) {
+  const k1 = fRestreint(p.x, p.y, p.vx, p.vy);
+  const k2 = fRestreint(p.x + h / 2 * k1[0], p.y + h / 2 * k1[1], p.vx + h / 2 * k1[2], p.vy + h / 2 * k1[3]);
+  const k3 = fRestreint(p.x + h / 2 * k2[0], p.y + h / 2 * k2[1], p.vx + h / 2 * k2[2], p.vy + h / 2 * k2[3]);
+  const k4 = fRestreint(p.x + h * k3[0], p.y + h * k3[1], p.vx + h * k3[2], p.vy + h * k3[3]);
+  p.x += h / 6 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]);
+  p.y += h / 6 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]);
+  p.vx += h / 6 * (k1[2] + 2 * k2[2] + 2 * k3[2] + k4[2]);
+  p.vy += h / 6 * (k1[3] + 2 * k2[3] + 2 * k3[3] + k4[3]);
+  const r2 = Math.hypot(p.x - 1 + P.mu, p.y), r1 = Math.hypot(p.x + P.mu, p.y);
+  if (r2 < 0.03 || r1 < 0.08 || r1 > 3) p.vivant = false;
+}
+function calculerFond() {
+  const w = Math.round(C.W / 2), h = Math.round(C.H / 2);
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const c2 = cv.getContext("2d"), im = c2.createImageData(w, h), d = im.data, mu = P.mu;
+  const s = echelleL() / 2;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const x = (i - w / 2) / s, y = -(j - h / 2) / s;
+    const r1 = Math.hypot(x + mu, y), r2 = Math.hypot(x - 1 + mu, y);
+    const om = 0.5 * (x * x + y * y) + (1 - mu) / r1 + mu / r2;
+    const u = Math.log(om) * 14, f = u - Math.floor(u), ligne = Math.exp(-Math.pow(Math.min(f, 1 - f) * 9, 2));
+    const prof = Math.min(1, Math.max(0, (Math.log(om) - 0.35) / 1.6));
+    const ligneV = ligne * Math.pow(1 - prof, 3);
+    const k = 4 * (j * w + i);
+    d[k] = 60 * prof + 150 * ligneV; d[k + 1] = 10 + 50 * ligneV; d[k + 2] = 40 + 90 * prof + 200 * ligneV; d[k + 3] = 255;
+  }
+  c2.putImageData(im, 0, 0);
+  fond = cv;
+}
+function echelleL() { return Math.min(C.W, C.H) * 0.36; }
+
+// ---------------------------------------------------------------- initialisation
+function recommencer() {
+  t = 0; ejecte = false; ecartMax = 0; S2 = null;
+  if (P.mode === "lagrange") { initLagrange(); C.effacer(); majPanneau(); return; }
+  if (P.mode === "huit") {
+    const x = 0.97000436, y = -0.24308753, vx = -0.93240737, vy = -0.86473146;
+    S = etat([1, 1, 1], [x, -x, 0], [y, -y, 0], [-vx / 2, -vx / 2, vx], [-vy / 2, -vy / 2, vy]);
+  } else if (P.mode === "pytha" || P.mode === "sensib") {
+    S = etat([3, 4, 5], [1, -2, 1], [3, -1, -1], [0, 0, 0], [0, 0, 0]);
+    if (P.mode === "sensib") { S2 = copie(S); S2.x[0] += Math.pow(10, P.perturb); }
+  } else {
+    let m = [1, 1, 1].map(() => 0.6 + Math.random()), x = [], y = [], vx = [], vy = [];
+    for (let i = 0; i < 3; i++) { const a = Math.random() * 6.283, r = 0.5 + Math.random(); x.push(r * Math.cos(a)); y.push(r * Math.sin(a)); vx.push((Math.random() - 0.5) * 0.8); vy.push((Math.random() - 0.5) * 0.8); }
+    // centre de masse immobile à l'origine
+    const M = m[0] + m[1] + m[2];
+    const cx = (m[0] * x[0] + m[1] * x[1] + m[2] * x[2]) / M, cy = (m[0] * y[0] + m[1] * y[1] + m[2] * y[2]) / M;
+    const px = (m[0] * vx[0] + m[1] * vx[1] + m[2] * vx[2]) / M, py = (m[0] * vy[0] + m[1] * vy[1] + m[2] * vy[2]) / M;
+    S = etat(m, x.map(v => v - cx), y.map(v => v - cy), vx.map(v => v - px), vy.map(v => v - py));
+  }
+  E0 = energie(S);
+  echelle = Math.min(C.W, C.H) / (P.mode === "huit" ? 2.6 : 9);
+  centre = [0, 0];
+  C.effacer();
+  majPanneau();
+}
+
+// ---------------------------------------------------------------- évolution
+function pas(dt) {
+  if (P.mode === "lagrange") {
+    const h = 0.01, n = Math.round(dt * 2 / h * 3);
+    for (let k = 0; k < n; k++) for (const p of tests) if (p.vivant) pasTest(p, h);
+    t += n * h;
+    return;
+  }
+  let reste = dt * (P.mode === "huit" ? 1.2 : 1.6), garde = 0;
+  while (reste > 0 && garde++ < 4000) {
+    let h = pasAdapte(S);
+    if (S2) h = Math.min(h, pasAdapte(S2));
+    h = Math.min(h, reste);
+    pasRK4(S, h); if (S2) pasRK4(S2, h);
+    reste -= h; t += h;
+  }
+  if (S2) ecartMax = Math.hypot(S.x[0] - S2.x[0], S.y[0] - S2.y[0]);
+  // détection d'éjection (problème de Pythagore)
+  if (!ejecte && P.mode !== "huit") for (let i = 0; i < 3; i++) if (Math.hypot(S.x[i], S.y[i]) > 12) ejecte = true;
+}
+
+// ---------------------------------------------------------------- dessin
+const prec = [[], []];
+function ecran(x, y) { return [C.W / 2 + (x - centre[0]) * echelle, C.H / 2 - (y - centre[1]) * echelle]; }
+// les disques des corps sont dessinés sur un calque séparé, effacé à chaque image
+const calque = document.createElement("canvas");
+calque.style.cssText = "position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none";
+C.zone.insertBefore(calque, C.hud);
+const cc = calque.getContext("2d");
+C.surRedim(() => { calque.width = C.canvas.width; calque.height = C.canvas.height; cc.setTransform(C.dpr, 0, 0, C.dpr, 0, 0); prec[0] = []; prec[1] = []; if (P.mode === "lagrange") fond = null; });
+function dessinerCorpsCalque(s, couls, rayonMax) {
+  for (let i = 0; i < 3; i++) {
+    const [X, Y] = ecran(s.x[i], s.y[i]);
+    const r = rayonMax * Math.cbrt(s.m[i] / 5);
+    const g = cc.createRadialGradient(X, Y, 0, X, Y, r * 3.4);
+    g.addColorStop(0, "#ffffff"); g.addColorStop(0.18, couls[i]); g.addColorStop(1, "rgba(0,0,0,0)");
+    cc.fillStyle = g; cc.beginPath(); cc.arc(X, Y, r * 3.4, 0, 6.2832); cc.fill();
+  }
+}
+function dessinerTout() {
+  cc.clearRect(0, 0, C.W, C.H);
+  if (P.mode === "lagrange") { dessinerLagrange(); return; }
+  C.estomper(P.traces ? 0.006 : 0.4);
+  ctx.globalCompositeOperation = "lighter";
+  const syst = S2 ? [S, S2] : [S];
+  syst.forEach((s, k) => {
+    const couls = k ? COUL2 : COUL;
+    for (let i = 0; i < 3; i++) {
+      const [X, Y] = ecran(s.x[i], s.y[i]);
+      const p = prec[k][i];
+      if (p && Math.hypot(X - p[0], Y - p[1]) < 400) {
+        ctx.lineCap = "round";
+        ctx.strokeStyle = C.rgba(couls[i], 0.16); ctx.lineWidth = 10;
+        ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(X, Y); ctx.stroke();
+        ctx.strokeStyle = C.rgba(couls[i], 0.95); ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(X, Y); ctx.stroke();
+      }
+      prec[k][i] = [X, Y];
+    }
+    dessinerCorpsCalque(s, couls, 9);
+  });
+  ctx.globalCompositeOperation = "source-over";
+  majHud();
+}
+function dessinerLagrange() {
+  if (!fond) { calculerFond(); C.effacer(); }
+  C.estomper(0.08);
+  ctx.globalAlpha = 0.09; ctx.drawImage(fond, 0, 0, C.W, C.H); ctx.globalAlpha = 1;
+  const s = echelleL(), X = x => C.W / 2 + x * s, Y = y => C.H / 2 - y * s;
+  ctx.globalCompositeOperation = "lighter";
+  for (const p of tests) if (p.vivant) {
+    ctx.fillStyle = C.rgba(p.c, 0.85);
+    ctx.fillRect(X(p.x) - 1.2, Y(p.y) - 1.2, 2.4, 2.4);
+  }
+  ctx.globalCompositeOperation = "source-over";
+  // primaires et points de Lagrange (calque)
+  const g = (x, y, r, c) => { const gr = cc.createRadialGradient(X(x), Y(y), 0, X(x), Y(y), r); gr.addColorStop(0, "#fff"); gr.addColorStop(0.25, c); gr.addColorStop(1, "rgba(0,0,0,0)"); cc.fillStyle = gr; cc.beginPath(); cc.arc(X(x), Y(y), r, 0, 6.2832); cc.fill(); };
+  g(-P.mu, 0, 34, "#ffb000"); g(1 - P.mu, 0, 10 + 60 * Math.cbrt(P.mu) * 0.5, "#ff6a00");
+  cc.font = "bold 14px system-ui"; cc.fillStyle = "#ffe600"; cc.textAlign = "center";
+  L.forEach((l, k) => {
+    cc.strokeStyle = "#ffe600"; cc.lineWidth = 1.5;
+    cc.beginPath(); cc.moveTo(X(l[0]) - 6, Y(l[1])); cc.lineTo(X(l[0]) + 6, Y(l[1])); cc.moveTo(X(l[0]), Y(l[1]) - 6); cc.lineTo(X(l[0]), Y(l[1]) + 6); cc.stroke();
+    cc.fillText("L" + (k + 1), X(l[0]), Y(l[1]) - 10);
+  });
+  majHud();
+}
+
+// ---------------------------------------------------------------- HUD et panneau
+let compteHud = 0;
+function majHud() {
+  if (compteHud++ % 6) return;
+  const f = C.fr;
+  if (P.mode === "lagrange") {
+    const v = tests.filter(p => p.vivant).length;
+    C.hud.innerHTML = `<span class="grand">Référentiel tournant</span><br>μ = <span class="v">${f(P.mu, 4)}</span> · t = <span class="v">${f(t / (2 * Math.PI), 1)}</span> révolutions<br>particules restantes: <span class="v">${v}</span>`;
+    return;
+  }
+  let h = `<span class="grand">${MODES.find(m => m[0] === P.mode)[1]}</span><br>t = <span class="v">${f(t, 2)}</span>`;
+  h += ` · dérive de l'énergie: <span class="v">${(Math.abs((energie(S) - E0) / E0)).toExponential(1).replace(".", ",")}</span>`;
+  if (S2) h += `<br>écart initial 10<sup>${P.perturb}</sup> → écart actuel <span class="v">${ecartMax < 1e-3 ? ecartMax.toExponential(2).replace(".", ",") : f(ecartMax, 3)}</span>`;
+  if (ejecte) h += `<br><span style="color:#ffe600">Un corps est éjecté: le système se sépare en un binaire et un corps isolé.</span>`;
+  C.hud.innerHTML = h;
+}
+const legendes = {
+  huit: `<span><i style="background:${COUL[0]}"></i><i style="background:${COUL[1]}"></i><i style="background:${COUL[2]}"></i>trois masses égales sur une même orbite</span>`,
+  pytha: `<span><i style="background:${COUL[0]}"></i>m = 3 &nbsp;<i style="background:${COUL[1]}"></i>m = 4 &nbsp;<i style="background:${COUL[2]}"></i>m = 5</span>`,
+  sensib: `<span><i style="background:${COUL[0]}"></i><i style="background:${COUL[1]}"></i><i style="background:${COUL[2]}"></i>système 1</span><span><i style="background:${COUL2[0]}"></i><i style="background:${COUL2[1]}"></i><i style="background:${COUL2[2]}"></i>système 2 (corps de masse 3 déplacé)</span>`,
+  alea: "",
+  lagrange: `<span><i style="background:#ff2bd6"></i>particules lâchées près de L4 &nbsp;<i style="background:#00f0ff"></i>près de L5</span>`,
+};
+const sMode = C.section("Situation");
+C.radios(sMode, MODES, P, "mode", recommencer);
+const noteMode = C.note(sMode, "");
+const explications = {
+  huit: "Solution périodique découverte numériquement par C. Moore (1993) et démontrée par Chenciner et Montgomery (2000): trois masses égales se poursuivent sur une courbe en forme de 8. Elle est stable vis-à-vis de petites perturbations.",
+  pytha: "Problème posé par Burrau (1913): trois masses 3, 4, 5 au repos aux sommets d'un triangle rectangle de côtés 3, 4, 5. Après une longue danse chaotique faite de rencontres très proches, un corps est éjecté et les deux autres forment un système double.",
+  sensib: "Deux exemplaires du problème de Pythagore ne différant que par la position d'un corps. L'écart reste minuscule un moment, puis croît exponentiellement: c'est la sensibilité aux conditions initiales.",
+  alea: "Trois masses quelconques, centre de masse immobile. Le plus souvent, après une phase chaotique, l'un des corps est éjecté.",
+  lagrange: "Une étoile et une planète en orbite circulaire, vues dans le référentiel tournant. Les points L4 et L5 forment des triangles équilatéraux avec les deux astres: ils sont stables si μ < 0,0385 (critère de Gascheau). Les particules décrivent des orbites « en têtard » autour de L4 et L5 ou « en fer à cheval »: ce sont les astéroïdes troyens.",
+};
+const sReg = C.section("Réglages");
+const blocSens = C.el("div", {}, sReg);
+C.curseur(blocSens, "Écart initial", P, "perturb", -12, -1, 1, v => "10<sup>" + v + "</sup>", recommencer);
+const blocLag = C.el("div", {}, sReg);
+C.curseur(blocLag, "Rapport des masses μ = m<sub>p</sub>/(M + m<sub>p</sub>)", P, "mu", 0.0005, 0.05, 0.0005, v => C.fr(v, 4), recommencer);
+C.curseur(blocLag, "Nombre de particules", P, "nTest", 100, 1500, 100, v => v, recommencer);
+const blocTr = C.el("div", {}, sReg);
+C.caseC(blocTr, "Traînées longues", P, "traces");
+function majPanneau() {
+  noteMode.textContent = explications[P.mode];
+  blocSens.style.display = P.mode === "sensib" ? "" : "none";
+  blocLag.style.display = P.mode === "lagrange" ? "" : "none";
+  blocTr.style.display = P.mode === "lagrange" ? "none" : "";
+  C.legende.innerHTML = legendes[P.mode];
+  prec[0] = []; prec[1] = []; compteHud = 0;
+}
+C.temps(recommencer);
+C.surRedim(() => { if (S.m) echelle = Math.min(C.W, C.H) / (P.mode === "huit" ? 2.6 : 9); });
+C.ajuster();
+recommencer();
+C.demarrer(pas, dessinerTout);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

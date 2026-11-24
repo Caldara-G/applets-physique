@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tourbillons: allée de Von Kármán et Kelvin-Helmholtz — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Écoulement 2D incompressible simulé par la méthode de Boltzmann sur réseau (D2Q9, collision BGK).
+   Unités du réseau : Δx = Δt = 1, c_s² = 1/3, ν = (τ − 1/2)/3.
+   Colorant passif transporté par advection semi-lagrangienne.
+   Scénarios : obstacle dans un courant (allée de Von Kármán), couche de cisaillement (Kelvin-Helmholtz). */
+const C = Cadre("Tourbillons: Von Kármán et Kelvin-Helmholtz", "Tourbillons");
+const ctx = C.ctx;
+const P = { scen: "karman", Re: 160, obstacle: "cylindre", aff: "colorant", u0: 0.12, dessin: false, nKH: 3 };
+const EX = [0, 1, 0, -1, 0, 1, -1, -1, 1], EY = [0, 0, 1, 0, -1, 1, 1, -1, -1];
+const WQ = [4 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 36, 1 / 36, 1 / 36, 1 / 36], OPP = [0, 3, 4, 1, 2, 7, 8, 5, 6];
+let NX, NY, f, f2, rho, ux, uy, solide, R, G, B, R2, G2, B2, img, cvImg, tau, t = 0, D;
+
+function dims() {
+  const n = 52000, nx = Math.round(Math.sqrt(n * C.W / C.H));
+  return [nx, Math.round(nx * C.H / C.W)];
+}
+let src;          // pour chaque population q et chaque nœud : nœud d'où elle vient (−1 : rebond, −2 : inchangée)
+function initGrille() {
+  [NX, NY] = dims();
+  const n = NX * NY;
+  f = new Float32Array(9 * n); f2 = new Float32Array(9 * n);
+  rho = new Float32Array(n); ux = new Float32Array(n); uy = new Float32Array(n); solide = new Uint8Array(n);
+  R = new Float32Array(n); G = new Float32Array(n); B = new Float32Array(n);
+  R2 = new Float32Array(n); G2 = new Float32Array(n); B2 = new Float32Array(n);
+  src = new Int32Array(9 * n);
+  cvImg = document.createElement("canvas"); cvImg.width = NX; cvImg.height = NY;
+  img = cvImg.getContext("2d").createImageData(NX, NY);
+}
+// disposition « structure de tableaux » : f[q*n + i]
+function equilibre(k, r, u, v, out, i) {
+  const uu = u * u + v * v, n = NX * NY;
+  for (let q = 0; q < 9; q++) {
+    const eu = EX[q] * u + EY[q] * v;
+    out[q * n + i] = WQ[q] * r * (1 + 3 * eu + 4.5 * eu * eu - 1.5 * uu);
+  }
+}
+function construireVoisins() {
+  const n = NX * NY, kar = P.scen === "karman";
+  for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+    const i = y * NX + x;
+    for (let q = 0; q < 9; q++) {
+      let xs = x - EX[q], ys = y - EY[q], s;
+      if (ys < 0) ys += NY; else if (ys >= NY) ys -= NY;
+      if (xs < 0 || xs >= NX) { if (kar) { src[q * n + i] = -2; continue; } xs = (xs + NX) % NX; }
+      const j = ys * NX + xs;
+      src[q * n + i] = solide[j] ? -1 : j;
+    }
+  }
+}
+function placerObstacle() {
+  solide.fill(0);
+  if (P.scen !== "karman") {
+    // parois horizontales (rebond) pour la couche de cisaillement
+    for (let x = 0; x < NX; x++) { solide[x] = 1; solide[(NY - 1) * NX + x] = 1; }
+    return;
+  }
+  const cx = Math.round(NX * 0.18), cy = Math.round(NY / 2) + 1, r = D / 2;
+  for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+    const dx = x - cx, dy = y - cy;
+    let s = false;
+    if (P.obstacle === "cylindre") s = dx * dx + dy * dy <= r * r;
+    else if (P.obstacle === "plaque") s = Math.abs(dx) <= 1.5 && Math.abs(dy) <= r;
+    else if (P.obstacle === "carre") s = Math.abs(dx) <= r * 0.8 && Math.abs(dy) <= r * 0.8;
+    else if (P.obstacle === "aile") {
+      // profil NACA 0018 incliné de 18°
+      const a = -0.32, c = D * 2.2, xr = (dx + c * 0.3) * Math.cos(a) - dy * Math.sin(a), yr = (dx + c * 0.3) * Math.sin(a) + dy * Math.cos(a), u = xr / c;
+      if (u >= 0 && u <= 1) s = Math.abs(yr) <= 5 * 0.18 * c * (0.2969 * Math.sqrt(u) - 0.126 * u - 0.3516 * u * u + 0.2843 * u ** 3 - 0.1015 * u ** 4);
+    }
+    if (s) solide[y * NX + x] = 1;
+  }
+}
+const PAL = [[255, 43, 214], [0, 240, 255], [255, 230, 0], [57, 255, 20], [255, 106, 0], [138, 92, 255]];
+function recommencer() {
+  initGrille();
+  D = Math.round(NY / 6.5);
+  const u0 = P.u0;
+  if (P.scen === "karman") tau = 3 * (u0 * D / P.Re) + 0.5;
+  else tau = 0.503;
+  tau = Math.max(0.502, tau);
+  placerObstacle();
+  construireVoisins();
+  for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+    const i = y * NX + x;
+    let u = 0, v = 0;
+    if (P.scen === "karman") {
+      // petite perturbation transversale dans le sillage pour déclencher plus vite le détachement
+      u = u0; const dx = (x - NX * 0.18 - 2 * D) / D, dy = (y - NY / 2) / D;
+      v = 0.15 * u0 * Math.exp(-dx * dx - dy * dy);
+    }
+    else {
+      const yc = (y - NY / 2) / (NY * 0.025);
+      u = u0 * Math.tanh(yc);
+      v = 0.04 * u0 * Math.sin(2 * Math.PI * P.nKH * x / NX) * Math.exp(-yc * yc / 4) + 0.004 * u0 * (Math.random() - 0.5);
+      // couche du haut : magenta → jaune ; couche du bas : cyan → violet ; filets blancs près de l'interface
+      const e = Math.min(1, Math.abs(y - NY / 2) / (NY / 2));
+      const c = y > NY / 2 ? [255, 43 + 187 * e, 214 * (1 - e)] : [138 * e, 240 * (1 - e) + 92 * e, 255];
+      const fil = Math.abs(y - NY / 2) < NY * 0.16 && Math.abs(y - NY / 2) % 7 < 1.3;
+      R[i] = fil ? 255 : c[0]; G[i] = fil ? 255 : c[1]; B[i] = fil ? 255 : c[2];
+    }
+    if (solide[i]) { u = 0; v = 0; }
+    equilibre(0, 1, u, v, f, i);
+  }
+  t = 0;
+}
+function etapeLBM() {
+  const omega = 1 / tau, n = NX * NY, kar = P.scen === "karman";
+  const f0 = 0, f1 = n, fa = 2 * n, f3 = 3 * n, f4 = 4 * n, f5 = 5 * n, f6 = 6 * n, f7 = 7 * n, f8 = 8 * n;
+  // collision (déroulée)
+  for (let i = 0; i < n; i++) {
+    if (solide[i]) continue;
+    const a0 = f[i], a1 = f[f1 + i], a2 = f[fa + i], a3 = f[f3 + i], a4 = f[f4 + i], a5 = f[f5 + i], a6 = f[f6 + i], a7 = f[f7 + i], a8 = f[f8 + i];
+    const r = a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8;
+    const u = (a1 - a3 + a5 - a6 - a7 + a8) / r, v = (a2 - a4 + a5 + a6 - a7 - a8) / r;
+    rho[i] = r; ux[i] = u; uy[i] = v;
+    const uu = 1.5 * (u * u + v * v), r9 = r / 9, r36 = r / 36;
+    f[i] = a0 + omega * (4 * r9 * (1 - uu) - a0);
+    let e;
+    e = u;      f[f1 + i] = a1 + omega * (r9 * (1 + 3 * e + 4.5 * e * e - uu) - a1);
+    e = v;      f[fa + i] = a2 + omega * (r9 * (1 + 3 * e + 4.5 * e * e - uu) - a2);
+    e = -u;     f[f3 + i] = a3 + omega * (r9 * (1 + 3 * e + 4.5 * e * e - uu) - a3);
+    e = -v;     f[f4 + i] = a4 + omega * (r9 * (1 + 3 * e + 4.5 * e * e - uu) - a4);
+    e = u + v;  f[f5 + i] = a5 + omega * (r36 * (1 + 3 * e + 4.5 * e * e - uu) - a5);
+    e = -u + v; f[f6 + i] = a6 + omega * (r36 * (1 + 3 * e + 4.5 * e * e - uu) - a6);
+    e = -u - v; f[f7 + i] = a7 + omega * (r36 * (1 + 3 * e + 4.5 * e * e - uu) - a7);
+    e = u - v;  f[f8 + i] = a8 + omega * (r36 * (1 + 3 * e + 4.5 * e * e - uu) - a8);
+  }
+  // propagation par table de voisins (rebond sur les parois solides)
+  for (let q = 0; q < 9; q++) {
+    const b = q * n, bo = OPP[q] * n;
+    for (let i = 0; i < n; i++) {
+      const s = src[b + i];
+      f2[b + i] = s >= 0 ? f[b + s] : s === -1 ? f[bo + i] : f[b + i];
+    }
+  }
+  const tmp = f; f = f2; f2 = tmp;
+  if (kar) {
+    // entrée : équilibre à la vitesse u0 ; sortie : gradient nul
+    for (let y = 0; y < NY; y++) {
+      equilibre(0, 1, P.u0, 0, f, y * NX);
+      const a = y * NX + NX - 1;
+      for (let q = 0; q < 9; q++) f[q * n + a] = f[q * n + a - 1];
+    }
+  }
+}
+// advection semi-lagrangienne d'un champ (3 composantes) de (sR, sG, sB) vers (dR, dG, dB)
+function advecter(sR, sG, sB, dR, dG, dB, m) {
+  const kar = P.scen === "karman";
+  for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+    const i = y * NX + x;
+    let px = x - m * ux[i], py = y - m * uy[i];
+    if (kar) px = Math.max(0, Math.min(NX - 1.001, px)); else px = (px + NX) % NX;
+    py = Math.max(0, Math.min(NY - 1.001, py));
+    const x0 = Math.floor(px), y0 = Math.floor(py), fx = px - x0, fy = py - y0;
+    const x1 = kar ? Math.min(NX - 1, x0 + 1) : (x0 + 1) % NX, y1 = Math.min(NY - 1, y0 + 1);
+    const a = y0 * NX + x0, b = y0 * NX + x1, c = y1 * NX + x0, d = y1 * NX + x1;
+    const w1 = (1 - fx) * (1 - fy), w2 = fx * (1 - fy), w3 = (1 - fx) * fy, w4 = fx * fy;
+    dR[i] = sR[a] * w1 + sR[b] * w2 + sR[c] * w3 + sR[d] * w4;
+    dG[i] = sG[a] * w1 + sG[b] * w2 + sG[c] * w3 + sG[d] * w4;
+    dB[i] = sB[a] * w1 + sB[b] * w2 + sB[c] * w3 + sB[d] * w4;
+  }
+}
+let TR, TG, TB;
+function advecterColorant(m) {
+  const n = NX * NY;
+  if (!TR || TR.length !== n) { TR = new Float32Array(n); TG = new Float32Array(n); TB = new Float32Array(n); }
+  if (P.scen === "kh") {
+    // BFECC : aller, retour, correction de l'erreur, puis aller — beaucoup moins de diffusion numérique
+    advecter(R, G, B, R2, G2, B2, m);
+    advecter(R2, G2, B2, TR, TG, TB, -m);
+    for (let i = 0; i < n; i++) {
+      TR[i] = Math.min(255, Math.max(0, 1.5 * R[i] - 0.5 * TR[i]));
+      TG[i] = Math.min(255, Math.max(0, 1.5 * G[i] - 0.5 * TG[i]));
+      TB[i] = Math.min(255, Math.max(0, 1.5 * B[i] - 0.5 * TB[i]));
+    }
+    advecter(TR, TG, TB, R2, G2, B2, m);
+  } else advecter(R, G, B, R2, G2, B2, m);
+  let tmp = R; R = R2; R2 = tmp; tmp = G; G = G2; G2 = tmp; tmp = B; B = B2; B2 = tmp;
+  if (P.scen === "karman") {
+    // injection de filets colorés en amont
+    const nf = 9;
+    for (let y = 0; y < NY; y++) for (let x = 0; x < 3; x++) {
+      const i = y * NX + x, k = Math.floor(y / NY * nf * 2);
+      const c = k % 2 ? PAL[(k >> 1) % PAL.length] : [0, 0, 0];
+      R[i] = c[0]; G[i] = c[1]; B[i] = c[2];
+    }
+  }
+}
+function pas(dt) {
+  const n = Math.max(1, Math.round(dt * 60 * 6));
+  const debut = performance.now();
+  for (let k = 0; k < n; k++) {
+    etapeLBM(); t++;
+    if (t % 3 === 0) advecterColorant(3);
+    if (performance.now() - debut > 30) break;
+  }
+  if (!isFinite(ux[(NY >> 1) * NX + (NX >> 1)])) { recommencer(); messageInstable = 120; }
+}
+let messageInstable = 0;
+// ---------------------------------------------------------------- dessin
+function dessiner() {
+  if (!img) return;
+  const d = img.data;
+  if (P.aff === "colorant") {
+    for (let i = 0, n = NX * NY; i < n; i++) {
+      const k = 4 * i;
+      if (solide[i]) { d[k] = 230; d[k + 1] = 230; d[k + 2] = 240; d[k + 3] = 255; continue; }
+      d[k] = R[i]; d[k + 1] = G[i]; d[k + 2] = B[i]; d[k + 3] = 255;
+    }
+  } else if (P.aff === "vorticite") {
+    for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+      const i = y * NX + x, k = 4 * i;
+      if (solide[i]) { d[k] = 230; d[k + 1] = 230; d[k + 2] = 240; d[k + 3] = 255; continue; }
+      const xp = x < NX - 1 ? i + 1 : i, xm = x > 0 ? i - 1 : i, yp = y < NY - 1 ? i + NX : i - y * NX, ym = y > 0 ? i - NX : i + (NY - 1) * NX;
+      const w = (uy[xp] - uy[xm]) / 2 - (ux[yp] - ux[ym]) / 2;
+      const s = Math.max(-1, Math.min(1, w / (P.u0 * 0.12)));
+      const a = Math.abs(s);
+      if (s > 0) { d[k] = 255 * a * a; d[k + 1] = 240 * a; d[k + 2] = 255 * Math.sqrt(a); }
+      else { d[k] = 255 * Math.sqrt(a); d[k + 1] = 43 * a + 200 * a * a * a; d[k + 2] = 214 * a; }
+      d[k + 3] = 255;
+    }
+  } else {
+    for (let i = 0, n = NX * NY; i < n; i++) {
+      const k = 4 * i;
+      if (solide[i]) { d[k] = 230; d[k + 1] = 230; d[k + 2] = 240; d[k + 3] = 255; continue; }
+      const v = Math.min(1, Math.hypot(ux[i], uy[i]) / (P.u0 * 1.6));
+      const c = inferno(v);
+      d[k] = c[0]; d[k + 1] = c[1]; d[k + 2] = c[2]; d[k + 3] = 255;
+    }
+  }
+  cvImg.getContext("2d").putImageData(img, 0, 0);
+  C.effacer();
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  // l'axe y du réseau est vers le haut : on retourne l'image
+  ctx.save(); ctx.translate(0, C.H); ctx.scale(C.W / NX, -C.H / NY); ctx.drawImage(cvImg, 0, 0); ctx.restore();
+  majHud();
+}
+const STOPS = [[0, 0, 4], [87, 16, 110], [188, 55, 84], [249, 142, 9], [252, 255, 164]];
+function inferno(v) {
+  const u = v * (STOPS.length - 1), i = Math.min(STOPS.length - 2, Math.floor(u)), f = u - i;
+  return [0, 1, 2].map(c => STOPS[i][c] * (1 - f) + STOPS[i + 1][c] * f);
+}
+let ch = 0;
+function majHud() {
+  if (ch++ % 8) return;
+  const f = C.fr, nu = (tau - 0.5) / 3;
+  if (P.scen === "karman") {
+    const reg = P.Re < 47 ? "sillage stationnaire (deux tourbillons attachés)" : "allée de tourbillons alternés";
+    C.hud.innerHTML = `<span class="grand">Re = U D/ν = <span class="v">${Math.round(P.Re)}</span></span><br>${reg}` + (messageInstable-- > 0 ? "<br><span style='color:#ffe600'>simulation instable: redémarrée</span>" : "");
+  } else C.hud.innerHTML = `<span class="grand">Couche de cisaillement</span><br>Re = U δ/ν ≈ <span class="v">${Math.round(P.u0 * NY * 0.025 / nu)}</span>`;
+}
+// dessiner un obstacle à la souris
+let nouveau = false;
+function poser(xp, yp) {
+  if (!P.dessin) return;
+  const x = Math.round(xp / C.W * NX), y = Math.round((1 - yp / C.H) * NY), r = 3;
+  for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) {
+    const X = x + i, Y = y + j;
+    if (X > 3 && X < NX - 2 && Y >= 0 && Y < NY && i * i + j * j <= r * r) {
+      const k = Y * NX + X; solide[k] = 1; ux[k] = uy[k] = 0; nouveau = true;
+    }
+  }
+}
+C.pointeur({ bas: poser, glisse: poser, haut: () => { if (nouveau) { construireVoisins(); nouveau = false; } } });
+// ---------------------------------------------------------------- panneau
+const s1 = C.section("Situation");
+C.radios(s1, [["karman", "Obstacle dans un courant: allée de Von Kármán"], ["kh", "Deux couches qui glissent: instabilité de Kelvin-Helmholtz"]], P, "scen", () => { majPanneau(); recommencer(); });
+const bK = C.el("div", {}, s1);
+C.curseur(bK, "Nombre de Reynolds Re", P, "Re", 20, 400, 5, v => Math.round(v), recommencer);
+C.select(bK, [["cylindre", "Cylindre"], ["carre", "Section carrée"], ["plaque", "Plaque perpendiculaire"], ["aile", "Aile inclinée (décrochage)"]], P, "obstacle", recommencer);
+C.caseC(bK, "Dessiner des obstacles à la souris", P, "dessin");
+const bH = C.el("div", {}, s1);
+C.curseur(bH, "Nombre de longueurs d'onde de la perturbation", P, "nKH", 1, 8, 1, v => v, recommencer);
+const s2 = C.section("Affichage");
+C.radios(s2, [["colorant", "Colorant (filets colorés)"], ["vorticite", "Vorticité (rotation locale)"], ["vitesse", "Norme de la vitesse"]], P, "aff");
+const s3 = C.section("Ce qu'on observe");
+const tK = C.texte(s3, "Derrière un obstacle, le fluide décolle et forme des tourbillons. Pour Re &lt; 47, ils restent accrochés à l'obstacle; au-delà, ils se détachent alternativement d'un côté puis de l'autre: c'est l'<b>allée de Von Kármán</b>. La fréquence d'émission f vérifie St = fD/U ≈ 0,2 (nombre de Strouhal).");
+const tK2 = C.note(s3, "On la voit derrière les îles dans les nuages, elle fait chanter les câbles dans le vent et a contribué à la ruine du pont de Tacoma.");
+const tH = C.texte(s3, "Deux couches de fluide glissent l'une sur l'autre. La moindre ondulation de l'interface est amplifiée (la pression est plus faible sur les crêtes, où le fluide accélère): l'interface s'enroule en volutes. C'est l'<b>instabilité de Kelvin-Helmholtz</b>.");
+const tH2 = C.note(s3, "On l'observe dans certains nuages en forme de vagues, dans l'atmosphère de Jupiter et à la surface de la mer sous le vent.");
+C.note(s3, "Méthode de Boltzmann sur réseau: le fluide est représenté par des populations de particules fictives qui se propagent et se heurtent sur une grille.");
+C.temps(recommencer, { vmin: 0.25, vmax: 3 });
+function majPanneau() {
+  const k = P.scen === "karman";
+  bK.style.display = tK.style.display = tK2.style.display = k ? "" : "none";
+  bH.style.display = tH.style.display = tH2.style.display = k ? "none" : "";
+}
+majPanneau();
+C.surRedim(() => { if (!img || Math.abs(dims()[1] - NY) > 8) recommencer(); });
+C.ajuster();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

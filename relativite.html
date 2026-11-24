@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voyage à vitesse relativiste — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Ce que voit un observateur qui avance à la vitesse v = βc (selon z) dans un décor immobile.
+   - Direction d'arrivée de la lumière : dans le référentiel du décor, droite qui joint le point
+     à la position actuelle de l'observateur (décor statique), d'angle θ avec la vitesse.
+   - Aberration : cos θ' = (cos θ + β)/(1 + β cos θ), l'azimut est inchangé.
+   - Effet Doppler : f_reçue = D f_émise avec D = γ (1 + β cos θ).
+   - Effet phare : brillance apparente ∝ D³ (intensité spécifique, I_ν/ν³ invariant ; ici luminance ∝ D⁴, atténuée).
+   Projection « fish-eye » équidistante : distance au centre de l'écran ∝ θ'. */
+const C = Cadre("Voyage à vitesse relativiste", "Relativité");
+const ctx = C.ctx;
+const P = { beta: 0.5, aberration: true, doppler: true, phare: true, champ: 160, decor: "ville", c: 20, lambda0: 550, invisible: true };
+let zObs = 0;
+
+function couleurOnde(l) {
+  let r = 0, g = 0, b = 0;
+  if (l < 380 || l > 780) return null;
+  if (l < 440) { r = -(l - 440) / 60; b = 1; } else if (l < 490) { g = (l - 440) / 50; b = 1; }
+  else if (l < 510) { g = 1; b = -(l - 510) / 20; } else if (l < 580) { r = (l - 510) / 70; g = 1; }
+  else if (l < 645) { r = 1; g = -(l - 645) / 65; } else r = 1;
+  const f = l < 420 ? 0.3 + 0.7 * (l - 380) / 40 : l > 700 ? 0.3 + 0.7 * (780 - l) / 80 : 1;
+  return [r * f, g * f, b * f].map(v => Math.round(255 * Math.pow(Math.max(0, v), 0.8)));
+}
+// ---------------------------------------------------------------- décor (segments dans le référentiel du décor)
+const PERIODE = 16;      // le décor se répète tous les PERIODE en z
+function segmentsDecor() {
+  const S = [], z0 = Math.floor(zObs / PERIODE) * PERIODE;
+  const avant = 200, arriere = 120;
+  if (P.decor === "ville") {
+    // sol quadrillé
+    for (let x = -24; x <= 24; x += 4) S.push([[x, -2, zObs - arriere], [x, -2, zObs + avant], "#00f0ff"]);
+    for (let z = z0 - arriere; z <= z0 + avant; z += 4) S.push([[-24, -2, z], [24, -2, z], "#00f0ff"]);
+    // immeubles (pavés) de part et d'autre de l'avenue
+    for (let z = z0 - arriere; z <= z0 + avant; z += PERIODE) for (const sx of [-1, 1]) {
+      const x0 = sx * 6, x1 = sx * 12, h = 6 + 5 * Math.abs(Math.sin(z * 0.37 + sx)), z1 = z + 6;
+      const cs = sx > 0 ? "#ff2bd6" : "#ffe600";
+      const P8 = [[x0, -2, z], [x1, -2, z], [x1, -2, z1], [x0, -2, z1], [x0, h, z], [x1, h, z], [x1, h, z1], [x0, h, z1]];
+      for (const [a, b] of [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]]) S.push([P8[a], P8[b], cs]);
+      // fenêtres : lignes horizontales sur la façade côté avenue
+      for (let y = 0; y < h - 1; y += 2) S.push([[x0, y, z + 0.5], [x0, y, z1 - 0.5], cs]);
+    }
+  } else if (P.decor === "tunnel") {
+    for (let z = z0 - arriere; z <= z0 + avant; z += 4) {
+      const ring = []; for (let k = 0; k <= 24; k++) { const a = 2 * Math.PI * k / 24; ring.push([5 * Math.cos(a), 5 * Math.sin(a), z]); }
+      for (let k = 0; k < 24; k++) S.push([ring[k], ring[k + 1], (z / 4) % 2 ? "#ff2bd6" : "#00f0ff"]);
+    }
+    for (let k = 0; k < 12; k++) { const a = 2 * Math.PI * k / 12; S.push([[5 * Math.cos(a), 5 * Math.sin(a), zObs - arriere], [5 * Math.cos(a), 5 * Math.sin(a), zObs + avant], "#ffe600"]); }
+  } else {
+    // cubes alignés de part et d'autre : rotation de Terrell
+    for (let z = z0 - arriere; z <= z0 + avant; z += 8) for (const sx of [-1, 1]) {
+      const cx = sx * 5, cy = 0, a = 1.2;
+      const P8 = [];
+      for (const dx of [-a, a]) for (const dy of [-a, a]) for (const dz of [-a, a]) P8.push([cx + dx, cy + dy, z + dz]);
+      for (const [i, j] of [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]]) S.push([P8[i], P8[j], sx > 0 ? "#39ff14" : "#ff6a00"]);
+    }
+  }
+  return S;
+}
+// étoiles à l'infini
+const ETOILES = [];
+for (let k = 0; k < 900; k++) {
+  const u = 2 * Math.random() - 1, phi = 2 * Math.PI * Math.random();
+  ETOILES.push([Math.sqrt(1 - u * u) * Math.cos(phi), Math.sqrt(1 - u * u) * Math.sin(phi), u, 0.3 + 0.7 * Math.random()]);
+}
+
+// ---------------------------------------------------------------- projection
+function projeter(dx, dy, dz) {
+  // dx, dy, dz : direction (non normée) du point vu depuis l'observateur, dans le référentiel du décor
+  const r = Math.hypot(dx, dy, dz);
+  let ct = dz / r;
+  const b = P.beta, g = 1 / Math.sqrt(1 - b * b);
+  const D = g * (1 + b * ct);
+  if (P.aberration) ct = (ct + b) / (1 + b * ct);
+  const th = Math.acos(Math.max(-1, Math.min(1, ct)));
+  const thMax = P.champ / 2 * Math.PI / 180;
+  if (th > thMax) return null;
+  const phi = Math.atan2(dy, dx), k = Math.min(C.W, C.H) * 0.48 / thMax;
+  return [C.W / 2 + k * th * Math.cos(phi), C.H / 2 - k * th * Math.sin(phi), D, r];
+}
+function teinte(hex, D) {
+  // couleur reçue : décalage Doppler d'une lumière monochromatique λ0, ou couleur d'origine
+  if (!P.doppler) { const n = parseInt(hex.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+  const l = P.lambda0 / D;
+  if (l < 380) return P.invisible ? [150, 130, 255] : null;     // ultraviolet : invisible (affiché en pâle si demandé)
+  if (l > 780) return P.invisible ? [110, 25, 25] : null;       // infrarouge
+  return couleurOnde(l);
+}
+function dessiner(dt) {
+  C.effacer();
+  const b = P.beta;
+  // fond : cercle du champ de vision
+  const thMax = P.champ / 2 * Math.PI / 180, Rc = Math.min(C.W, C.H) * 0.48;
+  ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(C.W / 2, C.H / 2, Rc, 0, 6.2832); ctx.stroke();
+  // repères angulaires : 30°, 60°, 90°
+  ctx.setLineDash([3, 6]);
+  for (const a of [30, 60, 90, 120]) { const r = Rc * (a * Math.PI / 180) / thMax; if (r < Rc) { ctx.beginPath(); ctx.arc(C.W / 2, C.H / 2, r, 0, 6.2832); ctx.stroke(); ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.font = "11px system-ui"; ctx.fillText(a + "°", C.W / 2 + r * 0.71 + 3, C.H / 2 - r * 0.71); } }
+  ctx.setLineDash([]);
+  ctx.globalCompositeOperation = "lighter";
+  // étoiles
+  for (const [x, y, z, m] of ETOILES) {
+    const p = projeter(x, y, z); if (!p) continue;
+    const c = P.doppler ? couleurOnde(P.lambda0 / p[2]) : [255, 255, 255];
+    if (!c) continue;     // étoiles décalées hors du visible : on ne les voit plus
+    const L = P.phare ? Math.min(3, Math.pow(p[2], 3)) : 1;
+    const a = Math.min(1, m * 0.6 * L);
+    ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+    const s = 1 + Math.min(2.5, 0.6 * L);
+    ctx.fillRect(p[0] - s / 2, p[1] - s / 2, s, s);
+  }
+  // décor : segments découpés en petits morceaux (l'aberration courbe les droites)
+  const S = segmentsDecor();
+  const seaux = new Map();
+  for (const [A, B, coul] of S) {
+    const L = Math.hypot(B[0] - A[0], B[1] - A[1], B[2] - A[2]);
+    const n = Math.max(1, Math.ceil(L / 1.2));
+    let prec = null;
+    for (let k = 0; k <= n; k++) {
+      const u = k / n, x = A[0] + u * (B[0] - A[0]), y = A[1] + u * (B[1] - A[1]), z = A[2] + u * (B[2] - A[2]) - zObs;
+      const p = projeter(x, y, z);
+      if (p && prec && Math.hypot(p[0] - prec[0], p[1] - prec[1]) < C.W * 0.3) {
+        const D = (p[2] + prec[2]) / 2, dist = (p[3] + prec[3]) / 2;
+        const c = teinte(coul, D);
+        if (c) {
+          // atténuation avec la distance, effet phare
+          let a = Math.min(1, 14 / dist) * (P.phare ? Math.min(2.5, D * D * D) : 1);
+          a = Math.min(1, a);
+          const lam = P.lambda0 / D;
+          if (P.doppler && (lam < 380 || lam > 780)) a = Math.min(a, 0.3);
+          const cle = c.join(",") + "|" + Math.round(a * 12);
+          if (!seaux.has(cle)) seaux.set(cle, []);
+          seaux.get(cle).push(prec[0], prec[1], p[0], p[1]);
+        }
+      }
+      prec = p;
+    }
+  }
+  ctx.lineWidth = 1.6; ctx.lineCap = "round";
+  for (const [cle, l] of seaux) {
+    const [c, a] = cle.split("|");
+    ctx.strokeStyle = `rgba(${c},${(+a / 12).toFixed(3)})`;
+    ctx.beginPath();
+    for (let i = 0; i < l.length; i += 4) { ctx.moveTo(l[i], l[i + 1]); ctx.lineTo(l[i + 2], l[i + 3]); }
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = "source-over";
+  // croix au centre : direction du mouvement
+  ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.beginPath();
+  ctx.moveTo(C.W / 2 - 8, C.H / 2); ctx.lineTo(C.W / 2 + 8, C.H / 2); ctx.moveTo(C.W / 2, C.H / 2 - 8); ctx.lineTo(C.W / 2, C.H / 2 + 8); ctx.stroke();
+  majHud();
+}
+function pas(dt) { zObs += P.beta * P.c * dt; }
+let ch = 0;
+function majHud() {
+  if (ch++ % 6) return;
+  const f = C.fr, b = P.beta, g = 1 / Math.sqrt(1 - b * b);
+  // demi-angle dans lequel on voit ce qui était à 90° au repos : cos θ' = β
+  C.hud.innerHTML = `<span class="grand">β = v/c = <span class="v">${f(b, 3)}</span> · γ = <span class="v">${f(g, 3)}</span></span><br>ce qui est sur le côté (90°) apparaît à <span class="v">${f(Math.acos(b) * 180 / Math.PI, 1)}°</span> de l'avant<br>Doppler: ×<span class="v">${f(g * (1 + b), 2)}</span> devant, ×<span class="v">${f(g * (1 - b), 2)}</span> derrière`;
+}
+// ---------------------------------------------------------------- panneau
+const s1 = C.section("Vitesse");
+const curB = C.curseur(s1, "β = v/c", P, "beta", 0, 0.995, 0.005, v => C.fr(v, 3));
+const bt = C.boutons(s1);
+for (const v of [0, 0.5, 0.9, 0.99]) C.bouton(bt, "β = " + C.fr(v, 2), () => curB.fixer(v));
+const s2 = C.section("Décor");
+C.radios(s2, [["ville", "Une avenue bordée d'immeubles"], ["tunnel", "Un tunnel d'anneaux"], ["cubes", "Des cubes (rotation de Terrell)"]], P, "decor");
+C.curseur(s2, "Champ de vision", P, "champ", 60, 340, 5, v => v + "°");
+const s3 = C.section("Effets relativistes");
+C.caseC(s3, "Aberration (déformation des directions)", P, "aberration");
+C.caseC(s3, "Effet Doppler sur la couleur", P, "doppler", () => legende());
+C.curseur(s3, "Longueur d'onde émise par le décor λ<sub>0</sub>", P, "lambda0", 400, 700, 5, v => v + " nm");
+C.caseC(s3, "Montrer en pâle l'ultraviolet et l'infrarouge (invisibles)", P, "invisible", legende);
+C.caseC(s3, "Effet phare (luminosité)", P, "phare");
+function legende() { C.legende.innerHTML = P.doppler && P.invisible ? `<span><i style="background:rgb(150,130,255);opacity:.6"></i>ultraviolet (invisible) &nbsp;<i style="background:rgb(150,30,30)"></i>infrarouge (invisible)</span>` : ""; }
+legende();
+const s4 = C.section("Ce qu'on observe");
+C.texte(s4, "Image fish-eye: le centre est la direction du mouvement, la distance au centre est l'angle avec cette direction. À cause de l'<b>aberration</b>, toutes les directions se resserrent vers l'avant: les objets situés sur le côté, et même un peu derrière, apparaissent devant, et les droites paraissent courbes.");
+C.texte(s4, "L'<b>effet Doppler</b> décale la lumière vers le bleu devant (facteur γ(1 + β)) et vers le rouge derrière; une partie sort du domaine visible. L'<b>effet phare</b> concentre la lumière vers l'avant. Un cube vu de côté paraît tourné et non aplati: c'est la rotation de Terrell (1959), la contraction des longueurs n'est pas « visible » telle quelle.");
+C.note(s4, "Le décor est supposé émettre une lumière monochromatique de longueur d'onde λ<sub>0</sub>; décocher « Doppler » pour garder les couleurs d'origine. Pour un vrai voyage vers l'avant, essayer un champ de vision de 340°.");
+C.temps(() => { zObs = 0; }, { vmin: 0.25, vmax: 3 });
+C.ajuster();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

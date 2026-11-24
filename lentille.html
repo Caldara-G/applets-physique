@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lentille gravitationnelle — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Lentille gravitationnelle (approximation des lentilles minces).
+   Équation des lentilles : β = θ − α(θ), angles en pixels de l'image.
+   Masse ponctuelle : α = θ_E² θ/|θ|² ; sphère isotherme : α = θ_E θ/|θ| ; plusieurs masses : somme.
+   Chaque pixel de l'image observée va chercher la couleur du ciel de fond au point β
+   (la brillance de surface est conservée, ce qui donne automatiquement l'amplification). */
+const C = Cadre("Lentille gravitationnelle", "Lentille");
+const ctx = C.ctx;
+const P = { lentille: "ponct", thetaE: 70, fond: "champ", anneau: true, auto: true, montrerLentille: true };
+const RED = 2;                 // calcul à demi-résolution
+let w, h, src, srcData, sortie, sortieData, lent = { x: 0, y: 0 }, tAuto = 0;
+
+// ---------------------------------------------------------------- ciel de fond
+function galaxie(c, x, y, R, coul, type, ang, incl) {
+  c.save(); c.translate(x, y); c.rotate(ang); c.scale(1, incl);
+  c.globalCompositeOperation = "lighter";
+  const g = c.createRadialGradient(0, 0, 0, 0, 0, R * 0.45);
+  g.addColorStop(0, "rgba(255,255,240,0.95)"); g.addColorStop(0.4, C.rgba(coul, 0.5)); g.addColorStop(1, "rgba(0,0,0,0)");
+  c.fillStyle = g; c.beginPath(); c.arc(0, 0, R * 0.45, 0, 6.2832); c.fill();
+  if (type === "spirale") {
+    for (let k = 0; k < 900; k++) {
+      const bras = k % 2, u = Math.random(), r = R * (0.12 + 0.88 * u);
+      const th = bras * Math.PI + 2.6 * Math.log(r / (0.1 * R)) + (Math.random() - 0.5) * 0.5;
+      const px = r * Math.cos(th), py = r * Math.sin(th);
+      c.fillStyle = C.rgba(Math.random() < 0.25 ? "#ffffff" : coul, 0.35 * (1 - u * 0.7));
+      c.beginPath(); c.arc(px, py, 0.6 + Math.random() * 1.6 * (1 - u), 0, 6.2832); c.fill();
+    }
+  } else {
+    const g2 = c.createRadialGradient(0, 0, 0, 0, 0, R);
+    g2.addColorStop(0, C.rgba(coul, 0.45)); g2.addColorStop(1, "rgba(0,0,0,0)");
+    c.fillStyle = g2; c.beginPath(); c.arc(0, 0, R, 0, 6.2832); c.fill();
+  }
+  c.restore();
+}
+function construireFond() {
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const c = cv.getContext("2d");
+  c.fillStyle = "#000"; c.fillRect(0, 0, w, h);
+  const pal = ["#00f0ff", "#ff2bd6", "#ffe600", "#39ff14", "#ff6a00", "#8a5cff"];
+  if (P.fond === "champ") {
+    // champ profond : nombreuses galaxies et étoiles
+    for (let k = 0; k < 700; k++) { c.fillStyle = "rgba(255,255,255," + Math.random() * 0.8 + ")"; c.fillRect(Math.random() * w, Math.random() * h, 1, 1); }
+    const n = Math.round(w * h / 3500);
+    for (let k = 0; k < n; k++) {
+      const R = 5 + 34 * Math.pow(Math.random(), 2.2);
+      galaxie(c, Math.random() * w, Math.random() * h, R, pal[k % pal.length], Math.random() < 0.6 ? "spirale" : "ell", Math.random() * 6.28, 0.35 + 0.65 * Math.random());
+    }
+  } else if (P.fond === "une") {
+    galaxie(c, w / 2, h / 2, Math.min(w, h) * 0.1, "#00f0ff", "spirale", 0.4, 0.8);
+    for (let k = 0; k < 300; k++) { c.fillStyle = "rgba(255,255,255," + Math.random() * 0.6 + ")"; c.fillRect(Math.random() * w, Math.random() * h, 1, 1); }
+  } else {
+    // grille régulière : montre la déformation de l'espace des images
+    c.strokeStyle = "#00f0ff"; c.lineWidth = 1.2; c.globalAlpha = 0.9;
+    const p = 24;
+    for (let x = (w / 2) % p; x < w; x += p) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, h); c.stroke(); }
+    c.strokeStyle = "#ff2bd6";
+    for (let y = (h / 2) % p; y < h; y += p) { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
+    c.globalAlpha = 1;
+  }
+  src = cv; srcData = c.getImageData(0, 0, w, h).data;
+}
+function redim() {
+  w = Math.max(10, Math.round(C.W / RED)); h = Math.max(10, Math.round(C.H / RED));
+  sortie = document.createElement("canvas"); sortie.width = w; sortie.height = h;
+  sortieData = sortie.getContext("2d").createImageData(w, h);
+  construireFond();
+  if (!lent.x) { lent.x = w / 2; lent.y = h / 2; }
+}
+C.surRedim(redim);
+
+// ---------------------------------------------------------------- masses de la lentille
+function masses() {
+  const tE = P.thetaE / RED;
+  if (P.lentille === "ponct" || P.lentille === "iso") return [[lent.x, lent.y, 1]];
+  if (P.lentille === "binaire") {
+    const d = tE * 0.75, a = tAuto * 0.6;
+    return [[lent.x + d * Math.cos(a), lent.y + d * Math.sin(a), 0.6], [lent.x - d * Math.cos(a), lent.y - d * Math.sin(a), 0.4]];
+  }
+  // amas : une masse principale et des galaxies satellites
+  const out = [[lent.x, lent.y, 0.55]];
+  for (let k = 0; k < 6; k++) {
+    const a = k * 1.047 + 0.3, r = tE * (0.9 + 0.35 * Math.sin(k * 2.1));
+    out.push([lent.x + r * Math.cos(a), lent.y + r * Math.sin(a), 0.075]);
+  }
+  return out;
+}
+function calculer() {
+  const d = sortieData.data, tE = P.thetaE / RED, tE2 = tE * tE, M = masses(), iso = P.lentille === "iso";
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    let bx = i, by = j;
+    for (const [mx, my, m] of M) {
+      const dx = i - mx, dy = j - my, r2 = dx * dx + dy * dy + 0.25;
+      if (iso) { const r = Math.sqrt(r2); bx -= tE * dx / r; by -= tE * dy / r; }
+      else { bx -= m * tE2 * dx / r2; by -= m * tE2 * dy / r2; }
+    }
+    // échantillonnage bilinéaire du ciel de fond (bords repliés)
+    bx = ((bx % w) + w) % w; by = ((by % h) + h) % h;
+    const x0 = Math.floor(bx), y0 = Math.floor(by), fx = bx - x0, fy = by - y0;
+    const x1 = (x0 + 1) % w, y1 = (y0 + 1) % h;
+    const k00 = 4 * (y0 * w + x0), k10 = 4 * (y0 * w + x1), k01 = 4 * (y1 * w + x0), k11 = 4 * (y1 * w + x1), k = 4 * (j * w + i);
+    for (let c = 0; c < 3; c++)
+      d[k + c] = (srcData[k00 + c] * (1 - fx) + srcData[k10 + c] * fx) * (1 - fy) + (srcData[k01 + c] * (1 - fx) + srcData[k11 + c] * fx) * fy;
+    d[k + 3] = 255;
+  }
+  sortie.getContext("2d").putImageData(sortieData, 0, 0);
+}
+
+// ---------------------------------------------------------------- souris : déplacer la lentille
+let glisse = false;
+C.pointeur({
+  bas: (x, y) => { glisse = true; lent.x = x / RED; lent.y = y / RED; },
+  glisse: (x, y) => { lent.x = x / RED; lent.y = y / RED; },
+  haut: () => { glisse = false; },
+  molette: dy => { P.thetaE = Math.min(160, Math.max(10, P.thetaE * Math.exp(-dy * 0.001))); curTE.fixer(Math.round(P.thetaE)); },
+});
+function pas(dt) {
+  tAuto += dt;
+  if (P.auto && !glisse) {
+    // la lentille dérive lentement devant le ciel (trajectoire en lemniscate)
+    const a = tAuto * 0.12;
+    lent.x = w / 2 + w * 0.32 * Math.sin(a); lent.y = h / 2 + h * 0.28 * Math.sin(2 * a);
+  }
+}
+function dessiner() {
+  if (!sortie) return;
+  calculer();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(sortie, 0, 0, C.W, C.H);
+  const M = masses();
+  if (P.montrerLentille) {
+    ctx.globalCompositeOperation = "lighter";
+    for (const [mx, my, m] of M) C.halo(mx * RED, my * RED, 18 + 60 * Math.sqrt(m) * P.thetaE / 100, "rgba(255,200,120,0.35)", 1);
+    ctx.globalCompositeOperation = "source-over";
+  }
+  if (P.anneau && (P.lentille === "ponct" || P.lentille === "iso")) {
+    ctx.setLineDash([6, 6]); ctx.strokeStyle = "rgba(255,230,0,0.7)"; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.arc(lent.x * RED, lent.y * RED, P.thetaE, 0, 6.2832); ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+// ---------------------------------------------------------------- panneau
+const s1 = C.section("Lentille");
+C.radios(s1, [["ponct", "Masse ponctuelle (étoile, trou noir)"], ["iso", "Galaxie (sphère isotherme)"], ["binaire", "Deux masses en orbite"], ["amas", "Amas de galaxies"]], P, "lentille");
+const curTE = C.curseur(s1, "Rayon d'Einstein θ<sub>E</sub> (masse de la lentille)", P, "thetaE", 10, 160, 1, v => v + " px");
+C.caseC(s1, "Cercle d'Einstein", P, "anneau");
+C.caseC(s1, "Montrer le halo de la lentille", P, "montrerLentille");
+C.caseC(s1, "Mouvement automatique (sinon: glisser avec la souris)", P, "auto");
+const s2 = C.section("Ciel de fond");
+C.radios(s2, [["champ", "Champ profond (nombreuses galaxies)"], ["une", "Une seule galaxie, au centre"], ["grille", "Quadrillage"]], P, "fond", construireFond);
+C.bouton(C.boutons(s2), "Nouveau ciel", construireFond);
+const s3 = C.section("Ce qu'on observe");
+C.texte(s3, "Une masse M courbe les rayons lumineux qui passent à la distance b d'un angle α = 4GM/(bc²), le double de la valeur newtonienne. Elle agit comme une lentille convergente imparfaite: les images d'une galaxie de fond sont déplacées, déformées en <b>arcs</b>, amplifiées, parfois multipliées.");
+C.texte(s3, "Quand la source, la lentille et l'observateur sont alignés, l'image devient un <b>anneau d'Einstein</b>, de rayon angulaire θ<sub>E</sub> = √(4GM D<sub>LS</sub>/(c² D<sub>L</sub>D<sub>S</sub>)).");
+C.note(s3, "Placer la lentille juste devant la galaxie unique pour voir l'anneau; avec un amas, on obtient les arcs géants observés par le télescope Hubble ou JWST. La molette change la masse.");
+C.temps(null, { vmin: 0.25, vmax: 4 });
+C.legende.innerHTML = "<span>Glisser pour déplacer la lentille · molette: masse</span>";
+C.ajuster();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>

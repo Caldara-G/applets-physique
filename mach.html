@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mur du son et cône de Mach — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Source sonore en mouvement rectiligne à la vitesse v = M c. Elle émet un front d'onde sphérique
+   (cercle dans le plan de la figure) à intervalles réguliers. Pour M > 1, les fronts sont tous
+   tangents au cône de Mach, de demi-angle α tel que sin α = 1/M. */
+const C = Cadre("Mur du son et cône de Mach", "Mach");
+const ctx = C.ctx;
+const P = { mode: "accel", M: 1.6, periode: 0.08, cone: true, observateur: true, doppler: true };
+const c = 1;                      // vitesse du son (unité : hauteur de l'écran / 2,5 s)
+let src, fronts, t, M, bang = 0, recus = [], xv = 0, obs = { x: 0 }, tMax = 0;
+function recommencer() {
+  t = 0; fronts = []; recus = []; bang = 0;
+  M = P.mode === "accel" ? 0.3 : P.M;
+  src = { x: 0, y: 0 }; xv = -0.65 * C.W / echelle(); obs.x = 0.4 * C.W / echelle(); tMax = 0;
+}
+function echelle() { return C.H / 2.5; }
+function pas(dt) {
+  t += dt;
+  if (P.mode === "accel") {
+    M = Math.min(2.6, 0.3 + 0.16 * t);
+    if (M >= 2.6 && (tMax += dt) > 6) { recommencer(); return; }
+  }
+  const W = C.W / echelle();
+  src.x += M * c * dt;
+  // la caméra suit la source (placée aux 2/3 de l'écran)
+  xv = src.x - 0.66 * W;
+  // émission d'un front
+  const dernier = fronts.length ? fronts[fronts.length - 1].t0 : -1;
+  if (t - dernier >= P.periode) fronts.push({ x: src.x, y: src.y, t0: t, M });
+  fronts = fronts.filter(f => (t - f.t0) * c < 2.5 * W);
+  // observateur au sol, immobile : quand il sort de l'écran par la gauche, un autre apparaît à droite
+  if (obs.x < xv - 0.05 * W) { obs.x = xv + 1.05 * W; for (const f of fronts) f.recu = true; recus = []; }
+  const ox = obs.x, oy = -0.95;
+  for (const f of fronts) {
+    const r = (t - f.t0) * c, d = Math.hypot(ox - f.x, oy - f.y);
+    if (!f.recu && r >= d) { f.recu = true; recus.push(t); }
+  }
+  recus = recus.filter(u => t - u < 2);
+  // bang : beaucoup de fronts reçus en très peu de temps
+  const n = recus.filter(u => t - u < 0.05).length;
+  if (n >= 3 && bang < 0.2) bang = 1;
+  bang *= Math.exp(-dt * 3);
+}
+function dessiner() {
+  C.effacer();
+  const s = echelle(), oy0 = C.H * 0.45;
+  const X = x => (x - xv) * s, Y = y => oy0 - y * s;
+  // sol
+  ctx.fillStyle = "#0b0716"; ctx.fillRect(0, Y(-1.1), C.W, C.H);
+  ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.beginPath(); ctx.moveTo(0, Y(-1.1)); ctx.lineTo(C.W, Y(-1.1)); ctx.stroke();
+  ctx.globalCompositeOperation = "lighter";
+  for (const f of fronts) {
+    const r = (t - f.t0) * c, age = Math.min(1, r / 3);
+    // couleur selon la vitesse de la source à l'émission : bleu (subsonique) → magenta → jaune
+    const u = Math.min(1, f.M / 2.5);
+    const col = u < 0.4 ? [0, 240, 255] : u < 0.6 ? [255, 43, 214] : [255, 230, 0];
+    ctx.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},${0.85 * (1 - age) + 0.1})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(X(f.x), Y(f.y), Math.max(0.5, r * s), 0, 6.2832); ctx.stroke();
+  }
+  ctx.globalCompositeOperation = "source-over";
+  // cône de Mach
+  if (P.cone && M > 1) {
+    const a = Math.asin(1 / M), L = 6;
+    ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 2; ctx.setLineDash([8, 6]);
+    ctx.beginPath();
+    ctx.moveTo(X(src.x - L * Math.cos(a)), Y(src.y + L * Math.sin(a))); ctx.lineTo(X(src.x), Y(src.y));
+    ctx.lineTo(X(src.x - L * Math.cos(a)), Y(src.y - L * Math.sin(a))); ctx.stroke(); ctx.setLineDash([]);
+    // angle
+    ctx.strokeStyle = "#ffe600"; ctx.lineWidth = 1.5; ctx.beginPath();
+    ctx.arc(X(src.x), Y(src.y), 60, Math.PI - a, Math.PI + 0.0001); ctx.stroke();
+    ctx.fillStyle = "#ffe600"; ctx.font = "bold 14px system-ui"; ctx.fillText("α", X(src.x) - 78, Y(src.y) - 14);
+  }
+  // avion
+  const ax = X(src.x), ay = Y(src.y);
+  C.halo(ax, ay, 30, "rgba(255,255,255,0.8)", 0.6);
+  ctx.fillStyle = "#fff"; ctx.beginPath();
+  ctx.moveTo(ax + 22, ay); ctx.lineTo(ax - 16, ay - 5); ctx.lineTo(ax - 22, ay - 16); ctx.lineTo(ax - 26, ay - 16); ctx.lineTo(ax - 22, ay); ctx.lineTo(ax - 26, ay + 3); ctx.lineTo(ax - 16, ay + 5); ctx.closePath(); ctx.fill();
+  // observateur
+  if (P.observateur) {
+    const ox = X(obs.x), oyy = Y(-0.95);
+    C.halo(ox, oyy, 30 + 90 * bang, "rgba(255,230,0,1)", 0.3 + 0.7 * bang);
+    ctx.fillStyle = "#ffe600"; ctx.beginPath(); ctx.arc(ox, oyy - 14, 6, 0, 6.2832); ctx.fill();
+    ctx.fillRect(ox - 2, oyy - 8, 4, 14);
+    if (bang > 0.3) { ctx.font = `bold ${20 + 30 * bang}px system-ui`; ctx.fillStyle = `rgba(255,230,0,${bang})`; ctx.textAlign = "center"; ctx.fillText("BANG !", ox, oyy - 40); ctx.textAlign = "left"; }
+    // fréquence perçue (effet Doppler) : fronts reçus pendant la dernière demi-seconde
+    if (P.doppler) {
+      ctx.font = "12px system-ui"; ctx.fillStyle = "#a8a2c0";
+      const n = recus.filter(u => t - u < 0.5).length;
+      ctx.fillText(`fronts reçus: ${n} par demi-seconde (émis: ${Math.round(0.5 / P.periode)})`, ox - 120, oyy + 26);
+    }
+  }
+  majHud();
+}
+let ch = 0;
+function majHud() {
+  if (ch++ % 5) return;
+  const f = C.fr;
+  const etat = M < 0.98 ? "subsonique: les fronts se resserrent devant la source (effet Doppler)" : M <= 1.02 ? "M = 1: tous les fronts s'accumulent devant la source, c'est le mur du son" : "supersonique: les fronts s'enveloppent dans un cône";
+  C.hud.innerHTML = `<span class="grand">Nombre de Mach M = v/c = <span class="v">${f(M, 2)}</span></span><br>${etat}` + (M > 1 ? `<br>demi-angle du cône: sin α = 1/M, α = <span class="v">${f(Math.asin(1 / M) * 180 / Math.PI, 1)}°</span>` : "");
+}
+// ---------------------------------------------------------------- panneau
+const s1 = C.section("Mouvement de la source");
+C.radios(s1, [["accel", "L'avion accélère et franchit le mur du son"], ["const", "Vitesse constante"]], P, "mode", () => { majPanneau(); recommencer(); });
+const bM = C.el("div", {}, s1);
+C.curseur(bM, "Nombre de Mach M", P, "M", 0, 3, 0.05, v => C.fr(v, 2), () => { if (P.mode === "const") M = P.M; });
+C.curseur(s1, "Intervalle entre deux fronts émis", P, "periode", 0.04, 0.4, 0.01, v => C.fr(v, 2) + " s");
+const s2 = C.section("Affichage");
+C.caseC(s2, "Cône de Mach", P, "cone");
+C.caseC(s2, "Observateur au sol", P, "observateur");
+C.caseC(s2, "Fréquence reçue par l'observateur", P, "doppler");
+const s3 = C.section("Ce qu'on observe");
+C.texte(s3, "Chaque front d'onde part de la position qu'avait la source au moment de l'émission et s'étend à la vitesse du son c. Si la source va moins vite que le son, les fronts se resserrent devant elle: le son perçu est plus aigu à l'approche (<b>effet Doppler</b>).");
+C.texte(s3, "Si v &gt; c, la source dépasse ses propres ondes: tous les fronts sont tangents à un <b>cône de Mach</b> de demi-angle α avec sin α = c/v. Les surpressions s'y additionnent: c'est l'onde de choc, entendue au sol comme un « bang » quand le cône passe sur l'observateur.");
+C.note(s3, "Même phénomène pour le sillage en V d'un bateau (à un angle près, dû à la dispersion des vagues) et pour l'effet Tcherenkov, lumière émise par une particule plus rapide que la lumière dans l'eau.");
+C.temps(recommencer, { vmin: 0.25, vmax: 2 });
+function majPanneau() { bM.style.display = P.mode === "const" ? "" : "none"; }
+majPanneau();
+C.ajuster();
+recommencer();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>
