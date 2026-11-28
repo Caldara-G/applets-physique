@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="fr" data-domaine="complements">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paquet d'ondes quantique en deux dimensions — MP* Malherbe</title>
+<link rel="stylesheet" href="complements.css">
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<script src="complements.js"></script>
+<script>
+"use strict";
+/* Paquet d'ondes quantique en 2D : résolution numérique de l'équation de Schrödinger
+       i ħ ∂ψ/∂t = −(ħ²/2m) Δψ + V ψ
+   par la méthode « split-step Fourier » (ħ = m = 1, pas de la grille = 1) :
+   à chaque pas dt, ψ ← e^{−iV dt} ψ (espace réel), puis ψ ← TF⁻¹[ e^{−i k² dt/2} TF[ψ] ] (espace de Fourier).
+   Grille 256 × 256, transformées de Fourier rapides ; bords absorbants (sauf dans les billards fermés).
+   Affichage : teinte = phase de ψ, luminosité = |ψ| (ou densité |ψ|², ou partie réelle). */
+const C = Cadre("Paquet d'ondes quantique en deux dimensions", "Paquet d'ondes 2D");
+const ctx = C.ctx;
+const N = 256, LOG = 8, NN = N * N, DT = 0.5, VMUR = 4, BORD = 18;
+
+const P = { scene: "fentes2", k0: 1.2, sl: 10, sp: 22, aff: "phase", gain: 1.3, halo: true,
+  a: 40, b: 8, nf: 5, ratio: 1.2, e: 4, R: 22 };
+
+// ---------------------------------------------------------------- champ et FFT
+const re = new Float64Array(NN), im = new Float64Array(NN);
+const vr = new Float64Array(NN), vi = new Float64Array(NN), V = new Float32Array(NN);
+const mur = new Uint8Array(NN);
+const kr = new Float64Array(NN), ki = new Float64Array(NN);
+let absIdx = new Int32Array(0), absF = new Float64Array(0), zeroIdx = new Int32Array(0);
+const rev = new Uint16Array(N);
+for (let i = 0; i < N; i++) { let r = 0, x = i; for (let b = 0; b < LOG; b++) { r = (r << 1) | (x & 1); x >>= 1; } rev[i] = r; }
+const cs = new Float64Array(N / 2), sn = new Float64Array(N / 2);
+for (let i = 0; i < N / 2; i++) { cs[i] = Math.cos(2 * Math.PI * i / N); sn[i] = Math.sin(2 * Math.PI * i / N); }
+function fft1(o, inv) {
+  const a = re, b = im;
+  for (let i = 0; i < N; i++) { const j = rev[i]; if (j > i) { const p = o + i, q = o + j; let t = a[p]; a[p] = a[q]; a[q] = t; t = b[p]; b[p] = b[q]; b[q] = t; } }
+  for (let len = 2; len <= N; len <<= 1) {
+    const h = len >> 1, st = N / len;
+    for (let i = 0; i < N; i += len) for (let k = 0; k < h; k++) {
+      const wr = cs[k * st], wi = inv ? sn[k * st] : -sn[k * st];
+      const p = o + i + k, q = p + h;
+      const xr = a[q] * wr - b[q] * wi, xi = a[q] * wi + b[q] * wr;
+      a[q] = a[p] - xr; b[q] = b[p] - xi; a[p] += xr; b[p] += xi;
+    }
+  }
+}
+function lignes(inv) { for (let y = 0; y < N; y++) fft1(y * N, inv); }
+function transposer() {
+  for (let j = 0; j < N; j++) for (let i = j + 1; i < N; i++) {
+    const p = j * N + i, q = i * N + j;
+    let t = re[p]; re[p] = re[q]; re[q] = t; t = im[p]; im[p] = im[q]; im[q] = t;
+  }
+}
+// facteur cinétique (symétrique en kx, ky : la transposition ne change rien), normalisation 1/N² incluse
+for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+  const kx = 2 * Math.PI / N * (i < N / 2 ? i : i - N), ky = 2 * Math.PI / N * (j < N / 2 ? j : j - N);
+  const ph = -(kx * kx + ky * ky) / 2 * DT;
+  kr[j * N + i] = Math.cos(ph) / NN; ki[j * N + i] = Math.sin(ph) / NN;
+}
+let perteG = 0, perteD = 0, xCoupe = N / 2;
+function pas1() {
+  for (let p = 0; p < NN; p++) { const a = re[p], b = im[p]; re[p] = a * vr[p] - b * vi[p]; im[p] = a * vi[p] + b * vr[p]; }
+  lignes(false); transposer(); lignes(false);
+  for (let p = 0; p < NN; p++) { const a = re[p], b = im[p]; re[p] = a * kr[p] - b * ki[p]; im[p] = a * ki[p] + b * kr[p]; }
+  lignes(true); transposer(); lignes(true);
+  // cœur des murs : onde nulle (seule la couche superficielle des murs, où l'onde est évanescente, est calculée)
+  for (let n = 0; n < zeroIdx.length; n++) { const p = zeroIdx[n]; re[p] = 0; im[p] = 0; }
+  // bords absorbants : on comptabilise la probabilité absorbée de chaque côté
+  for (let n = 0; n < absIdx.length; n++) {
+    const p = absIdx[n], f = absF[n], d = (re[p] * re[p] + im[p] * im[p]) * (1 - f * f);
+    if ((p % N) < xCoupe) perteG += d; else perteD += d;
+    re[p] *= f; im[p] *= f;
+  }
+}
+
+// ---------------------------------------------------------------- scènes
+const SCENES = [
+  ["libre", "Paquet libre: étalement"],
+  ["fente1", "Diffraction par une fente"],
+  ["fentes2", "Fentes d'Young"],
+  ["reseau", "Réseau de fentes"],
+  ["tunnel", "Barrière de potentiel: effet tunnel"],
+  ["obstacle", "Diffusion par un obstacle"],
+  ["stade", "Billard en stade (chaotique)"],
+  ["cercle", "Billard circulaire"],
+  ["harmonique", "Oscillateur harmonique 2D"],
+];
+let S = {};            // description de la scène courante
+const OMEGA = 0.012, CX = N / 2, CY = N / 2;
+const XF = 110, EP = 5, XE = N - BORD - 10;     // position de la plaque des fentes, épaisseur, écran
+function ouvertures() {
+  if (P.scene === "fente1") return [[CY - P.b / 2, CY + P.b / 2]];
+  if (P.scene === "fentes2") return [[CY - P.a / 2 - P.b / 2, CY - P.a / 2 + P.b / 2], [CY + P.a / 2 - P.b / 2, CY + P.a / 2 + P.b / 2]];
+  const r = [], pasR = Math.max(P.b + 3, Math.round(P.a / 2));
+  for (let n = 0; n < P.nf; n++) { const c = CY + (n - (P.nf - 1) / 2) * pasR; r.push([c - P.b / 2, c + P.b / 2]); }
+  return r;
+}
+function construireScene() {
+  V.fill(0); mur.fill(0);
+  const sc = P.scene;
+  S = { absorbe: true, ecran: false, defaut: { x: 60, y: CY, th: 0 } };
+  if (sc === "libre") S.defaut = { x: 70, y: CY, th: 0 };
+  if (sc === "fente1" || sc === "fentes2" || sc === "reseau") {
+    S.ecran = true; S.defaut = { x: 52, y: CY, th: 0 };
+    const ouv = ouvertures();
+    for (let j = 0; j < N; j++) {
+      const ouvert = ouv.some(([a, b]) => j + 0.5 >= a && j + 0.5 <= b);
+      if (!ouvert) for (let i = XF; i < XF + EP; i++) { V[j * N + i] = VMUR; mur[j * N + i] = 1; }
+    }
+  }
+  if (sc === "tunnel") {
+    S.defaut = { x: 64, y: CY, th: 0 };
+    const E = P.k0 * P.k0 / 2, V0 = P.ratio * E;
+    S.xb = 128; S.V0 = V0;
+    for (let j = 0; j < N; j++) for (let i = S.xb; i < S.xb + P.e; i++) V[j * N + i] = V0;
+  }
+  if (sc === "obstacle") {
+    S.defaut = { x: 55, y: CY, th: 0 };
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      if ((i - 140) ** 2 + (j - CY) ** 2 <= P.R * P.R) { V[j * N + i] = VMUR; mur[j * N + i] = 1; }
+    }
+  }
+  if (sc === "stade" || sc === "cercle") {
+    S.absorbe = false;
+    const L = 46, R = 70, Rc = 108;
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      let dedans;
+      const x = i + 0.5 - CX, y = j + 0.5 - CY;
+      if (sc === "cercle") dedans = x * x + y * y <= Rc * Rc;
+      else { const dx = Math.max(0, Math.abs(x) - L); dedans = dx * dx + y * y <= R * R; }
+      if (!dedans) { V[j * N + i] = VMUR; mur[j * N + i] = 1; }
+    }
+    S.defaut = sc === "stade" ? { x: CX - 40, y: CY + 18, th: -0.55 } : { x: CX - 30, y: CY + 40, th: -0.3 };
+  }
+  if (sc === "harmonique") {
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) V[j * N + i] = 0.5 * OMEGA * OMEGA * ((i + 0.5 - CX) ** 2 + (j + 0.5 - CY) ** 2);
+    S.defaut = { x: CX + 60, y: CY, th: -Math.PI / 2 };
+  }
+  S.Vmax = 0; for (let p = 0; p < NN; p++) if (!mur[p] && V[p] > S.Vmax) S.Vmax = V[p];
+  for (let p = 0; p < NN; p++) { vr[p] = Math.cos(-V[p] * DT); vi[p] = Math.sin(-V[p] * DT); }
+  // bords absorbants
+  const ix = [], fx = [];
+  if (S.absorbe) for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const d = Math.min(i, j, N - 1 - i, N - 1 - j);
+    if (d < BORD) { const u = (BORD - d) / BORD; ix.push(j * N + i); fx.push(Math.exp(-0.6 * u * u * DT)); }
+  }
+  absIdx = Int32Array.from(ix); absF = Float64Array.from(fx);
+  const iz = [];
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    if (!mur[j * N + i]) continue;
+    let profond = true;
+    for (let dj = -2; dj <= 2 && profond; dj++) for (let di = -2; di <= 2; di++) {
+      const a = i + di, b = j + dj;
+      if (a >= 0 && b >= 0 && a < N && b < N && !mur[b * N + a]) { profond = false; break; }
+    }
+    if (profond) iz.push(j * N + i);
+  }
+  zeroIdx = Int32Array.from(iz);
+  xCoupe = sc === "tunnel" ? S.xb + P.e / 2 : N / 2;
+  fondScene();
+}
+
+// ---------------------------------------------------------------- paquet initial
+let t = 0, accu = new Float64Array(N), refA = 1;
+function lancer(x0, y0, th) {
+  const c = Math.cos(th), s = Math.sin(th), k = P.k0;
+  let somme = 0;
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const p = j * N + i;
+    if (mur[p]) { re[p] = im[p] = 0; continue; }
+    const dx = i + 0.5 - x0, dy = j + 0.5 - y0, xi = dx * c + dy * s, eta = -dx * s + dy * c;
+    const g = Math.exp(-xi * xi / (4 * P.sl * P.sl) - eta * eta / (4 * P.sp * P.sp));
+    re[p] = g * Math.cos(k * xi); im[p] = g * Math.sin(k * xi);
+    somme += g * g;
+  }
+  const f = 1 / Math.sqrt(somme);
+  for (let p = 0; p < NN; p++) { re[p] *= f; im[p] *= f; }
+  t = 0; accu.fill(0); perteG = perteD = 0; refA = 0;
+  depart = { x0, y0, th };
+}
+let depart = null;
+function recommencer() { construireScene(); const d = S.defaut; lancer(d.x, d.y, d.th); majTextes(); }
+
+// ---------------------------------------------------------------- évolution
+let reste = 0;
+function pas(dt) {
+  reste += 2 * C.vitesse;                // nombre de pas de calcul par image
+  let n = 0;
+  while (reste >= 1 && n < 10) {
+    pas1(); t += DT; reste -= 1; n++;
+    if (S.ecran) for (let j = 0; j < N; j++) { const p = j * N + XE; accu[j] += (re[p] * re[p] + im[p] * im[p]) * DT; }
+  }
+}
+
+// ---------------------------------------------------------------- couleurs
+const LUTH = new Uint8Array(512 * 3);
+for (let n = 0; n < 512; n++) {
+  const h = n / 512 * 6, x = 1 - Math.abs(h % 2 - 1);
+  const [r, g, b] = h < 1 ? [1, x, 0] : h < 2 ? [x, 1, 0] : h < 3 ? [0, 1, x] : h < 4 ? [0, x, 1] : h < 5 ? [x, 0, 1] : [1, 0, x];
+  LUTH[3 * n] = 255 * r; LUTH[3 * n + 1] = 255 * g; LUTH[3 * n + 2] = 255 * b;
+}
+const STOPS = [[0, 0, 0, 0], [0.18, 40, 0, 90], [0.38, 150, 0, 200], [0.55, 255, 30, 170], [0.72, 255, 110, 30], [0.88, 255, 230, 0], [1, 255, 255, 230]];
+const LUTD = new Uint8Array(256 * 3);
+for (let n = 0; n < 256; n++) {
+  const v = n / 255; let k = 0; while (k < STOPS.length - 2 && v > STOPS[k + 1][0]) k++;
+  const [v0, r0, g0, b0] = STOPS[k], [v1, r1, g1, b1] = STOPS[k + 1], u = (v - v0) / (v1 - v0);
+  LUTD[3 * n] = r0 + u * (r1 - r0); LUTD[3 * n + 1] = g0 + u * (g1 - g0); LUTD[3 * n + 2] = b0 + u * (b1 - b0);
+}
+const off = document.createElement("canvas"); off.width = off.height = N;
+const octx = off.getContext("2d"), img = octx.createImageData(N, N), pix = img.data;
+const fond = new Uint8Array(NN * 3);           // murs et potentiel
+function fondScene() {
+  for (let p = 0; p < NN; p++) {
+    let r = 0, g = 0, b = 0;
+    if (mur[p]) {
+      // intérieur des murs sombre, bord lumineux
+      const i = p % N, j = (p / N) | 0;
+      const bordure = (i > 0 && !mur[p - 1]) || (i < N - 1 && !mur[p + 1]) || (j > 0 && !mur[p - N]) || (j < N - 1 && !mur[p + N]);
+      if (bordure) { r = 150; g = 120; b = 255; } else { r = 22; g = 16; b = 40; }
+    }
+    else if (S.Vmax > 0 && V[p] > 0) {
+      const u = Math.min(1, V[p] / Math.max(S.Vmax, 1e-9));
+      if (P.scene === "harmonique") { r = 10 * u; g = 18 * u; b = 38 * u; }
+      else { r = 120; g = 70; b = 10; }
+    }
+    fond[3 * p] = r; fond[3 * p + 1] = g; fond[3 * p + 2] = b;
+  }
+}
+const mom = { n: 0, x: 0, y: 0, xx: 0, yy: 0, xy: 0, G: 0, D: 0 };
+function rendre() {
+  let mx = 0;
+  for (let p = 0; p < NN; p++) { const d = re[p] * re[p] + im[p] * im[p]; if (d > mx) mx = d; }
+  mx = Math.sqrt(mx);
+  refA = refA === 0 ? mx : Math.max(mx, refA * 0.96 + mx * 0.04);
+  const k = P.gain / (refA || 1);
+  const m = mom; m.n = m.x = m.y = m.xx = m.yy = m.xy = m.G = m.D = 0;
+  for (let j = 0, p = 0; j < N; j++) for (let i = 0; i < N; i++, p++) {
+    const a = re[p], b = im[p], d = a * a + b * b;
+    m.n += d; m.x += d * i; m.y += d * j; m.xx += d * i * i; m.yy += d * j * j; m.xy += d * i * j;
+    if (i < xCoupe) m.G += d; else m.D += d;
+    let r, g, bl;
+    if (P.aff === "phase") {
+      const A = Math.sqrt(d) * k, l = A >= 1 ? 1 : Math.pow(A, 0.75);
+      const n = ((Math.atan2(b, a) / (2 * Math.PI) + 1) * 512 | 0) & 511;
+      r = LUTH[3 * n] * l; g = LUTH[3 * n + 1] * l; bl = LUTH[3 * n + 2] * l;
+    } else if (P.aff === "densite") {
+      const A = Math.sqrt(d) * k, l = A >= 1 ? 255 : Math.pow(A, 0.8) * 255 | 0;
+      r = LUTD[3 * l]; g = LUTD[3 * l + 1]; bl = LUTD[3 * l + 2];
+    } else {
+      const A = a * k, l = Math.min(1, Math.pow(Math.abs(A), 0.75));
+      if (A > 0) { r = 0; g = 240 * l; bl = 255 * l; } else { r = 255 * l; g = 43 * l; bl = 214 * l; }
+    }
+    const q = 4 * p;
+    if (mur[p]) { r = g = bl = 0; }
+    pix[q] = Math.min(255, r + fond[3 * p]); pix[q + 1] = Math.min(255, g + fond[3 * p + 1]); pix[q + 2] = Math.min(255, bl + fond[3 * p + 2]); pix[q + 3] = 255;
+  }
+  octx.putImageData(img, 0, 0);
+}
+
+// ---------------------------------------------------------------- dessin
+function geom() {
+  const lp = S.ecran ? Math.min(220, C.W * 0.22) : 0;
+  const cote = Math.max(60, Math.min(C.H - 16, C.W - 16 - lp - (lp ? 12 : 0)));
+  const x0 = (C.W - cote - lp - (lp ? 12 : 0)) / 2, y0 = (C.H - cote) / 2;
+  return { x0, y0, cote, e: cote / N, lp, xp: x0 + cote + 12 };
+}
+let tire = null;
+function dessiner() {
+  rendre();
+  C.effacer();
+  const G = geom();
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(off, G.x0, G.y0, G.cote, G.cote);
+  if (P.halo) {
+    ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 0.55;
+    ctx.filter = `blur(${Math.max(3, G.cote / 90)}px)`;
+    ctx.drawImage(off, G.x0, G.y0, G.cote, G.cote); ctx.restore();
+  }
+  ctx.strokeStyle = "rgba(255,43,214,0.35)"; ctx.lineWidth = 1; ctx.strokeRect(G.x0 - 0.5, G.y0 - 0.5, G.cote + 1, G.cote + 1);
+  if (S.ecran) dessinerEcran(G);
+  if (P.scene === "harmonique") {          // équipotentielles
+    ctx.save(); ctx.beginPath(); ctx.rect(G.x0, G.y0, G.cote, G.cote); ctx.clip();
+    ctx.strokeStyle = "rgba(0,240,255,0.22)"; ctx.lineWidth = 1;
+    for (let r = 20; r < N * 0.72; r += 20) { ctx.beginPath(); ctx.arc(G.x0 + CX * G.e, G.y0 + CY * G.e, r * G.e, 0, 2 * Math.PI); ctx.stroke(); }
+    ctx.restore();
+  }
+  if (P.scene === "tunnel") {
+    const x = G.x0 + (S.xb + P.e / 2) * G.e;
+    ctx.fillStyle = "#ffb347"; ctx.font = "12px system-ui"; ctx.textAlign = "center";
+    ctx.fillText("barrière V₀", x, G.y0 + 16); ctx.textAlign = "left";
+  }
+  if (tire) {
+    const [a, b, c, d] = tire;
+    ctx.strokeStyle = "#fff"; ctx.fillStyle = "#fff"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke();
+    const th = Math.atan2(d - b, c - a);
+    ctx.beginPath(); ctx.moveTo(c, d); ctx.lineTo(c - 12 * Math.cos(th - 0.4), d - 12 * Math.sin(th - 0.4)); ctx.lineTo(c - 12 * Math.cos(th + 0.4), d - 12 * Math.sin(th + 0.4)); ctx.fill();
+    C.halo(a, b, 14, "rgba(255,255,255,1)", 0.8);
+  }
+  majHud();
+}
+function dessinerEcran(G) {
+  // trait de l'écran dans le champ
+  const xe = G.x0 + (XE + 0.5) * G.e;
+  ctx.save(); ctx.setLineDash([5, 5]); ctx.strokeStyle = "rgba(57,255,20,0.6)"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(xe, G.y0); ctx.lineTo(xe, G.y0 + G.cote); ctx.stroke(); ctx.restore();
+  // panneau : bande « photographique » + courbe de la probabilité cumulée
+  const x = G.xp, w = G.lp, y = G.y0, h = G.cote;
+  ctx.fillStyle = "#070512"; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = "rgba(57,255,20,0.35)"; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  let mx = 0; for (let j = BORD; j < N - BORD; j++) mx = Math.max(mx, accu[j]);
+  const bande = Math.min(36, w * 0.22);
+  if (mx > 0) {
+    for (let j = 0; j < N; j++) {
+      const u = Math.pow(accu[j] / mx, 0.6);
+      ctx.fillStyle = `rgba(${90 + 160 * u | 0},255,${150 + 80 * u | 0},${u})`;
+      ctx.fillRect(x + 4, y + j * G.e, bande, G.e + 0.6);
+    }
+    ctx.save(); ctx.globalCompositeOperation = "lighter";
+    const x1 = x + bande + 12, lw = w - bande - 20;
+    ctx.beginPath(); ctx.moveTo(x1, y);
+    for (let j = 0; j < N; j++) ctx.lineTo(x1 + accu[j] / mx * lw, y + (j + 0.5) * G.e);
+    ctx.lineTo(x1, y + h); ctx.closePath();
+    const gr = ctx.createLinearGradient(x1, 0, x1 + lw, 0);
+    gr.addColorStop(0, "rgba(255,43,214,0.15)"); gr.addColorStop(1, "rgba(255,43,214,0.55)");
+    ctx.fillStyle = gr; ctx.fill();
+    ctx.strokeStyle = "#ff2bd6"; ctx.lineWidth = 2; ctx.shadowColor = "#ff2bd6"; ctx.shadowBlur = 8;
+    ctx.beginPath(); for (let j = 0; j < N; j++) { const px = x1 + accu[j] / mx * lw, py = y + (j + 0.5) * G.e; j ? ctx.lineTo(px, py) : ctx.moveTo(px, py); } ctx.stroke();
+    ctx.restore();
+  }
+  ctx.fillStyle = "#a8a2c0"; ctx.font = "11.5px system-ui";
+  ctx.fillText("probabilité reçue", x + 6, y + h - 22); ctx.fillText("par l'écran", x + 6, y + h - 8);
+}
+
+// ---------------------------------------------------------------- HUD
+let cpt = 0;
+function Tonde(E, V0, e) {
+  if (V0 <= 0) return 1;
+  if (Math.abs(E - V0) < 1e-9) return 1 / (1 + V0 * e * e / 2);
+  if (E < V0) { const q = Math.sqrt(2 * (V0 - E)), s = Math.sinh(q * e); return 1 / (1 + V0 * V0 * s * s / (4 * E * (V0 - E))); }
+  const q = Math.sqrt(2 * (E - V0)), s = Math.sin(q * e); return 1 / (1 + V0 * V0 * s * s / (4 * E * (E - V0)));
+}
+function majHud() {
+  if (cpt++ % 5) return;
+  const m = mom, f = C.fr;
+  let h = `<span class="grand">t = <span class="v">${f(t, 0)}</span></span> · λ = 2π/k₀ = <span class="v">${f(2 * Math.PI / P.k0, 1)}</span> · probabilité dans la boîte <span class="v">${f(m.n * 100, 1)} %</span>`;
+  if (P.scene === "tunnel") {
+    const T = m.D + perteD, R = m.G + perteG, E = P.k0 * P.k0 / 2;
+    h += `<br>E/V₀ = <span class="v">${S.V0 > 0 ? f(E / S.V0, 2) : "∞"}</span> · transmise <span class="v">${f(T * 100, 1)} %</span> · réfléchie <span class="v">${f(R * 100, 1)} %</span><br>onde plane de même énergie: T = <span class="v">${f(Tonde(E, S.V0, P.e) * 100, 1)} %</span>`;
+  }
+  if (P.scene === "libre" && m.n > 1e-6 && depart) {
+    const c = Math.cos(depart.th), s = Math.sin(depart.th);
+    const vx = m.xx / m.n - (m.x / m.n) ** 2, vy = m.yy / m.n - (m.y / m.n) ** 2, cxy = m.xy / m.n - (m.x / m.n) * (m.y / m.n);
+    const vl = vx * c * c + 2 * cxy * c * s + vy * s * s, vp = vx * s * s - 2 * cxy * c * s + vy * c * c;
+    const th = sg => sg * Math.sqrt(1 + (t / (2 * sg * sg)) ** 2);
+    h += `<br>largeurs Δξ = <span class="v">${f(Math.sqrt(vl), 1)}</span> (théorie ${f(th(P.sl), 1)}) · Δη = <span class="v">${f(Math.sqrt(vp), 1)}</span> (théorie ${f(th(P.sp), 1)})`;
+  }
+  if (P.scene === "harmonique") h += `<br>période d'oscillation 2π/ω = <span class="v">${f(2 * Math.PI / OMEGA, 0)}</span>`;
+  C.hud.innerHTML = h;
+}
+
+// ---------------------------------------------------------------- interaction : glisser pour lancer
+function versGrille(x, y) { const G = geom(); return [(x - G.x0) / G.e, (y - G.y0) / G.e]; }
+C.pointeur({
+  bas: (x, y) => { tire = [x, y, x, y]; },
+  glisse: (x, y) => { if (tire) { tire[2] = x; tire[3] = y; } },
+  haut: (x, y) => {
+    if (!tire) return;
+    const [a, b] = tire; tire = null;
+    const [gx, gy] = versGrille(a, b);
+    if (gx < 0 || gy < 0 || gx > N || gy > N) return;
+    const th = Math.hypot(x - a, y - b) > 8 ? Math.atan2(y - b, x - a) : 0;
+    if (mur[(gy | 0) * N + (gx | 0)]) return;
+    lancer(gx, gy, th);
+  }
+});
+
+// ---------------------------------------------------------------- panneau
+const s0 = C.section("Situation");
+C.select(s0, SCENES, P, "scene", () => { majPanneau(); appliquerDefauts(); recommencer(); });
+const bF = C.el("div", {}, s0);
+const cA = C.curseur(bF, "Distance a entre les fentes", P, "a", 16, 80, 2, v => v, recommencer);
+C.curseur(bF, "Largeur b d'une fente", P, "b", 3, 24, 1, v => v, recommencer);
+const bN = C.el("div", {}, bF);
+C.curseur(bN, "Nombre de fentes", P, "nf", 3, 9, 1, v => v, recommencer);
+const bT = C.el("div", {}, s0);
+C.curseur(bT, "Hauteur de la barrière V₀/E", P, "ratio", 0, 3, 0.05, v => C.fr(v, 2), recommencer);
+C.curseur(bT, "Épaisseur de la barrière", P, "e", 1, 16, 1, v => v, recommencer);
+const bO = C.el("div", {}, s0);
+C.curseur(bO, "Rayon de l'obstacle", P, "R", 4, 50, 1, v => v, recommencer);
+
+const s1 = C.section("Paquet d'ondes initial");
+const cK = C.curseur(s1, "Nombre d'onde k₀ (quantité de mouvement ħk₀)", P, "k0", 0.4, 1.8, 0.05, v => C.fr(v, 2) + " (λ = " + C.fr(2 * Math.PI / v, 1) + ")", recommencer);
+const cL = C.curseur(s1, "Longueur σ<sub>∥</sub> (dans le sens du mouvement)", P, "sl", 3, 30, 0.5, v => C.fr(v, 1), recommencer);
+const cP = C.curseur(s1, "Largeur σ<sub>⊥</sub> (en travers)", P, "sp", 3, 40, 0.5, v => C.fr(v, 1), recommencer);
+C.note(s1, "Cliquer-glisser dans la simulation pour lancer un nouveau paquet: point de départ au clic, direction donnée par le glissement. Unités: ħ = m = 1, pas de la grille = 1.");
+
+const s2 = C.section("Affichage");
+C.radios(s2, [["phase", "Phase en couleur, luminosité = |ψ|"], ["densite", "Densité de probabilité |ψ|²"], ["reel", "Partie réelle de ψ (cyan > 0, magenta < 0)"]], P, "aff", majLegende);
+C.curseur(s2, "Luminosité", P, "gain", 0.5, 4, 0.1, v => "×" + C.fr(v, 1));
+C.caseC(s2, "Halo lumineux", P, "halo");
+
+C.temps(recommencer, { vmin: 0.25, vmax: 3 });
+const s4 = C.section("Ce qu'on observe");
+const tx = C.texte(s4, "");
+C.note(s4, "Méthode numérique: « split-step Fourier ». À chaque pas, on applique le potentiel dans l'espace réel (facteur e<sup>−iV dt/ħ</sup>), puis l'énergie cinétique dans l'espace des vecteurs d'onde (facteur e<sup>−iħk²dt/2m</sup>) grâce à deux transformées de Fourier rapides sur une grille 256 × 256. Les murs sont des marches de potentiel très hautes; les bords du domaine absorbent l'onde (sauf dans les billards).");
+
+function appliquerDefauts() {
+  const d = { libre: [1.2, 5, 5], fente1: [1.2, 10, 22], fentes2: [1.2, 10, 22], reseau: [1.2, 10, 34], tunnel: [1.0, 12, 30],
+    obstacle: [1.3, 10, 30], stade: [1.2, 8, 8], cercle: [1.3, 7, 7], harmonique: [0, 0, 0] }[P.scene];
+  if (P.scene === "harmonique") { const s = Math.sqrt(1 / (2 * OMEGA)); P.k0 = +(OMEGA * 60).toFixed(2); P.sl = P.sp = +s.toFixed(1); }
+  else { P.k0 = d[0]; P.sl = d[1]; P.sp = d[2]; }
+  cK.fixer(P.k0); cL.fixer(P.sl); cP.fixer(P.sp);
+}
+function majPanneau() {
+  const fe = ["fente1", "fentes2", "reseau"].includes(P.scene);
+  bF.style.display = fe ? "" : "none";
+  cA.parentNode.style.display = P.scene === "fente1" ? "none" : "";
+  bN.style.display = P.scene === "reseau" ? "" : "none";
+  bT.style.display = P.scene === "tunnel" ? "" : "none";
+  bO.style.display = P.scene === "obstacle" ? "" : "none";
+}
+function majLegende() {
+  const deg = P.aff === "phase" ? "linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)" :
+    P.aff === "densite" ? "linear-gradient(90deg,#000,#28005a,#9600c8,#ff1eaa,#ff6e1e,#ffe600,#ffffe6)" : "linear-gradient(90deg,#ff2bd6,#000,#00f0ff)";
+  const lab = P.aff === "phase" ? ["phase", "−π → π"] : P.aff === "densite" ? ["|ψ|²", "0 → max"] : ["Re ψ", "− → +"];
+  C.legende.innerHTML = `<span>${lab[0]} <span class="degrade" style="background:${deg}"></span>${lab[1]}</span>`;
+}
+const TEXTES = {
+  libre: "Sans potentiel, le paquet avance à la vitesse de groupe ħk₀/m et <b>s'étale</b>: ses composantes de vecteurs d'onde différents vont à des vitesses différentes. La largeur suit σ(t) = σ√(1 + (ħt/2mσ²)²): un paquet étroit s'étale d'autant plus vite (inégalité de Heisenberg). Les bandes de couleur sont les fronts de phase, espacés de λ = 2π/k₀; on voit les longueurs d'onde courtes partir devant et les longues rester derrière.",
+  fente1: "La partie de l'onde qui franchit la fente <b>diffracte</b>: elle s'ouvre en éventail, d'autant plus que la fente est étroite devant λ. La probabilité reçue par l'écran donne la figure de diffraction (lobe central de demi-largeur angulaire ≈ λ/b).",
+  fentes2: "Le paquet passe <b>par les deux fentes à la fois</b>; les deux ondes qui en sortent se superposent et interfèrent. L'écran (à droite) cumule la probabilité reçue: on y lit des franges d'interfrange ≈ λD/a, modulées par la diffraction de chaque fente. Une partie du paquet est réfléchie par la plaque.",
+  reseau: "Avec N fentes régulièrement espacées, les ondes ne s'ajoutent en phase que dans quelques directions: on voit apparaître des <b>faisceaux bien séparés</b> (ordres du réseau), d'autant plus fins que N est grand.",
+  tunnel: "Le paquet rencontre une barrière de hauteur V₀. Même si son énergie E est inférieure à V₀, une partie <b>traverse</b>: c'est l'effet tunnel; dans la barrière l'onde est évanescente. Si E > V₀, une partie est quand même réfléchie. On compare la probabilité transmise au coefficient T d'une onde plane de même énergie (le paquet contient plusieurs énergies, d'où l'écart).",
+  obstacle: "Un obstacle impénétrable diffuse l'onde: <b>ombre</b> derrière lui, ondes circulaires diffusées et franges d'interférence entre onde diffusée et onde incidente. Un petit obstacle devant λ est presque contourné; un gros projette une ombre nette.",
+  stade: "Dans un billard en forme de stade, les trajectoires classiques sont <b>chaotiques</b>. L'onde se replie sur elle-même, interfère et finit par remplir tout le billard d'un tapis de tavelures très colorées; certaines figures gardent la trace d'orbites périodiques instables (« cicatrices »).",
+  cercle: "Dans un billard circulaire, le mouvement classique est régulier (le moment cinétique se conserve). Lancé presque tangentiellement, le paquet reste le long de la paroi: c'est l'effet de <b>galerie à échos</b>. Le centre n'est jamais atteint.",
+  harmonique: "Dans un potentiel V = ½mω²r², un paquet de largeur σ = √(ħ/2mω) est un <b>état cohérent</b>: il tourne sans se déformer, comme une particule classique, et revient au même point avec la période 2π/ω. Modifier σ<sub>∥</sub> ou σ<sub>⊥</sub> donne un paquet « comprimé » qui respire deux fois par période.",
+};
+function majTextes() { tx.innerHTML = TEXTES[P.scene]; }
+
+majPanneau(); appliquerDefauts(); majLegende();
+recommencer();
+C.demarrer(pas, dessiner);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>
