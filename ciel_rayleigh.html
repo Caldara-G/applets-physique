@@ -1,0 +1,1555 @@
+<!doctype html>
+<html lang="fr" data-domaine="ondes">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Couleurs et polarisation du ciel — MP* Malherbe</title>
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { font-family: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 13px; color: #222; background: #eef0f3; }
+#app { display: flex; height: 100vh; }
+#principal { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 8px; gap: 6px; }
+#onglets { display: flex; gap: 4px; flex-wrap: wrap; flex: none; }
+#onglets button { padding: 6px 12px; border: 1px solid #b8c4d0; background: #fff; border-radius: 6px; cursor: pointer; font: inherit; color: #234; }
+#onglets button:hover { border-color: #06b6d4; }
+#onglets button.actif { background: #0e7490; border-color: #0e7490; color: #fff; font-weight: 600; }
+.zone { position: relative; flex: 1; min-height: 0; min-width: 0; background: #000; border: 1px solid #c7ccd3; border-radius: 6px; overflow: hidden; }
+.zone canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; touch-action: none; }
+#gl { cursor: grab; }
+#sur { pointer-events: none; }
+#panneau { width: 350px; flex: none; overflow-y: auto; background: #fff; border-left: 1px solid #d5d9df; padding: 10px 14px 20px; }
+#panneau h1 { font-size: 16px; margin: 4px 0 2px; }
+.haut { display: flex; justify-content: space-between; align-items: center; }
+.retour { font-size: 12px; color: #4a6fa5; text-decoration: none; }
+.retour:hover { text-decoration: underline; }
+.etiquette { font-size: 11.5px; font-weight: 600; color: #fff; background: #3b5f96; border-radius: 10px; padding: 2px 9px; letter-spacing: 0.02em; }
+.filigrane { position: absolute; right: 12px; bottom: 10px; z-index: 6; pointer-events: none; font-size: 13px; font-weight: 700;
+  color: #e9fbff !important; background: rgba(14, 116, 144, 0.75); border-radius: 12px; padding: 3px 11px; }
+.section { margin: 8px 0; padding-bottom: 8px; border-bottom: 1px solid #eceef1; }
+.section:last-child { border-bottom: none; }
+.titre { font-weight: 600; margin-bottom: 4px; color: #0e7490; }
+.choix { display: flex; align-items: center; gap: 6px; padding: 1px 0; cursor: pointer; user-select: none; }
+.choix input { margin: 0 2px 0 0; accent-color: #0e7490; }
+.curseur { margin: 7px 0; }
+.curseur .tete { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.curseur .valeur { color: #0e7490; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+input[type=range] { width: 100%; margin: 3px 0 0; accent-color: #0e7490; }
+select { font: inherit; width: 100%; padding: 3px 4px; border: 1px solid #c9cdd3; border-radius: 4px; background: #fff; }
+.boutons { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+button.b { padding: 5px 10px; border: 1px solid #b8bec8; background: #f3f4f6; border-radius: 4px; cursor: pointer; font: inherit; }
+button.b:hover { background: #e4e7ec; }
+button.b.actif { background: #cdeff6; border-color: #0e7490; }
+button.b.pri { background: #0e7490; border-color: #0e7490; color: #fff; font-weight: 600; }
+.note { font-size: 11.5px; color: #666; font-style: italic; line-height: 1.4; margin-top: 4px; }
+.texte { line-height: 1.5; }
+.texte b { color: #0e7490; }
+details.q { margin: 4px 0; border: 1px solid #e1e4e8; border-radius: 5px; padding: 4px 8px; background: #f8fafb; }
+details.q summary { cursor: pointer; font-weight: 600; color: #234; }
+details.q div { margin-top: 4px; line-height: 1.5; }
+.formule { font-family: "Cambria Math", "STIX Two Math", Georgia, serif; font-size: 14px; }
+/* HUD et visite guidée dans la zone */
+#hud { position: absolute; left: 10px; top: 10px; z-index: 5; pointer-events: none; color: #fff; font-size: 13px; line-height: 1.55;
+  background: rgba(4, 12, 24, 0.62); border-radius: 8px; padding: 5px 10px; text-shadow: 0 0 4px #000; max-width: 46%; }
+#hud:empty { display: none; }
+#hud .v { color: #7fe8ff; font-variant-numeric: tabular-nums; font-weight: 600; }
+#hud .g { font-size: 15px; font-weight: 700; }
+#visite { position: absolute; left: 50%; transform: translateX(-50%); bottom: 12px; z-index: 7; width: min(720px, 92%);
+  background: rgba(6, 18, 32, 0.88); color: #eef8fb; border: 1px solid rgba(6, 182, 212, 0.7); border-radius: 10px;
+  padding: 10px 14px 8px; line-height: 1.5; box-shadow: 0 6px 24px rgba(0,0,0,0.45); display: none; }
+#visite h3 { margin: 0 0 4px; font-size: 15px; color: #7fe8ff; }
+#visite .corps b { color: #ffd27f; }
+#visite .barre { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+#visite .barre span { flex: 1; font-size: 12px; color: #9fc6d2; }
+#visite button { padding: 4px 10px; border: 1px solid #3c8ea3; background: #0d2b3a; color: #fff; border-radius: 4px; cursor: pointer; font: inherit; }
+#visite button:hover { background: #134a60; }
+#visite button.actif { background: #06b6d4; color: #001; font-weight: 600; }
+#visite .prog { height: 3px; background: #06b6d4; width: 0; margin-top: 6px; border-radius: 2px; }
+#legende { position: absolute; right: 12px; top: 10px; z-index: 5; pointer-events: none; color: #fff; font-size: 12px;
+  background: rgba(4, 12, 24, 0.62); border-radius: 8px; padding: 5px 10px; }
+#legende:empty { display: none; }
+#legende .deg { display: inline-block; width: 150px; height: 10px; border-radius: 5px; vertical-align: -1px; margin: 0 6px; }
+#attente { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #bfe9f3; font-size: 15px; z-index: 4; pointer-events: none; }
+@media (max-width: 900px) {
+  #app { flex-direction: column; height: auto; }
+  #principal { height: 78vh; }
+  #panneau { width: 100%; border-left: none; border-top: 1px solid #d5d9df; }
+}
+</style>
+<link rel="stylesheet" href="domaines.css">
+</head>
+<body>
+<div id="app">
+  <div id="principal">
+    <div id="onglets"></div>
+    <div class="zone" id="zone" data-mt-nom="Ciel">
+      <canvas id="gl"></canvas>
+      <canvas id="sur"></canvas>
+      <div id="hud"></div>
+      <div id="legende"></div>
+      <div id="attente">Calcul du ciel…</div>
+      <div id="visite">
+        <h3 id="vTitre"></h3>
+        <div class="corps" id="vCorps"></div>
+        <div class="barre">
+          <button id="vPrec">◀ Précédent</button>
+          <button id="vSuiv">Suivant ▶</button>
+          <button id="vTout">▶▶ Tout enchaîner</button>
+          <span id="vNum"></span>
+          <button id="vFin">✕ Quitter la visite</button>
+        </div>
+        <div class="prog" id="vProg"></div>
+      </div>
+      <div class="filigrane">MP* Malherbe</div>
+    </div>
+  </div>
+  <div id="panneau">
+    <div class="haut"><a class="retour" href="index.html">← Applets</a><span class="etiquette">MP* Malherbe</span></div>
+    <h1>Couleurs et polarisation du ciel</h1>
+    <div class="note" style="font-style:normal;margin-bottom:4px">Diffusion de la lumière solaire par les molécules de l'air (diffusion Rayleigh), calculée longueur d'onde par longueur d'onde.</div>
+    <div id="controles"></div>
+  </div>
+</div>
+<script>
+"use strict";
+/* ======================================================================
+   Couleurs et polarisation du ciel — MP* Malherbe
+   Modèle physique (identique dans le shader WebGL et dans ce calcul CPU) :
+   - diffusion simple par les molécules (Rayleigh) : β_R(λ) = β_R(550 nm)·(550/λ)^n, n = 4 ;
+     fonction de phase 3(1+cos²γ)/16π ; partie polarisée 3 sin²γ/16π, E ⟂ plan de diffusion ;
+   - aérosols (option) : diffusion de Mie, fonction de phase de Cornette-Shanks, non polarisée ;
+   - ozone (option) : absorption dans la bande de Chappuis (couche 10–40 km) ;
+   - diffusion multiple (option) : terme isotrope non polarisé proportionnel à l'épaisseur optique ;
+   - épaisseur optique vers le Soleil : fonction de Chapman (approximation de Schüler),
+     ombre de la planète.
+   Unités : km ; éclairement solaire en W·m⁻²·nm⁻¹.
+   ====================================================================== */
+const PI = Math.PI, DEG = PI / 180;
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const fr = (x, d) => (Math.abs(x) < 1e-12 ? 0 : x).toFixed(d).replace(".", ",").replace("-", "−");
+
+// --------------------------------------------------------------- données spectrales (pas de 10 nm, 380–720 nm)
+const L10 = []; for (let l = 380; l <= 720; l += 10) L10.push(l);
+// fonctions colorimétriques CIE 1931 (2°)
+const CIE = [
+  [0.0014, 0.0000, 0.0065], [0.0042, 0.0001, 0.0201], [0.0143, 0.0004, 0.0679], [0.0435, 0.0012, 0.2074],
+  [0.1344, 0.0040, 0.6456], [0.2839, 0.0116, 1.3856], [0.3483, 0.0230, 1.7471], [0.3362, 0.0380, 1.7721],
+  [0.2908, 0.0600, 1.6692], [0.1954, 0.0910, 1.2876], [0.0956, 0.1390, 0.8130], [0.0320, 0.2080, 0.4652],
+  [0.0049, 0.3230, 0.2720], [0.0093, 0.5030, 0.1582], [0.0633, 0.7100, 0.0782], [0.1655, 0.8620, 0.0422],
+  [0.2904, 0.9540, 0.0203], [0.4334, 0.9950, 0.0087], [0.5945, 0.9950, 0.0039], [0.7621, 0.9520, 0.0021],
+  [0.9163, 0.8700, 0.0017], [1.0263, 0.7570, 0.0011], [1.0622, 0.6310, 0.0008], [1.0026, 0.5030, 0.0003],
+  [0.8544, 0.3810, 0.0002], [0.6424, 0.2650, 0.0000], [0.4479, 0.1750, 0.0000], [0.2835, 0.1070, 0.0000],
+  [0.1649, 0.0610, 0.0000], [0.0874, 0.0320, 0.0000], [0.0468, 0.0170, 0.0000], [0.0227, 0.0082, 0.0000],
+  [0.0114, 0.0041, 0.0000], [0.0058, 0.0021, 0.0000], [0.0029, 0.0010, 0.0000]];
+// éclairement solaire hors atmosphère (W·m⁻²·nm⁻¹), valeurs arrondies
+const SOL10 = [1.12, 1.10, 1.68, 1.72, 1.74, 1.62, 1.83, 2.03, 2.04, 1.98, 2.03, 1.94, 1.94, 1.90, 1.84, 1.92, 1.86, 1.87,
+  1.82, 1.83, 1.83, 1.75, 1.76, 1.71, 1.70, 1.64, 1.63, 1.57, 1.53, 1.52, 1.49, 1.45, 1.42, 1.40, 1.36];
+// absorption de l'ozone (bande de Chappuis), coefficient au maximum de la couche, en 10⁻³ km⁻¹
+const O3L = [380, 400, 440, 480, 520, 560, 600, 640, 680, 720], O3V = [0, 0.02, 0.085, 0.55, 1.3, 1.9, 2.3, 1.4, 0.65, 0.35];
+function interp(xs, ys, x) {
+  if (x <= xs[0]) return ys[0];
+  for (let i = 1; i < xs.length; i++) if (x <= xs[i]) { const u = (x - xs[i - 1]) / (xs[i] - xs[i - 1]); return ys[i - 1] + u * (ys[i] - ys[i - 1]); }
+  return ys[ys.length - 1];
+}
+const soleil0 = l => interp(L10, SOL10, l);
+const cie = (l, k) => interp(L10, CIE.map(c => c[k]), l);
+// bandes du rendu WebGL (8 longueurs d'onde)
+const LB = [400, 440, 480, 520, 560, 600, 640, 680];
+// XYZ → sRGB linéaire
+const XYZ2RGB = [[3.2406, -1.5372, -0.4986], [-0.9689, 1.8758, 0.0415], [0.0557, -0.2040, 1.0570]];
+
+// matrice « spectre aux longueurs d'onde lams → RGB linéaire », équilibrée pour que le Soleil hors atmosphère soit blanc
+function matriceCouleur(lams) {
+  // reconstruction linéaire par morceaux entre les longueurs d'onde lams, intégrée contre les fonctions CIE
+  const n = lams.length, M = [[], [], []];
+  for (let k = 0; k < n; k++) {
+    let X = 0, Y = 0, Z = 0;
+    for (let l = 380; l <= 720; l += 2) {
+      let w;
+      if (n === 1) w = 1;
+      else if (k === 0 && l <= lams[0]) w = 1;
+      else if (k === n - 1 && l >= lams[n - 1]) w = 1;
+      else if (k > 0 && l >= lams[k - 1] && l <= lams[k]) w = (l - lams[k - 1]) / (lams[k] - lams[k - 1]);
+      else if (k < n - 1 && l >= lams[k] && l <= lams[k + 1]) w = (lams[k + 1] - l) / (lams[k + 1] - lams[k]);
+      else w = 0;
+      X += w * cie(l, 0) * 2; Y += w * cie(l, 1) * 2; Z += w * cie(l, 2) * 2;
+    }
+    for (let c = 0; c < 3; c++) M[c][k] = XYZ2RGB[c][0] * X + XYZ2RGB[c][1] * Y + XYZ2RGB[c][2] * Z;
+  }
+  // équilibrage des blancs sur le spectre solaire hors atmosphère
+  const E = lams.map(soleil0);
+  for (let c = 0; c < 3; c++) { let s = 0; for (let k = 0; k < n; k++) s += M[c][k] * E[k]; for (let k = 0; k < n; k++) M[c][k] /= s; }
+  return M;
+}
+const versRGB = (M, S) => [0, 1, 2].map(c => { let s = 0; for (let k = 0; k < S.length; k++) s += M[c][k] * S[k]; return s; });
+const lum = rgb => 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+
+// --------------------------------------------------------------- planètes
+const PLANETES = {
+  terre: { nom: "Terre", R: 6360, top: 100, Hr: 8, Hm: 1.2, bR: 0.01356, ozone: true, Esun: 1, tauA: 0.1,
+    alb: () => 0.9, g: () => 0.76, ang: 1.3 },
+  mars: { nom: "Mars", R: 3390, top: 100, Hr: 11.1, Hm: 11.1, bR: 2.6e-4, ozone: false, Esun: 0.43, tauA: 0.5,
+    alb: l => 0.5 + 0.45 * clamp((l - 400) / 260, 0, 1), g: l => 0.82 - 0.22 * clamp((l - 400) / 280, 0, 1), ang: 0 },
+  lune: { nom: "Lune", R: 1737, top: 100, Hr: 8, Hm: 1, bR: 0, ozone: false, Esun: 1, tauA: 0, alb: () => 1, g: () => 0.7, ang: 0, vide: true },
+};
+
+// paramètres physiques courants (réglés par l'interface)
+const P = {
+  vue: "sol", planete: "terre", hSol: 30, azSol: 200, n: 4, tauA: 0.1, ozone: true, multiple: true, nuages: false,
+  alt: 0.002, fov: 70, aff: "couleurs", polOn: false, polA: 0, expoAuto: true, ev: 0, qualite: "haute",
+  // caméras
+  camAz: 20, camEl: 15, fishPol: true, espAz: 160, espEl: 35, espD: 3.0, espCible: "centre", espDc: 1800,
+  // vue molécule
+  molLum: "naturelle", molGam: 90, molLam: 450, molVit: 1,
+  sonde: null,
+};
+function planete() { return PLANETES[P.planete]; }
+// coefficients aux longueurs d'onde données (km⁻¹)
+function coefs(lams) {
+  const pl = planete();
+  return lams.map(l => {
+    const bR = pl.vide ? 0 : pl.bR * Math.pow(550 / l, P.n);
+    const tau = pl.vide ? 0 : P.tauA * Math.pow(550 / l, pl.ang);
+    const bMe = tau / pl.Hm, alb = pl.alb(l);
+    return { bR, bM: bMe * alb, eM: bMe, bO: (pl.ozone && P.ozone) ? interp(O3L, O3V, l) * 1e-3 : 0, g: pl.g(l), E: soleil0(l) * pl.Esun };
+  });
+}
+function dirSoleil() {
+  const e = P.hSol * DEG, a = P.azSol * DEG;
+  return [Math.cos(e) * Math.sin(a), Math.cos(e) * Math.cos(a), Math.sin(e)];
+}
+// --------------------------------------------------------------- outils vectoriels
+const V3 = {
+  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+  mul: (a, k) => [a[0] * k, a[1] * k, a[2] * k], dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+  cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
+  len: a => Math.hypot(a[0], a[1], a[2]), norm: a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
+};
+function sphere(ro, rd, R) {           // intersections rayon-sphère centrée à l'origine
+  const b = V3.dot(ro, rd), c = V3.dot(ro, ro) - R * R, d = b * b - c;
+  if (d < 0) return null;
+  const s = Math.sqrt(d); return [-b - s, -b + s];
+}
+// fonction de Chapman (approximation de Schüler) : épaisseur optique réduite vers l'infini
+function chap(X, h, mu) {
+  const c = Math.sqrt(X + h);
+  if (mu >= 0) return c / (c * mu + 1) * Math.exp(-h);
+  const s = Math.sqrt(Math.max(0, 1 - mu * mu)), x0 = s * (X + h), c0 = Math.sqrt(x0);
+  const d = X * mu * mu / (1 + s) - h * s;
+  return 2 * c0 * Math.exp(d) - c / (1 - c * mu) * Math.exp(-h);
+}
+function colonneO3(h) { return h < 10 ? 15 : h < 25 ? 15 - (h - 10) * (h - 10) / 30 : h < 40 ? (40 - h) * (40 - h) / 30 : 0; }
+function dens(h, pl) { return [Math.exp(-h / pl.Hr), Math.exp(-h / pl.Hm), Math.max(0, 1 - Math.abs(h - 25) / 15)]; }
+// épaisseurs optiques (réduites) vers le Soleil depuis p, et facteur d'ombre de la planète
+function odSoleil(p, s, pl) {
+  const r = V3.len(p), h = Math.max(r - pl.R, 0), mu = V3.dot(p, s) / r;
+  const oR = pl.Hr * chap(pl.R / pl.Hr, h / pl.Hr, mu), oM = pl.Hm * chap(pl.R / pl.Hm, h / pl.Hm, mu);
+  const rs = pl.R + 25, k = r * r / (rs * rs) * (1 - mu * mu), m = k < 1 ? Math.min(1 / Math.sqrt(1 - k), 40) : 40;
+  return [oR, oM, colonneO3(h) * m];
+}
+function ombre(p, s, pl) {
+  const t = -V3.dot(p, s); if (t < 0) return 1;
+  const c = V3.add(p, V3.mul(s, t)); const d = V3.len(c) - pl.R;
+  return d >= 1 ? 1 : d <= -1 ? 0 : 0.5 + 0.5 * d;
+}
+const phR = mu => 3 / (16 * PI) * (1 + mu * mu), phP = mu => 3 / (16 * PI) * (1 - mu * mu);
+function phM(mu, g) { const g2 = g * g; return 3 * (1 - g2) * (1 + mu * mu) / (8 * PI * (2 + g2) * Math.pow(1 + g2 - 2 * g * mu, 1.5)); }
+
+/* Rayonnement du ciel reçu par un observateur en ro, dans la direction rd (sans le disque solaire ni le sol).
+   Renvoie, pour chaque longueur d'onde : I (luminance totale), Pol (partie polarisée, E ⟂ plan de diffusion),
+   Ray (diffusion simple Rayleigh), Mie, Mult (diffusion multiple), ainsi que T (transmission jusqu'au bout du trajet). */
+function cielCPU(ro, rd, lams, C, nv) {
+  const pl = planete(), s = dirSoleil(), n = lams.length;
+  const out = { I: new Array(n).fill(0), Pol: new Array(n).fill(0), Ray: new Array(n).fill(0), Mie: new Array(n).fill(0), Mult: new Array(n).fill(0), T: new Array(n).fill(1), longueur: 0 };
+  if (pl.vide) return out;
+  const ra = sphere(ro, rd, pl.R + pl.top); if (!ra || ra[1] <= 0) return out;
+  const t0 = Math.max(ra[0], 0); let t1 = ra[1];
+  const rp = sphere(ro, rd, pl.R); if (rp && rp[0] > 0) t1 = rp[0];
+  const dedans = V3.len(ro) < pl.R + pl.top;
+  const L = t1 - t0; out.longueur = L;
+  const od = new Array(n).fill(0), Lr = new Array(n).fill(0), Lm = new Array(n).fill(0), Lms = new Array(n).fill(0);
+  const tv = C.map(c => P.multiple ? c.bR * pl.Hr + 0.5 * c.bM * pl.Hm : 0);
+  nv = nv || 40;
+  // échantillons resserrés autour du point le plus bas du trajet
+  const tm = clamp(-V3.dot(ro, rd), t0, t1), A = tm - t0, B = t1 - tm, s0 = A / Math.max(A + B, 1e-6);
+  const tOf = s => s < s0 ? tm - A * (s0 - s) * (s0 - s) / (s0 * s0) : tm + B * (s - s0) * (s - s0) / Math.max((1 - s0) * (1 - s0), 1e-9);
+  for (let i = 0; i < nv; i++) {
+    const ta = tOf(i / nv), tb = tOf((i + 1) / nv);
+    const dt = tb - ta, p = V3.add(ro, V3.mul(rd, 0.5 * (ta + tb)));
+    const h = V3.len(p) - pl.R, d = dens(h, pl), os = odSoleil(p, s, pl), sh = ombre(p, s, pl);
+    for (let k = 0; k < n; k++) {
+      const c = C[k], ext = (c.bR * d[0] + c.eM * d[1] + c.bO * d[2]) * dt;
+      const Tv = Math.exp(-(od[k] + 0.5 * ext)), Ts = Math.exp(-(c.bR * os[0] + c.eM * os[1] + c.bO * os[2])) * sh;
+      const w = Tv * Ts * dt;
+      Lr[k] += w * c.bR * d[0]; Lm[k] += w * c.bM * d[1];
+      Lms[k] += w * (c.bR * d[0] + c.bM * d[1]) * tv[k] / (4 * PI);
+      od[k] += ext;
+    }
+  }
+  const mu = V3.dot(rd, s);
+  for (let k = 0; k < n; k++) {
+    const E = C[k].E;
+    out.Ray[k] = E * Lr[k] * phR(mu); out.Mie[k] = E * Lm[k] * phM(mu, C[k].g); out.Mult[k] = E * Lms[k];
+    out.I[k] = out.Ray[k] + out.Mie[k] + out.Mult[k]; out.Pol[k] = E * Lr[k] * phP(mu); out.T[k] = Math.exp(-od[k]);
+  }
+  return out;
+}
+// transmission directe du Soleil jusqu'à l'observateur
+function transSoleil(ro, lams, C) {
+  const pl = planete(), s = dirSoleil();
+  if (pl.vide) return lams.map(() => 1);
+  const os = odSoleil(ro, s, pl), sh = ombre(ro, s, pl);
+  return C.map(c => Math.exp(-(c.bR * os[0] + c.eM * os[1] + c.bO * os[2])) * sh);
+}
+// masse d'air relative (épaisseur d'air traversée par la lumière du Soleil / épaisseur à la verticale)
+function masseAir() {
+  const pl = planete(); if (pl.vide) return 0;
+  const ro = [0, 0, pl.R + P.alt], s = dirSoleil();
+  if (ombre(ro, s, pl) < 0.5) return Infinity;
+  return chap(pl.R / pl.Hr, P.alt / pl.Hr, V3.dot(ro, s) / V3.len(ro)) / chap(pl.R / pl.Hr, P.alt / pl.Hr, 1);
+}
+// direction de vision depuis (élévation, azimut) en degrés
+function dirVue(el, az) { const e = el * DEG, a = az * DEG; return [Math.cos(e) * Math.sin(a), Math.cos(e) * Math.cos(a), Math.sin(e)]; }
+// degré de polarisation et direction de E (vecteur unitaire) pour une direction du ciel
+function polarisation(rd, C, lams, M) {
+  const pl = planete(), ro = [0, 0, pl.R + P.alt];
+  const r = cielCPU(ro, rd, lams, C, 24);
+  const Iy = lum(versRGB(M, r.I)), Py = lum(versRGB(M, r.Pol));
+  const s = dirSoleil(); let e = V3.cross(s, rd); if (V3.len(e) < 1e-6) e = [1, 0, 0];
+  const gam = Math.acos(clamp(V3.dot(s, rd), -1, 1)) / DEG;
+  return { P: Iy > 0 ? Py / Iy : 0, e: V3.norm(e), gam, r };
+}
+// ====================================================================== rendu WebGL
+const VS = "attribute vec2 a; void main(){ gl_Position = vec4(a, 0.0, 1.0); }";
+const FS = `
+precision highp float;
+#define PI 3.14159265
+struct S { vec4 a; vec4 b; };
+S s0() { return S(vec4(0.0), vec4(0.0)); }
+S sA(S x, S y) { return S(x.a + y.a, x.b + y.b); }
+S sM(S x, S y) { return S(x.a * y.a, x.b * y.b); }
+S sK(S x, float k) { return S(x.a * k, x.b * k); }
+S sE(S x) { return S(exp(-x.a), exp(-x.b)); }
+uniform vec2 uRes; uniform int uMode;
+uniform vec3 uCamPos, uCamR, uCamU, uCamF; uniform float uTan;
+uniform vec3 uSun; uniform float uSunRad;
+uniform float uRp, uRa, uHr, uHm, uOz, uMs, uExpo, uPolA, uVide;
+uniform vec4 uBR[2], uBM[2], uEM[2], uBO[2], uG[2], uE[2], uTV[2], uAmb[2];
+uniform vec4 uCR[2], uCG[2], uCB[2];
+uniform int uAff, uPolOn, uSol, uNuages, uNv, uTexOK;
+uniform vec3 uAx, uAy, uAz, uPolRef;
+uniform sampler2D uTexC, uTexM;
+S U(vec4 u0, vec4 u1) { return S(u0, u1); }
+
+vec2 sph(vec3 ro, vec3 rd, float R) {
+  float b = dot(ro, rd), c = dot(ro, ro) - R * R, d = b * b - c;
+  if (d < 0.0) return vec2(-1.0, -2.0);
+  float s = sqrt(d); return vec2(-b - s, -b + s);
+}
+float chap(float X, float h, float mu) {
+  float c = sqrt(X + h);
+  if (mu >= 0.0) return c / (c * mu + 1.0) * exp(-h);
+  float s = sqrt(max(0.0, 1.0 - mu * mu)), x0 = s * (X + h), c0 = sqrt(x0);
+  float d = X * mu * mu / (1.0 + s) - h * s;
+  return 2.0 * c0 * exp(d) - c / (1.0 - c * mu) * exp(-h);
+}
+float colO3(float h) { return h < 10.0 ? 15.0 : h < 25.0 ? 15.0 - (h - 10.0) * (h - 10.0) / 30.0 : h < 40.0 ? (40.0 - h) * (40.0 - h) / 30.0 : 0.0; }
+vec3 dens(float h) { return vec3(exp(-h / uHr), exp(-h / uHm), uOz * max(0.0, 1.0 - abs(h - 25.0) / 15.0)); }
+S transSun(vec3 p) {
+  float r = length(p), h = max(r - uRp, 0.0), mu = dot(p, uSun) / r;
+  float oR = uHr * chap(uRp / uHr, h / uHr, mu), oM = uHm * chap(uRp / uHm, h / uHm, mu);
+  float rs = uRp + 25.0, k = r * r / (rs * rs) * (1.0 - mu * mu), m = k < 1.0 ? min(1.0 / sqrt(1.0 - k), 40.0) : 40.0;
+  float oO = uOz * colO3(h) * m;
+  float t = -dot(p, uSun), sh = 1.0;
+  if (t > 0.0) { float d = length(p + uSun * t) - uRp; sh = clamp(0.5 + 0.5 * d, 0.0, 1.0); }
+  S od = sA(sA(sK(U(uBR[0], uBR[1]), oR), sK(U(uEM[0], uEM[1]), oM)), sK(U(uBO[0], uBO[1]), oO));
+  return sK(sE(od), sh);
+}
+// intégration le long du rayon : Lr (Rayleigh, sans phase), Lm (Mie, sans phase), Lms (multiple), T (transmission)
+void atmo(vec3 ro, vec3 rd, float t0, float t1, bool quad, int nv, out S Lr, out S Lm, out S Lms, out S T) {
+  Lr = s0(); Lm = s0(); Lms = s0(); S od = s0();
+  S BR = U(uBR[0], uBR[1]), BM = U(uBM[0], uBM[1]), EM = U(uEM[0], uEM[1]), BO = U(uBO[0], uBO[1]), TV = U(uTV[0], uTV[1]);
+  // échantillons resserrés autour du point le plus bas du trajet (là où l'air est le plus dense)
+  float tm = clamp(-dot(ro, rd), t0, t1), A = tm - t0, B = t1 - tm, s0 = A / max(A + B, 1e-6);
+  for (int i = 0; i < 96; i++) {
+    if (i >= nv) break;
+    float sa = float(i) / float(nv), sb = float(i + 1) / float(nv);
+    float ta = sa < s0 ? tm - A * (s0 - sa) * (s0 - sa) / (s0 * s0) : tm + B * (sa - s0) * (sa - s0) / max((1.0 - s0) * (1.0 - s0), 1e-9);
+    float tb = sb < s0 ? tm - A * (s0 - sb) * (s0 - sb) / (s0 * s0) : tm + B * (sb - s0) * (sb - s0) / max((1.0 - s0) * (1.0 - s0), 1e-9);
+    float dt = tb - ta;
+    vec3 p = ro + rd * (0.5 * (ta + tb));
+    vec3 d = dens(length(p) - uRp);
+    S ext = sK(sA(sA(sK(BR, d.x), sK(EM, d.y)), sK(BO, d.z)), dt);
+    S w = sK(sM(sE(sA(od, sK(ext, 0.5))), transSun(p)), dt);
+    S sc = sA(sK(BR, d.x), sK(BM, d.y));
+    Lr = sA(Lr, sK(sM(w, BR), d.x));
+    Lm = sA(Lm, sK(sM(w, BM), d.y));
+    Lms = sA(Lms, sK(sM(sM(w, sc), TV), 1.0 / (4.0 * PI)));
+    od = sA(od, ext);
+  }
+  T = sE(od);
+}
+S phM(float mu) {
+  vec4 g0 = uG[0], g1 = uG[1];
+  vec4 a = 3.0 * (1.0 - g0 * g0) * (1.0 + mu * mu) / (8.0 * PI * (2.0 + g0 * g0) * pow(1.0 + g0 * g0 - 2.0 * g0 * mu, vec4(1.5)));
+  vec4 b = 3.0 * (1.0 - g1 * g1) * (1.0 + mu * mu) / (8.0 * PI * (2.0 + g1 * g1) * pow(1.0 + g1 * g1 - 2.0 * g1 * mu, vec4(1.5)));
+  return S(a, b);
+}
+// ciel le long d'un segment : luminance I et partie polarisée Pol (E ⟂ plan de diffusion)
+void ciel(vec3 ro, vec3 rd, float t0, float t1, bool quad, int nv, out S I, out S Pol, out S T) {
+  I = s0(); Pol = s0(); T = S(vec4(1.0), vec4(1.0));
+  if (uVide > 0.5 || t1 <= t0) return;
+  S Lr, Lm, Lms; atmo(ro, rd, t0, t1, quad, nv, Lr, Lm, Lms, T);
+  float mu = dot(rd, uSun);
+  S E = U(uE[0], uE[1]);
+  I = sM(E, sA(sA(sK(Lr, 3.0 / (16.0 * PI) * (1.0 + mu * mu)), sM(Lm, phM(mu))), Lms));
+  Pol = sM(E, sK(Lr, 3.0 / (16.0 * PI) * (1.0 - mu * mu)));
+}
+// bruit
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float bruit(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
+float fbm(vec2 p) { float s = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { s += a * bruit(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; } return s; }
+// spectre de réflexion à partir d'une couleur RGB (base grossière)
+S spec(vec3 c) {
+  return S(vec4(c.b, c.b + 0.05 * c.g, 0.8 * c.b + 0.3 * c.g, 0.2 * c.b + 0.9 * c.g + 0.05 * c.r),
+           vec4(0.9 * c.g + 0.3 * c.r, 0.3 * c.g + 0.8 * c.r, c.r + 0.05 * c.g, c.r));
+}
+vec3 versRGB(S x) { return vec3(dot(x.a, uCR[0]) + dot(x.b, uCR[1]), dot(x.a, uCG[0]) + dot(x.b, uCG[1]), dot(x.a, uCB[0]) + dot(x.b, uCB[1])); }
+float Yl(S x) { vec3 c = versRGB(x); return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b; }
+vec3 turbo(float x) {
+  x = clamp(x, 0.0, 1.0);
+  vec4 kr = vec4(0.13572138, 4.61539260, -42.66032258, 132.13108234), kg = vec4(0.09140261, 2.19418839, 4.84296658, -14.18503333), kb = vec4(0.10667330, 12.64194608, -60.58204836, 110.36276771);
+  vec2 kr2 = vec2(-152.94239396, 59.28637943), kg2 = vec2(4.27729857, 2.82956604), kb2 = vec2(-89.90310912, 27.34824973);
+  vec4 v4 = vec4(1.0, x, x * x, x * x * x); vec2 v2 = v4.zw * v4.z;
+  return vec3(dot(v4, kr) + dot(v2, kr2), dot(v4, kg) + dot(v2, kg2), dot(v4, kb) + dot(v2, kb2));
+}
+vec3 teinte(float h) { return clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0); }
+
+void main() {
+  vec2 fc = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
+  vec3 ro = uCamPos, rd, bx;
+  if (uMode == 1) {
+    vec2 c = uRes * 0.5; float Rc = min(uRes.x, uRes.y) * 0.5 - 10.0;
+    vec2 q = fc - c; float rho = length(q) / Rc;
+    if (rho > 1.0) { gl_FragColor = vec4(0.06, 0.07, 0.09, 1.0); return; }
+    float th = rho * PI * 0.5, az = atan(-q.x, -q.y);
+    rd = vec3(sin(th) * sin(az), sin(th) * cos(az), cos(th));
+    bx = uPolRef;
+  } else {
+    vec2 ndc = vec2((2.0 * fc.x / uRes.x - 1.0) * uRes.x / uRes.y, 1.0 - 2.0 * fc.y / uRes.y);
+    rd = normalize(uCamF + uTan * (ndc.x * uCamR + ndc.y * uCamU));
+    bx = uCamR;
+  }
+  bx = normalize(bx - dot(bx, rd) * rd); vec3 by = cross(rd, bx);
+  bool dedans = length(ro) < uRa;
+  vec2 ta = sph(ro, rd, uRa), tp = sph(ro, rd, uRp);
+  bool sol = tp.x > 0.0;
+  float tS = dedans ? 0.0 : max(ta.x, 0.0), tE = sol ? tp.x : ta.y;
+  bool traverse = ta.y > 0.0 && tE > tS;
+  int nv = uNv;
+  // direction de polarisation de la lumière du ciel (⟂ plan de diffusion) dans la base image
+  vec3 e = cross(uSun, rd); e = length(e) > 1e-6 ? normalize(e) : bx;
+  float psi = atan(dot(e, by), dot(e, bx));
+  S I = s0(), Pol = s0(), Qb = s0(), Ub = s0(), T = S(vec4(1.0), vec4(1.0));
+  // ------------------------------------------------ nuages (couche à 2 km, vue du sol)
+  float tc = -1.0; float alpha = 0.0; S Cn = s0();
+  if (uNuages == 1 && uMode != 2 && uVide < 0.5) {
+    vec2 tcl = sph(ro, rd, uRp + 2.0);
+    float cand = length(ro) < uRp + 2.0 ? tcl.y : tcl.x;
+    if (cand > 0.0 && cand < tE && cand < 400.0) {
+      vec3 pc = ro + rd * cand;
+      float d = fbm(pc.xy * 0.16 + vec2(3.1, 7.7)) * 0.8 + 0.35 * fbm(pc.xy * 0.7 + vec2(5.0, 1.0));
+      float dn = smoothstep(0.60, 0.80, d);
+      if (dn > 0.001) {
+        tc = cand; alpha = 1.0 - exp(-9.0 * dn);
+        float mu = dot(rd, uSun);
+        float ph = 0.35 + 0.9 * (1.0 - 0.36) / pow(1.0 + 0.36 - 1.2 * mu, 1.5);
+        S Ts = transSun(pc);
+        float ep = 1.0 - 0.6 * dn * step(ro.z, uRp + 2.0);   // vu d'en dessous, un nuage épais est plus sombre
+        Cn = sA(sK(sM(U(uE[0], uE[1]), Ts), 0.9 * ph * ep * (0.35 + 0.65 * max(uSun.z, 0.0)) / PI), sK(U(uAmb[0], uAmb[1]), 0.6 * ep / PI));
+      }
+    }
+  }
+  S I1, P1, T1;
+  if (tc > 0.0) {
+    ciel(ro, rd, tS, tc, dedans, nv, I1, P1, T1);
+    I = I1; Pol = P1;
+    S I2, P2, T2; ciel(ro + rd * tc, rd, 0.0, tE - tc, true, nv / 2 + 2, I2, P2, T2);
+    I = sA(I, sM(T1, sA(sK(Cn, alpha), sK(I2, 1.0 - alpha))));
+    Pol = sA(Pol, sK(sM(T1, P2), 1.0 - alpha));
+    T = sK(sM(T1, T2), 1.0 - alpha);
+  } else if (traverse) {
+    ciel(ro, rd, tS, tE, dedans, nv, I, Pol, T);
+  }
+  // ------------------------------------------------ fond : disque solaire, étoiles, ou sol
+  if (!sol) {
+    float mu = dot(rd, uSun), cr = cos(uSunRad);
+    if (mu > cr) {
+      float x = sqrt(max(0.0, 1.0 - (1.0 - mu) / (1.0 - cr)));
+      float limbe = 0.4 + 0.6 * x;   // assombrissement centre-bord
+      I = sA(I, sK(sM(U(uE[0], uE[1]), T), limbe / (PI * uSunRad * uSunRad)));
+    } else if (uMode == 2 || uVide > 0.5) {
+      vec2 g = floor(vec2(atan(rd.y, rd.x), asin(rd.z)) * 260.0);
+      float st = hash(g); if (st > 0.9965) I = sA(I, sK(sM(S(vec4(0.8,0.9,1.0,1.0), vec4(1.0,1.0,0.95,0.9)), T), 0.004 * (st - 0.9965) / 0.0035));
+    }
+  } else {
+    vec3 p = ro + rd * tp.x, up = normalize(p);
+    S Tsp = transSun(p);
+    float cs = max(dot(up, uSun), 0.0);
+    S Eirr = sA(sK(sM(U(uE[0], uE[1]), Tsp), cs), sK(U(uAmb[0], uAmb[1]), smoothstep(-0.25, 0.2, dot(up, uSun))));
+    S Lb = s0(); S Qs = s0(), Us = s0();
+    if (uSol == 0) {
+      // mer : réflexion de Fresnel (n = 1,33) du ciel et du Soleil, avec vagues
+      vec2 xy = vec2(dot(p, vec3(1, 0, 0)), dot(p, vec3(0, 1, 0))) * 1000.0;  // en m
+      float k1 = 0.35, k2 = 1.3;
+      float h0 = bruit(xy * k1), hx = bruit(xy * k1 + vec2(0.05, 0.0)), hy = bruit(xy * k1 + vec2(0.0, 0.05));
+      float g0 = bruit(xy * k2 + 9.0), gx = bruit(xy * k2 + 9.0 + vec2(0.05, 0.0)), gy = bruit(xy * k2 + 9.0 + vec2(0.0, 0.05));
+      vec2 grad = vec2(hx - h0, hy - h0) * 3.2 + vec2(gx - g0, gy - g0) * 1.4;
+      vec3 tx = normalize(cross(vec3(0.0, 1.0, 0.0), up)), ty = cross(up, tx);
+      vec3 n = normalize(up - tx * grad.x - ty * grad.y);
+      vec3 r = reflect(rd, n); if (dot(r, up) < 0.02) r = normalize(r + up * (0.02 - dot(r, up)));
+      vec2 tr = sph(p + up * 0.001, r, uRa);
+      S Is, Ps, Tr; ciel(p + up * 0.001, r, 0.0, tr.y, true, nv / 2 + 2, Is, Ps, Tr);
+      float mr = dot(r, uSun), sg = 0.0035;
+      float lobe = exp(-(1.0 - mr) / (sg * sg)) / (PI * sg * sg);
+      S glint = sK(sM(U(uE[0], uE[1]), Tsp), lobe);
+      vec3 es = cross(uSun, r); es = length(es) > 1e-6 ? normalize(es) : tx;
+      float ci = clamp(dot(-rd, n), 0.0, 1.0), st2 = 1.0 - ci * ci, ct = sqrt(max(0.0, 1.0 - st2 / 1.7689));
+      float rs = (ci - 1.33 * ct) / (ci + 1.33 * ct); rs *= rs;
+      float rp = (ct - 1.33 * ci) / (ct + 1.33 * ci); rp *= rp;
+      vec3 sh = cross(rd, n); sh = length(sh) > 1e-6 ? normalize(sh) : tx;
+      vec3 pin = normalize(cross(sh, r));
+      S Un = sA(sA(Is, sK(Ps, -1.0)), glint);
+      float cs2 = dot(es, sh) * dot(es, sh), cp2 = dot(es, pin) * dot(es, pin);
+      S Isin = sA(sK(Un, 0.5), sK(Ps, cs2)), Ipin = sA(sK(Un, 0.5), sK(Ps, cp2));
+      S Rs = sK(Isin, rs), Rp = sK(Ipin, rp);
+      S eau = S(vec4(0.012, 0.016, 0.018, 0.014), vec4(0.008, 0.004, 0.002, 0.001));
+      Lb = sA(sA(Rs, Rp), sK(sM(eau, Eirr), 1.0 / PI));
+      float psis = atan(dot(sh, by), dot(sh, bx));
+      S D = sA(Rs, sK(Rp, -1.0));
+      Qs = sK(D, cos(2.0 * psis)); Us = sK(D, sin(2.0 * psis));
+    } else if (uSol == 1) {
+      // Terre vue de l'espace : textures (couleurs, océans, nuages, lumières des villes)
+      vec3 q = normalize(uAx * p.x + uAy * p.y + uAz * p.z);
+      vec2 uv = vec2((atan(q.y, q.x) + PI) / (2.0 * PI), acos(clamp(q.z, -1.0, 1.0)) / PI);
+      vec3 col = vec3(0.05, 0.1, 0.3); vec3 m = vec3(1.0, 0.0, 0.0);
+      if (uTexOK == 1) { col = pow(texture2D(uTexC, uv).rgb, vec3(2.2)); m = texture2D(uTexM, uv).rgb; }
+      S alb = sK(spec(col), 1.0);
+      Lb = sK(sM(alb, Eirr), 1.0 / PI);
+      // reflet du Soleil sur les océans
+      vec3 hv = normalize(uSun - rd); float nh = max(dot(up, hv), 0.0);
+      float spe = m.r * 0.12 * pow(nh, 700.0);
+      Lb = sA(Lb, sK(sM(U(uE[0], uE[1]), Tsp), spe * cs));
+      // nuages
+      float a = clamp(m.g * 1.1, 0.0, 1.0);
+      Lb = sA(sK(Lb, 1.0 - a), sK(Eirr, a * 0.75 / PI));
+      // lumières des villes, côté nuit
+      float nuit = 1.0 - smoothstep(-0.12, 0.05, dot(up, uSun));
+      Lb = sA(Lb, sK(S(vec4(0.0, 0.05, 0.2, 0.4), vec4(0.7, 0.9, 1.0, 1.0)), m.b * m.b * nuit * 0.03 * (1.0 - a)));
+    } else {
+      // Mars (sol ocre) ou Lune (régolithe gris)
+      vec3 q = normalize(uAx * p.x + uAy * p.y + uAz * p.z);
+      vec2 w = uMode == 2 ? vec2(atan(q.y, q.x), asin(q.z)) * 6.0 : p.xy * 0.6;
+      float v = fbm(w * 1.0) * 0.7 + 0.3 * fbm(w * 7.0);
+      vec3 col = uSol == 2 ? mix(vec3(0.30, 0.13, 0.06), vec3(0.62, 0.36, 0.20), v) : mix(vec3(0.07), vec3(0.22), v);
+      Lb = sK(sM(spec(col), Eirr), 1.0 / PI);
+    }
+    // perspective aérienne : le fond est vu à travers l'atmosphère
+    I = sA(I, sM(T, Lb)); Qb = sM(T, Qs); Ub = sM(T, Us);
+  }
+  // ------------------------------------------------ paramètres de Stokes dans la base image
+  float c2 = cos(2.0 * psi), s2 = sin(2.0 * psi);
+  S Q = sA(sK(Pol, c2), Qb), Uu = sA(sK(Pol, s2), Ub);
+  vec3 outc;
+  if (uAff == 0) {
+    S F = I;
+    if (uPolOn == 1) F = sA(I, sA(sK(Q, cos(2.0 * uPolA)), sK(Uu, sin(2.0 * uPolA))));  // ×2 : compense le facteur 1/2 du polariseur
+    vec3 rgb = max(versRGB(F), vec3(0.0)) * uExpo;
+    // courbe de réponse qui conserve la teinte, puis blanchit les zones très lumineuses (éblouissement)
+    float mx = max(max(rgb.r, rgb.g), max(rgb.b, 1e-6));
+    outc = rgb * (1.0 - exp(-mx)) / mx;
+    outc = mix(outc, vec3(1.0 - exp(-mx)), smoothstep(1.5, 7.0, mx));
+    outc = pow(outc, vec3(1.0 / 2.2));
+  } else {
+    float Iy = Yl(I), Qy = Yl(Q), Uy = Yl(Uu);
+    float Pd = Iy > 1e-12 ? sqrt(Qy * Qy + Uy * Uy) / Iy : 0.0;
+    if (uAff == 1) {
+      outc = turbo(Pd);
+      float f = fract(Pd * 10.0); outc *= 1.0 - 0.45 * (1.0 - smoothstep(0.0, 0.06, min(f, 1.0 - f)));
+    } else {
+      float chi = 0.5 * atan(Uy, Qy);           // angle de E dans l'image, entre −π/2 et π/2
+      outc = teinte(chi / PI + 0.5) * (0.25 + 0.75 * clamp(Pd * 1.6, 0.0, 1.0));
+    }
+    // le paysage reste visible en grisé
+    float lb = 1.0 - exp(-Yl(I) * uExpo);
+    if (sol) outc = mix(outc, vec3(pow(lb, 0.45)), 0.55);
+  }
+  gl_FragColor = vec4(outc, 1.0);
+}`;
+
+const GL = { ok: false };
+function initGL() {
+  const cv = document.getElementById("gl");
+  let gl = null;
+  try { gl = cv.getContext("webgl", { antialias: false, preserveDrawingBuffer: true }) || cv.getContext("experimental-webgl"); } catch (e) { gl = null; }
+  if (!gl) return false;
+  const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.error(gl.getShaderInfoLog(s)); return null; } return s; };
+  const v = sh(gl.VERTEX_SHADER, VS), f = sh(gl.FRAGMENT_SHADER, FS);
+  if (!v || !f) return false;
+  const pr = gl.createProgram(); gl.attachShader(pr, v); gl.attachShader(pr, f); gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) { console.error(gl.getProgramInfoLog(pr)); return false; }
+  gl.useProgram(pr);
+  const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  const a = gl.getAttribLocation(pr, "a"); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+  GL.gl = gl; GL.pr = pr; GL.cv = cv; GL.ok = true; GL.loc = {};
+  GL.u = n => (n in GL.loc) ? GL.loc[n] : (GL.loc[n] = gl.getUniformLocation(pr, n));
+  // textures de la Terre
+  GL.texOK = 0;
+  const tex = (unit, url, nom) => {
+    const t = gl.createTexture(); gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 1, 1, 0, gl.RGB, gl.UNSIGNED_BYTE, new Uint8Array([10, 30, 80]));
+    const im = new Image();
+    im.onload = () => {
+      gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, im);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      GL.texOK++; IMG[nom] = im; demander();
+    };
+    im.src = url;
+    gl.uniform1i(GL.u(unit === 0 ? "uTexC" : "uTexM"), unit);
+  };
+  tex(0, "textures/terre_couleur.jpg", "c"); tex(1, "textures/terre_masques.jpg", "m");
+  return true;
+}
+const IMG = {};
+// Caen (lycée Malherbe) : repère local est-nord-zénith ; conversion vers le repère géocentrique terrestre
+const LAT0 = 49.18 * DEG, LON0 = -0.37 * DEG;
+const AXE_E = [-Math.sin(LON0), Math.cos(LON0), 0];
+const AXE_N = [-Math.sin(LAT0) * Math.cos(LON0), -Math.sin(LAT0) * Math.sin(LON0), Math.cos(LAT0)];
+const AXE_U = [Math.cos(LAT0) * Math.cos(LON0), Math.cos(LAT0) * Math.sin(LON0), Math.sin(LAT0)];
+
+// caméras (renvoient position, base, tan(fov/2))
+function camera() {
+  const pl = planete();
+  if (P.vue === "espace" && P.espCible === "caen") {
+    // caméra « astronaute » qui regarde Caen depuis l'espace proche
+    const cible = [0, 0, pl.R], D = P.espDc, a = P.espAz * DEG, e = P.espEl * DEG;
+    const pos = V3.add(cible, [D * Math.cos(e) * Math.sin(a), D * Math.cos(e) * Math.cos(a), D * Math.sin(e)]);
+    const f = V3.norm(V3.sub(cible, pos)); let r = V3.cross(f, [0, 0, 1]); if (V3.len(r) < 1e-6) r = [1, 0, 0]; r = V3.norm(r);
+    return { pos, r, u: V3.cross(r, f), f, tan: Math.tan(28 * DEG) };
+  }
+  if (P.vue === "espace") {
+    const R = pl.R, D = R * P.espD, a = P.espAz * DEG, e = P.espEl * DEG;
+    const pos = [D * Math.cos(e) * Math.sin(a), D * Math.cos(e) * Math.cos(a), D * Math.sin(e)];
+    const f = V3.norm(V3.mul(pos, -1)); let r = V3.cross(f, [0, 0, 1]); if (V3.len(r) < 1e-6) r = [1, 0, 0]; r = V3.norm(r);
+    const u = V3.cross(r, f);
+    const tan = Math.min(Math.tan(25 * DEG), 1.15 * R / Math.sqrt(Math.max(D * D - R * R, 1)) / 1.0);
+    return { pos, r, u, f, tan };
+  }
+  const pos = [0, 0, pl.R + P.alt];
+  const f = dirVue(P.camEl, P.camAz), r = V3.norm(V3.cross(f, [0, 0, 1])), u = V3.cross(r, f);
+  return { pos, r, u, f, tan: Math.tan(P.fov / 2 * DEG) };
+}
+const QUAL = { haute: { ech: 1, nv: 28 }, moyenne: { ech: 0.6, nv: 18 }, basse: { ech: 0.38, nv: 12 }, cpu: { ech: 0.2, nv: 10 } };
+let EXPO = 1, COUL8 = null;
+function uniformesCommuns() {
+  const gl = GL.gl, u = GL.u, pl = planete(), C = coefs(LB);
+  const f8 = g => C.map(g);
+  const set = (nom, arr) => gl.uniform4fv(u(nom), new Float32Array(arr));
+  set("uBR", f8(c => c.bR)); set("uBM", f8(c => c.bM)); set("uEM", f8(c => c.eM)); set("uBO", f8(c => c.bO));
+  set("uG", f8(c => c.g)); set("uE", f8(c => c.E));
+  set("uTV", f8(c => P.multiple ? c.bR * pl.Hr + 0.5 * c.bM * pl.Hm : 0));
+  set("uAmb", ambiant(C));
+  COUL8 = COUL8 || matriceCouleur(LB);
+  set("uCR", COUL8[0]); set("uCG", COUL8[1]); set("uCB", COUL8[2]);
+  const s = dirSoleil();
+  gl.uniform3fv(u("uSun"), s); gl.uniform1f(u("uSunRad"), (P.planete === "mars" ? 0.18 : 0.27) * DEG * 1.0);
+  gl.uniform1f(u("uRp"), pl.R); gl.uniform1f(u("uRa"), pl.R + pl.top); gl.uniform1f(u("uHr"), pl.Hr); gl.uniform1f(u("uHm"), pl.Hm);
+  gl.uniform1f(u("uOz"), (pl.ozone && P.ozone) ? 1 : 0); gl.uniform1f(u("uVide"), pl.vide ? 1 : 0);
+  gl.uniform3fv(u("uAx"), AXE_E); gl.uniform3fv(u("uAy"), AXE_N); gl.uniform3fv(u("uAz"), AXE_U);
+  gl.uniform1i(u("uTexOK"), GL.texOK >= 2 ? 1 : 0);
+}
+// ====================================================================== rendu et vues
+const zone = document.getElementById("zone"), cvGL = document.getElementById("gl"), cvSur = document.getElementById("sur");
+const sur = cvSur.getContext("2d");
+const hud = document.getElementById("hud"), legende = document.getElementById("legende"), attente = document.getElementById("attente");
+const cvCPU = document.createElement("canvas"); cvCPU.id = "cpu"; cvCPU.style.imageRendering = "auto"; zone.insertBefore(cvCPU, cvSur);
+const cpu = cvCPU.getContext("2d");
+let W = 100, H = 100, DPR = 1, besoin = true;
+function demander() { besoin = true; }
+function dims() {
+  const r = zone.getBoundingClientRect(); DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.max(50, r.width); H = Math.max(50, r.height);
+  cvSur.width = Math.round(W * DPR); cvSur.height = Math.round(H * DPR);
+  sur.setTransform(DPR, 0, 0, DPR, 0, 0);
+  demander();
+}
+window.addEventListener("resize", dims);
+document.addEventListener("fullscreenchange", () => setTimeout(dims, 60));
+
+// éclairement diffus du ciel sur une surface horizontale (pour le sol et les nuages), mis en cache
+let cacheAmb = { cle: "", v: null };
+function cleModele() { return [P.planete, P.hSol, P.azSol, P.n, P.tauA, P.ozone, P.multiple, P.alt].join("|"); }
+function ambiant(C) {
+  const cle = cleModele();
+  if (cacheAmb.cle === cle) return cacheAmb.v;
+  const pl = planete(), ro = [0, 0, pl.R + 0.002], acc = new Array(8).fill(0);
+  const els = [10, 35, 65], na = 8;
+  for (const el of els) for (let k = 0; k < na; k++) {
+    const d = dirVue(el, k * 360 / na), r = cielCPU(ro, d, LB, C, 16);
+    const w = Math.sin(el * DEG) * Math.cos(el * DEG) * (PI / 2 / els.length) * (2 * PI / na);
+    for (let i = 0; i < 8; i++) acc[i] += r.I[i] * w;
+  }
+  cacheAmb = { cle, v: acc }; return acc;
+}
+// exposition automatique (comme un œil ou un appareil photo qui s'adapte)
+function exposition() {
+  const pl = planete(), C = coefs(LB); COUL8 = COUL8 || matriceCouleur(LB);
+  let e;
+  if (P.vue === "espace") e = 0.55 / (0.3 / PI) / pl.Esun;
+  else if (pl.vide) e = 0.45 / (0.15 * Math.max(Math.sin(P.hSol * DEG), 0.05) / PI);
+  else {
+    // mesure de la lumière sur le champ de vision (comme un appareil photo), hors disque solaire
+    const ro = [0, 0, pl.R + P.alt], c = camera(), s = dirSoleil(); let som = 0, nb = 0;
+    const dirs = [];
+    if (P.vue === "polar") { for (const el of [20, 50, 80]) for (let a = 0; a < 360; a += 60) dirs.push(dirVue(el, a)); }
+    else for (const v of [-0.6, 0, 0.6]) for (const h of [-0.7, 0, 0.7]) dirs.push(V3.norm(V3.add(c.f, V3.add(V3.mul(c.r, h * c.tan * W / H), V3.mul(c.u, v * c.tan)))));
+    for (const d of dirs) { if (d[2] < 0.02) continue; const r = cielCPU(ro, d, LB, C, 20); som += lum(versRGB(COUL8, r.I)); nb++; }
+    if (!nb) { const r = cielCPU(ro, dirVue(35, P.azSol + 110), LB, C, 20); som = lum(versRGB(COUL8, r.I)); nb = 1; }
+    const Y = som / nb;
+    e = 0.5 / Math.max(Y, 0.0007 * pl.Esun);
+  }
+  if (!P.expoAuto) e = P.vue === "espace" ? 0.9 / (0.3 / PI) : 0.75 / 0.012;
+  return e * Math.pow(2, P.ev);
+}
+function modeRendu() { return P.vue === "espace" ? 2 : P.vue === "polar" ? 1 : 0; }
+function typeSol() { return P.planete === "terre" ? (P.vue === "espace" ? 1 : 0) : P.planete === "mars" ? 2 : 3; }
+function rendreCiel() {
+  const q = QUAL[P.qualite] || QUAL.haute;
+  EXPO = exposition();
+  if (P.qualite !== "cpu" && GL.ok) {
+    cvGL.style.display = ""; cvCPU.style.display = "none";
+    const w = Math.max(32, Math.round(W * DPR * q.ech)), h = Math.max(32, Math.round(H * DPR * q.ech));
+    if (cvGL.width !== w || cvGL.height !== h) { cvGL.width = w; cvGL.height = h; }
+    const gl = GL.gl, u = GL.u; gl.viewport(0, 0, w, h);
+    uniformesCommuns();
+    const c = camera();
+    gl.uniform2f(u("uRes"), w, h); gl.uniform1i(u("uMode"), modeRendu());
+    gl.uniform3fv(u("uCamPos"), c.pos); gl.uniform3fv(u("uCamR"), c.r); gl.uniform3fv(u("uCamU"), c.u); gl.uniform3fv(u("uCamF"), c.f);
+    gl.uniform1f(u("uTan"), c.tan); gl.uniform1f(u("uExpo"), EXPO);
+    const espace = P.vue === "espace";
+    gl.uniform1i(u("uAff"), espace ? 0 : { couleurs: 0, P: 1, angle: 2 }[P.aff]); gl.uniform1i(u("uPolOn"), P.polOn && !espace ? 1 : 0); gl.uniform1f(u("uPolA"), P.polA * DEG);
+    gl.uniform1i(u("uSol"), typeSol()); gl.uniform1i(u("uNuages"), P.nuages && P.planete === "terre" ? 1 : 0); gl.uniform1i(u("uNv"), P.vue === "espace" ? Math.round(q.nv * 1.6) : q.nv);
+    gl.uniform3fv(u("uPolRef"), [-1, 0, 0]);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  } else rendreCPU();
+  attente.style.display = "none";
+}
+// ---------------------------------------------------------------- mode dégradé : calcul par le processeur
+let imgCPU = null;
+function texPix(nom) {
+  if (!IMG[nom]) return null;
+  if (!IMG[nom + "d"]) { const c = document.createElement("canvas"); c.width = 512; c.height = 256; const x = c.getContext("2d"); x.drawImage(IMG[nom], 0, 0, 512, 256); IMG[nom + "d"] = x.getImageData(0, 0, 512, 256).data; }
+  return IMG[nom + "d"];
+}
+function rendreCPU() {
+  cvGL.style.display = "none"; cvCPU.style.display = "";
+  const w = Math.max(60, Math.round(W * 0.22)), h = Math.max(40, Math.round(H * 0.22));
+  cvCPU.width = w; cvCPU.height = h;
+  const im = cpu.createImageData(w, h), px = im.data;
+  const C = coefs(LB), M = COUL8 || (COUL8 = matriceCouleur(LB)), pl = planete(), s = dirSoleil(), c = camera(), mode = modeRendu();
+  const Ts = transSoleil(c.pos, LB, C), amb = ambiant(C), tc = texPix("c"), tm = texPix("m");
+  const tonal = rgb => { const c = rgb.map(v => Math.max(v, 0) * EXPO), m = Math.max(c[0], c[1], c[2], 1e-6), k = (1 - Math.exp(-m)) / m, w = clamp((m - 1.5) / 5.5, 0, 1);
+    return c.map(v => Math.round(255 * Math.pow((1 - w) * v * k + w * (1 - Math.exp(-m)), 1 / 2.2))); };
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const fx = (i + 0.5) / w * W, fy = (j + 0.5) / h * H;
+    let rd;
+    if (mode === 1) {
+      const Rc = Math.min(W, H) / 2 - 10, qx = fx - W / 2, qy = fy - H / 2, rho = Math.hypot(qx, qy) / Rc;
+      if (rho > 1) { const q = 4 * (j * w + i); px[q] = 15; px[q + 1] = 18; px[q + 2] = 23; px[q + 3] = 255; continue; }
+      const th = rho * PI / 2, az = Math.atan2(-qx, -qy); rd = [Math.sin(th) * Math.sin(az), Math.sin(th) * Math.cos(az), Math.cos(th)];
+    } else {
+      const nx = (2 * fx / W - 1) * W / H, ny = 1 - 2 * fy / H;
+      rd = V3.norm(V3.add(c.f, V3.add(V3.mul(c.r, nx * c.tan), V3.mul(c.u, ny * c.tan))));
+    }
+    const r = cielCPU(c.pos, rd, LB, C, 10);
+    let I = r.I.slice(), Pol = r.Pol;
+    const tp = sphere(c.pos, rd, pl.R);
+    if (tp && tp[0] > 0) {
+      const p = V3.add(c.pos, V3.mul(rd, tp[0])), up = V3.norm(p), cs = Math.max(V3.dot(up, s), 0);
+      const Tp = transSoleil(p, LB, C);
+      let alb = [0.03, 0.03, 0.03];
+      if (mode === 2 && pl === PLANETES.terre && tc) {
+        const q = [AXE_E, AXE_N, AXE_U].reduce((a, ax, k) => V3.add(a, V3.mul(ax, p[k])), [0, 0, 0]), qn = V3.norm(q);
+        const u = (Math.atan2(qn[1], qn[0]) + PI) / (2 * PI), v = Math.acos(clamp(qn[2], -1, 1)) / PI;
+        const k = 4 * (Math.min(255, v * 256 | 0) * 512 + Math.min(511, u * 512 | 0));
+        alb = [Math.pow(tc[k] / 255, 2.2), Math.pow(tc[k + 1] / 255, 2.2), Math.pow(tc[k + 2] / 255, 2.2)];
+        if (tm) { const a = tm[k + 1] / 255; alb = alb.map(x => x * (1 - a) + 0.75 * a); }
+      } else if (P.planete === "mars") alb = [0.45, 0.22, 0.11];
+      else if (P.planete === "lune") alb = [0.14, 0.14, 0.14];
+      const sp = [alb[2], alb[2], 0.8 * alb[2] + 0.3 * alb[1], 0.9 * alb[1] + 0.2 * alb[2], 0.9 * alb[1] + 0.3 * alb[0], 0.3 * alb[1] + 0.8 * alb[0], alb[0], alb[0]];
+      for (let k = 0; k < 8; k++) {
+        let L = sp[k] * (C[k].E * Tp[k] * cs + amb[k]) / PI;
+        if (mode !== 2 && P.planete === "terre") {           // mer : reflet du ciel (≈ 6 %), sans vagues
+          const rr = [rd[0], rd[1], -rd[2]];
+          if (k === 0) r.refl = cielCPU(p, rr, LB, C, 8);
+          L = 0.06 * r.refl.I[k] + 0.01 * (C[k].E * Tp[k] * cs + amb[k]) / PI;
+        }
+        I[k] += r.T[k] * L;
+      }
+    } else {
+      const mu = V3.dot(rd, s), rs = 0.27 * DEG * 4;
+      if (mu > Math.cos(rs)) for (let k = 0; k < 8; k++) I[k] += C[k].E * r.T[k] / (PI * rs * rs) * (V3.len(c.pos) < pl.R + pl.top ? Ts[k] / Math.max(r.T[k], 1e-9) * r.T[k] : 1);
+    }
+    let rgb;
+    if (P.aff === "couleurs" || mode === 2) {
+      let F = I;
+      if (P.polOn && mode !== 2) {
+        let e = V3.cross(s, rd); e = V3.len(e) > 1e-6 ? V3.norm(e) : c.r;
+        let bx = mode === 1 ? [-1, 0, 0] : c.r; bx = V3.norm(V3.sub(bx, V3.mul(rd, V3.dot(bx, rd)))); const by = V3.cross(rd, bx);
+        const psi = Math.atan2(V3.dot(e, by), V3.dot(e, bx)), cc = Math.cos(2 * (psi - P.polA * DEG));
+        F = I.map((x, k) => x + Pol[k] * cc);
+      }
+      rgb = tonal(versRGB(M, F));
+    } else {
+      const Iy = lum(versRGB(M, I)), Py = lum(versRGB(M, Pol)), Pd = Iy > 0 ? Py / Iy : 0;
+      const t = turboJS(Pd); rgb = t.map(x => Math.round(255 * x));
+    }
+    const q = 4 * (j * w + i); px[q] = rgb[0]; px[q + 1] = rgb[1]; px[q + 2] = rgb[2]; px[q + 3] = 255;
+  }
+  cpu.putImageData(im, 0, 0);
+}
+function turboJS(x) {
+  x = clamp(x, 0, 1);
+  const r = 0.13572138 + x * (4.61539260 + x * (-42.66032258 + x * (132.13108234 + x * (-152.94239396 + x * 59.28637943))));
+  const g = 0.09140261 + x * (2.19418839 + x * (4.84296658 + x * (-14.18503333 + x * (4.27729857 + x * 2.82956604))));
+  const b = 0.10667330 + x * (12.64194608 + x * (-60.58204836 + x * (110.36276771 + x * (-89.90310912 + x * 27.34824973))));
+  return [clamp(r, 0, 1), clamp(g, 0, 1), clamp(b, 0, 1)];
+}
+
+// ---------------------------------------------------------------- projections (pour les surcouches)
+function projeter(d) {
+  if (P.vue === "polar") {
+    if (d[2] < -0.001) return null;
+    const Rc = Math.min(W, H) / 2 - 10, th = Math.acos(clamp(d[2], -1, 1)), az = Math.atan2(d[0], d[1]), rho = th / (PI / 2) * Rc;
+    return [W / 2 - rho * Math.sin(az), H / 2 - rho * Math.cos(az)];
+  }
+  const c = camera(), z = V3.dot(d, c.f); if (z <= 1e-4) return null;
+  return [W / 2 + V3.dot(d, c.r) / z / c.tan * H / 2, H / 2 - V3.dot(d, c.u) / z / c.tan * H / 2];
+}
+function projeterPoint(p) { const c = camera(); return projeter(V3.norm(V3.sub(p, c.pos))); }
+function dirDepuisEcran(x, y) {
+  if (P.vue === "polar") {
+    const Rc = Math.min(W, H) / 2 - 10, qx = x - W / 2, qy = y - H / 2, rho = Math.hypot(qx, qy) / Rc;
+    if (rho > 1) return null;
+    const th = rho * PI / 2, az = Math.atan2(-qx, -qy); return [Math.sin(th) * Math.sin(az), Math.sin(th) * Math.cos(az), Math.cos(th)];
+  }
+  const c = camera(), nx = (2 * x / W - 1) * W / H, ny = 1 - 2 * y / H;
+  return V3.norm(V3.add(c.f, V3.add(V3.mul(c.r, nx * c.tan), V3.mul(c.u, ny * c.tan))));
+}
+function rgbCss(rgb, k) { const t = v => Math.round(255 * Math.pow(clamp(v, 0, 1), 1 / 2.2)); return `rgb(${t(rgb[0] * k)},${t(rgb[1] * k)},${t(rgb[2] * k)})`; }
+// couleur (normalisée) d'un spectre
+function couleurSpectre(S, lams, M) { const c = versRGB(M, S).map(v => Math.max(v, 0)), m = Math.max(...c) || 1; return c.map(v => v / m); }
+function texte(x, y, t, coul, al, taille) {
+  sur.font = (taille || 12.5) + "px system-ui"; sur.textAlign = al || "left";
+  sur.lineWidth = 3; sur.strokeStyle = "rgba(0,0,0,0.75)"; sur.strokeText(t, x, y);
+  sur.fillStyle = coul || "#fff"; sur.fillText(t, x, y); sur.textAlign = "left";
+}
+
+// ---------------------------------------------------------------- surcouche : vue du sol
+function surSol() {
+  const s = dirSoleil(), pl = planete();
+  // points cardinaux sur l'horizon
+  const pts = [["N", 0], ["NE", 45], ["E", 90], ["SE", 135], ["S", 180], ["SO", 225], ["O", 270], ["NO", 315]];
+  for (const [n, a] of pts) { const p = projeter(dirVue(0, a)); if (p && p[0] > 0 && p[0] < W) texte(p[0], Math.min(H - 8, p[1] + 18), n, "#ffe9a8", "center", 13); }
+  // hauteur angulaire
+  for (const el of [10, 30, 60]) { const p = projeter(dirVue(el, P.camAz)); if (p && p[1] > 20 && p[1] < H - 20) { sur.strokeStyle = "rgba(255,255,255,0.35)"; sur.beginPath(); sur.moveTo(0, p[1]); sur.lineTo(10, p[1]); sur.stroke(); texte(14, p[1] + 4, el + "°", "rgba(255,255,255,0.75)", "left", 11); } }
+  // Soleil
+  const ps = projeter(s);
+  if (ps && ps[0] > -20 && ps[0] < W + 20 && ps[1] > -20 && ps[1] < H + 20) {
+    sur.strokeStyle = "rgba(255,240,180,0.9)"; sur.lineWidth = 1.2; sur.beginPath(); sur.arc(ps[0], ps[1], 16, 0, 2 * PI); sur.stroke();
+    texte(ps[0] + 20, ps[1] - 12, P.hSol >= 0 ? "Soleil" : "Soleil (sous l'horizon)", "#ffe9a8");
+  } else {
+    // flèche vers le Soleil
+    const c = camera(), x = V3.dot(s, c.r), y = V3.dot(s, c.u), a = Math.atan2(-y, x);
+    const cx = W / 2 + Math.cos(a) * (Math.min(W, H) / 2 - 40), cy = H / 2 + Math.sin(a) * (Math.min(W, H) / 2 - 40);
+    sur.fillStyle = "rgba(255,220,120,0.9)"; sur.beginPath(); sur.moveTo(cx + 14 * Math.cos(a), cy + 14 * Math.sin(a));
+    sur.lineTo(cx + 8 * Math.cos(a + 2.5), cy + 8 * Math.sin(a + 2.5)); sur.lineTo(cx + 8 * Math.cos(a - 2.5), cy + 8 * Math.sin(a - 2.5)); sur.fill();
+    texte(cx - 30 * Math.cos(a), cy - 30 * Math.sin(a) + 4, "Soleil", "#ffe9a8", "center");
+  }
+  // cercle des directions à 90° du Soleil (polarisation maximale), si demandé
+  if (P.aff !== "couleurs" || P.polOn) cercle90(s);
+  sonde();
+}
+function cercle90(s) {
+  let a = V3.cross(s, [0, 0, 1]); if (V3.len(a) < 1e-6) a = [1, 0, 0]; a = V3.norm(a); const b = V3.cross(s, a);
+  sur.save(); sur.setLineDash([6, 5]); sur.strokeStyle = "rgba(255,255,255,0.7)"; sur.lineWidth = 1.3; sur.beginPath();
+  let prem = true, der = null;
+  for (let k = 0; k <= 360; k += 2) {
+    const d = V3.add(V3.mul(a, Math.cos(k * DEG)), V3.mul(b, Math.sin(k * DEG))), p = projeter(d);
+    if (!p || (der && Math.hypot(p[0] - der[0], p[1] - der[1]) > Math.max(W, H) / 3)) { prem = true; der = null; continue; }
+    if (prem) { sur.moveTo(p[0], p[1]); prem = false; } else sur.lineTo(p[0], p[1]);
+    der = p;
+  }
+  sur.stroke(); sur.restore();
+  const d = V3.norm(V3.add(V3.mul(a, 1), [0, 0, 0.3])), p = projeter(d);
+  if (p) texte(p[0] + 6, p[1] - 6, "à 90° du Soleil", "#fff", "left", 11.5);
+}
+let CS = null;   // coefficients et matrice couleur pour les calculs CPU (fins)
+function sonde() {
+  if (!P.sonde) return;
+  const p = projeter(P.sonde); if (!p) return;
+  const C = coefs(LB), M = COUL8 || matriceCouleur(LB), r = polarisation(P.sonde, C, LB, M);
+  sur.strokeStyle = "#fff"; sur.lineWidth = 1.5;
+  sur.beginPath(); sur.arc(p[0], p[1], 9, 0, 2 * PI); sur.moveTo(p[0] - 15, p[1]); sur.lineTo(p[0] - 5, p[1]); sur.moveTo(p[0] + 5, p[1]); sur.lineTo(p[0] + 15, p[1]);
+  sur.moveTo(p[0], p[1] - 15); sur.lineTo(p[0], p[1] - 5); sur.moveTo(p[0], p[1] + 5); sur.lineTo(p[0], p[1] + 15); sur.stroke();
+  // direction de E en ce point
+  const e = r.e, q2 = projeter(V3.norm(V3.add(P.sonde, V3.mul(e, 0.02))));
+  if (q2) { const dx = q2[0] - p[0], dy = q2[1] - p[1], l = Math.hypot(dx, dy) || 1, L = 10 + 26 * r.P;
+    sur.strokeStyle = "#ffe14d"; sur.lineWidth = 3; sur.beginPath(); sur.moveTo(p[0] - dx / l * L, p[1] - dy / l * L); sur.lineTo(p[0] + dx / l * L, p[1] + dy / l * L); sur.stroke(); }
+  const Pth = Math.pow(Math.sin(r.gam * DEG), 2) / (1 + Math.pow(Math.cos(r.gam * DEG), 2));
+  const bx = Math.min(p[0] + 18, W - 230), by = Math.max(p[1] - 62, 8);
+  sur.fillStyle = "rgba(4,12,24,0.78)"; sur.fillRect(bx, by, 222, 56);
+  texte(bx + 8, by + 17, `angle de diffusion γ = ${fr(r.gam, 0)}°`, "#fff", "left", 12);
+  texte(bx + 8, by + 33, `polarisation P = ${fr(100 * r.P, 0)} %`, "#7fe8ff", "left", 12.5);
+  texte(bx + 8, by + 49, `Rayleigh pur sin²γ/(1+cos²γ) = ${fr(100 * Pth, 0)} %`, "#ffd27f", "left", 11.5);
+}
+
+// ---------------------------------------------------------------- surcouche : voûte céleste (polarisation)
+let cacheBat = { cle: "", v: [] };
+function surPolar() {
+  const s = dirSoleil(), Rc = Math.min(W, H) / 2 - 10, cx = W / 2, cy = H / 2;
+  sur.strokeStyle = "rgba(255,255,255,0.35)"; sur.lineWidth = 1;
+  for (const el of [30, 60]) { sur.beginPath(); sur.arc(cx, cy, Rc * (90 - el) / 90, 0, 2 * PI); sur.stroke(); }
+  texte(cx, cy - Rc - 1 + 16, "N", "#ffe9a8", "center", 14); texte(cx, cy + Rc - 6, "S", "#ffe9a8", "center", 14);
+  texte(cx - Rc + 12, cy + 5, "E", "#ffe9a8", "center", 14); texte(cx + Rc - 12, cy + 5, "O", "#ffe9a8", "center", 14);
+  texte(cx + 4, cy - 4, "zénith", "rgba(255,255,255,0.8)", "left", 11);
+  // bâtonnets : direction de E et degré de polarisation
+  if (P.fishPol) {
+    const cle = cleModele() + W + "x" + H;
+    if (cacheBat.cle !== cle) {
+      const C = coefs(LB), M = COUL8 || matriceCouleur(LB), v = [];
+      for (let th = 8; th <= 86; th += 9.75) {
+        const n = Math.max(1, Math.round(2 * PI * Math.sin(th * DEG) / (9.75 * DEG)));
+        for (let k = 0; k < n; k++) {
+          const az = k * 360 / n + (th * 7) % 20, d = dirVue(90 - th, az), r = polarisation(d, C, LB, M);
+          v.push({ d, P: r.P, e: r.e });
+        }
+      }
+      cacheBat = { cle, v };
+    }
+    for (const b of cacheBat.v) {
+      const p = projeter(b.d), q = projeter(V3.norm(V3.add(b.d, V3.mul(b.e, 0.02))));
+      if (!p || !q) continue;
+      const dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1, L = 3 + 13 * b.P * Rc / 300;
+      sur.lineCap = "round"; sur.beginPath(); sur.moveTo(p[0] - dx / l * L, p[1] - dy / l * L); sur.lineTo(p[0] + dx / l * L, p[1] + dy / l * L);
+      sur.strokeStyle = "rgba(0,0,0,0.45)"; sur.lineWidth = 3.4; sur.stroke();
+      sur.strokeStyle = "#ffe14d"; sur.lineWidth = 2; sur.stroke(); sur.lineCap = "butt";
+    }
+  }
+  cercle90(s);
+  const ps = projeter(s);
+  if (ps) { sur.strokeStyle = "#fff3b0"; sur.lineWidth = 1.5; sur.beginPath(); sur.arc(ps[0], ps[1], 13, 0, 2 * PI); sur.stroke(); texte(ps[0] + 16, ps[1] - 10, "Soleil", "#ffe9a8"); }
+  // point antisolaire
+  const pa = projeter(V3.mul(s, -1)); if (pa) { sur.strokeStyle = "rgba(255,255,255,0.7)"; sur.beginPath(); sur.moveTo(pa[0] - 6, pa[1] - 6); sur.lineTo(pa[0] + 6, pa[1] + 6); sur.moveTo(pa[0] - 6, pa[1] + 6); sur.lineTo(pa[0] + 6, pa[1] - 6); sur.stroke(); texte(pa[0] + 9, pa[1] + 4, "antisolaire", "#ddd", "left", 11); }
+  sonde();
+  encartPgamma();
+}
+// petit graphique : P en fonction de l'angle de diffusion γ, le long du méridien du Soleil
+let cacheP = { cle: "", v: [] };
+function encartPgamma() {
+  const w = Math.min(260, Math.max(170, (W - Math.min(W, H)) / 2 - 20)), h = 150;
+  if (w < 170 || W < 640) return;
+  const x0 = 12, y0 = H - h - 14;
+  sur.fillStyle = "rgba(4,12,24,0.82)"; sur.fillRect(x0, y0, w, h);
+  const gx = x0 + 34, gy = y0 + 22, gw = w - 46, gh = h - 50;
+  texte(x0 + 8, y0 + 15, "P selon l'angle de diffusion γ", "#fff", "left", 12);
+  sur.strokeStyle = "rgba(255,255,255,0.4)"; sur.lineWidth = 1; sur.strokeRect(gx, gy, gw, gh);
+  for (const g of [0, 90, 180]) texte(gx + g / 180 * gw, gy + gh + 13, g + "°", "#ccc", "center", 10.5);
+  for (const v of [0, 50, 100]) texte(gx - 4, gy + gh - v / 100 * gh + 4, v + " %", "#ccc", "right", 10.5);
+  sur.strokeStyle = "#ffd27f"; sur.lineWidth = 1.8; sur.setLineDash([5, 4]); sur.beginPath();
+  for (let g = 0; g <= 180; g += 3) { const c = Math.cos(g * DEG), v = (1 - c * c) / (1 + c * c); const X = gx + g / 180 * gw, Y = gy + gh - v * gh; g ? sur.lineTo(X, Y) : sur.moveTo(X, Y); }
+  sur.stroke(); sur.setLineDash([]);
+  // modèle complet, le long du grand cercle Soleil–zénith (côté visible au-dessus de l'horizon)
+  const cle = cleModele();
+  if (cacheP.cle !== cle) {
+    const C = coefs(LB), M = COUL8 || matriceCouleur(LB), s = dirSoleil(), v = [];
+    let a = V3.cross(s, [0, 0, 1]); if (V3.len(a) < 1e-6) a = [1, 0, 0]; a = V3.norm(a); const b = V3.cross(a, s);
+    for (let g = 2; g <= 178; g += 4) {
+      const d = V3.add(V3.mul(s, Math.cos(g * DEG)), V3.mul(b, Math.sin(g * DEG)));
+      if (d[2] < 0.01) continue;
+      v.push([g, polarisation(d, C, LB, M).P]);
+    }
+    cacheP = { cle, v };
+  }
+  sur.strokeStyle = "#7fe8ff"; sur.lineWidth = 2.2; sur.beginPath();
+  cacheP.v.forEach(([g, p], k) => { const X = gx + g / 180 * gw, Y = gy + gh - p * gh; k ? sur.lineTo(X, Y) : sur.moveTo(X, Y); });
+  sur.stroke();
+  texte(gx + 4, y0 + h - 6, "— modèle    - - Rayleigh pur", "#bbb", "left", 10.5);
+}
+
+// ---------------------------------------------------------------- surcouche : vue de l'espace
+function surEspace() {
+  const pl = planete(), s = dirSoleil(), c = camera(), caen = [0, 0, pl.R];
+  const vis = V3.dot(V3.norm(caen), V3.sub(c.pos, caen)) > 0;
+  const pc = projeterPoint(caen);
+  if (pc && vis) {
+    sur.fillStyle = "#ff3b6b"; sur.beginPath(); sur.arc(pc[0], pc[1], 4, 0, 2 * PI); sur.fill();
+    texte(pc[0] + 8, pc[1] + 14, "Caen (observateur)", "#ffd0dc", "left", 12);
+    // trajet de la lumière solaire dans l'atmosphère jusqu'à l'observateur
+    if (!pl.vide) {
+      const ro = V3.add(caen, [0, 0, P.alt]), ta = sphere(ro, s, pl.R + pl.top);
+      if (ta && ombre(ro, s, pl) > 0.5) {
+        const L = ta[1], N = 40, C = coefs(LB), M = COUL8 || matriceCouleur(LB);
+        sur.lineWidth = 3;
+        for (let k = 0; k < N; k++) {
+          const a = V3.add(ro, V3.mul(s, L * (1 - k / N))), b = V3.add(ro, V3.mul(s, L * (1 - (k + 1) / N)));
+          const pa = projeterPoint(a), pb = projeterPoint(b); if (!pa || !pb) continue;
+          const Tm = transSoleil(b, LB, C), col = couleurSpectre(C.map((x, i) => x.E * Tm[i]), LB, M);
+          sur.strokeStyle = rgbCss(col, 1); sur.beginPath(); sur.moveTo(pa[0], pa[1]); sur.lineTo(pb[0], pb[1]); sur.stroke();
+        }
+        const ent = projeterPoint(V3.add(ro, V3.mul(s, L)));
+        const loin = projeterPoint(V3.add(ro, V3.mul(s, L + pl.R * 0.6)));
+        if (ent && loin) { sur.save(); sur.setLineDash([6, 6]); sur.strokeStyle = "rgba(255,240,200,0.8)"; sur.lineWidth = 1.5; sur.beginPath(); sur.moveTo(loin[0], loin[1]); sur.lineTo(ent[0], ent[1]); sur.stroke(); sur.restore();
+          texte(loin[0], loin[1] - 8, "lumière du Soleil", "#ffe9a8", "center", 12); }
+        texte(pc[0] + 8, pc[1] + 30, `trajet dans l'atmosphère: ${fr(L, 0)} km`, "#fff", "left", 12);
+      } else texte(pc[0] + 8, pc[1] + 30, "Caen est dans l'ombre de la Terre (nuit)", "#fff", "left", 12);
+    }
+  }
+  // flèche « vers le Soleil »
+  const x = V3.dot(s, c.r), y = V3.dot(s, c.u), a = Math.atan2(-y, x), R0 = Math.min(W, H) / 2 - 30;
+  const ax = W / 2 + Math.cos(a) * R0, ay = H / 2 + Math.sin(a) * R0;
+  sur.strokeStyle = "#ffd27f"; sur.lineWidth = 2; sur.beginPath(); sur.moveTo(ax - 30 * Math.cos(a), ay - 30 * Math.sin(a)); sur.lineTo(ax, ay); sur.stroke();
+  sur.fillStyle = "#ffd27f"; sur.beginPath(); sur.moveTo(ax + 8 * Math.cos(a), ay + 8 * Math.sin(a)); sur.lineTo(ax + 7 * Math.cos(a + 2.4), ay + 7 * Math.sin(a + 2.4)); sur.lineTo(ax + 7 * Math.cos(a - 2.4), ay + 7 * Math.sin(a - 2.4)); sur.fill();
+  texte(ax - 44 * Math.cos(a), ay - 44 * Math.sin(a) + 4, "vers le Soleil", "#ffd27f", "center", 12);
+  texte(10, H - 34, "Glisser pour tourner autour de la planète, molette pour zoomer.", "rgba(255,255,255,0.8)", "left", 11.5);
+}
+
+// ---------------------------------------------------------------- HUD (valeurs numériques)
+function majHud() {
+  const pl = planete(), C = coefs(LB), M = COUL8 || matriceCouleur(LB);
+  if (P.vue === "molecule" || P.vue === "spectres") { hud.innerHTML = ""; return; }
+  const ro = [0, 0, pl.R + P.alt], Ts = transSoleil(ro, LB, C), m = masseAir();
+  const col = couleurSpectre(C.map((c, k) => c.E * Ts[k]), LB, M);
+  const t450 = transSoleil(ro, [450], coefs([450]))[0], t650 = transSoleil(ro, [650], coefs([650]))[0];
+  let h = `<span class="g">Soleil à <span class="v">${fr(P.hSol, 1)}°</span> au-dessus de l'horizon</span>`;
+  if (!pl.vide) {
+    h += `<br>masse d'air traversée: <span class="v">${isFinite(m) ? fr(m, 1) : "—"}</span> (1 au zénith)`;
+    h += `<br>transmission directe: <span class="v">${fr(100 * t450, 1)} %</span> à 450 nm, <span class="v">${fr(100 * t650, 1)} %</span> à 650 nm`;
+    h += `<br>couleur du Soleil vu d'ici: <span style="display:inline-block;width:34px;height:11px;border-radius:3px;vertical-align:-1px;background:${rgbCss(col, 1)}"></span>`;
+  } else h += `<br>pas d'atmosphère: aucune diffusion, ciel noir`;
+  if (P.vue === "sol" || P.vue === "polar") h += `<br><span style="color:#bcd">clic: mesurer la polarisation en un point du ciel</span>`;
+  hud.innerHTML = h;
+  // légende
+  if ((P.vue === "sol" || P.vue === "polar") && P.aff === "P") legende.innerHTML = `degré de polarisation 0 <span class="deg" style="background:linear-gradient(90deg,#30123b,#4686fb,#1be5b5,#a4fc3c,#fbb938,#e4460a,#7a0403)"></span> 100 %`;
+  else if ((P.vue === "sol" || P.vue === "polar") && P.aff === "angle") legende.innerHTML = `direction de E (couleur) <span class="deg" style="background:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)"></span> luminosité = P`;
+  else if (P.polOn && P.vue !== "espace") legende.innerHTML = `polariseur: axe à <b>${fr(P.polA, 0)}°</b> de l'horizontale de l'image`;
+  else legende.innerHTML = "";
+}
+// ====================================================================== vue « molécule » : dipôle induit et rayonnement
+const MOL = { t: 0, yaw: -0.55, pitch: 0.32, phi: 0, phiCible: 0, tChg: 0, traceI: [], traceD: [] };
+function couleurLambda(l) {        // couleur (approchée) d'une lumière monochromatique, ramenée dans le gamut sRGB
+  const X = cie(l, 0), Y = cie(l, 1), Z = cie(l, 2);
+  let c = XYZ2RGB.map(r => r[0] * X + r[1] * Y + r[2] * Z);
+  const mn = Math.min(...c); if (mn < 0) c = c.map(v => v - mn);
+  const m = Math.max(...c) || 1; return c.map(v => v / m);
+}
+function dessinerMolecule(dt) {
+  const t = (MOL.t += dt * P.molVit), w = 2 * PI / 1.6;     // période visuelle 1,6 s
+  // lumière incidente : direction de polarisation (aléatoire et changeante pour la lumière naturelle)
+  if (P.molLum === "naturelle") {
+    if (t > MOL.tChg) { MOL.phiCible = Math.random() * PI; MOL.tChg = t + 0.35 + Math.random() * 0.5; }
+    let d = MOL.phiCible - MOL.phi; d -= PI * Math.round(d / PI); MOL.phi += d * Math.min(1, dt * P.molVit * 10);
+  } else MOL.phi = P.molLum === "y" ? PI / 2 : 0;          // φ mesuré depuis l'axe z
+  const ep = [0, Math.sin(MOL.phi), Math.cos(MOL.phi)];    // direction de E incident (⟂ x)
+  const g = P.molGam * DEG, n = [Math.cos(g), Math.sin(g), 0];
+  const cy = Math.cos(MOL.yaw), sy = Math.sin(MOL.yaw), cp = Math.cos(MOL.pitch), sp = Math.sin(MOL.pitch);
+  const zoneMol = { x: 0, y: 0, w: W * (W > 900 ? 0.68 : 1), h: H };
+  const ech = Math.min(zoneMol.w, zoneMol.h) / 9.5, ox = zoneMol.w / 2, oy = zoneMol.h / 2 + 10;
+  const proj = v => { const x1 = v[0] * cy - v[2] * sy, z1 = v[0] * sy + v[2] * cy, y1 = v[1] * cp - z1 * sp, z2 = v[1] * sp + z1 * cp;
+    const f = 14 / (14 - z2); return [ox + x1 * ech * f, oy - y1 * ech * f, z2]; };
+  const fond = sur.createLinearGradient(0, 0, 0, H); fond.addColorStop(0, "#06101e"); fond.addColorStop(1, "#0b1d33");
+  sur.fillStyle = fond; sur.fillRect(0, 0, W, H);
+  const col = couleurLambda(P.molLam), css = a => `rgba(${col.map(v => Math.round(255 * Math.pow(v, 0.8))).join(",")},${a})`;
+  const fleche = (a, b, coul, lw) => { const p = proj(a), q = proj(b); sur.strokeStyle = coul; sur.fillStyle = coul; sur.lineWidth = lw || 2;
+    sur.beginPath(); sur.moveTo(p[0], p[1]); sur.lineTo(q[0], q[1]); sur.stroke();
+    const an = Math.atan2(q[1] - p[1], q[0] - p[0]), L = Math.min(9, Math.hypot(q[0] - p[0], q[1] - p[1]) * 0.5);
+    if (L > 2) { sur.beginPath(); sur.moveTo(q[0], q[1]); sur.lineTo(q[0] - L * Math.cos(an - 0.45), q[1] - L * Math.sin(an - 0.45)); sur.lineTo(q[0] - L * Math.cos(an + 0.45), q[1] - L * Math.sin(an + 0.45)); sur.fill(); } };
+  const ligne = (pts, coul, lw, tir) => { sur.strokeStyle = coul; sur.lineWidth = lw || 1; if (tir) sur.setLineDash(tir); sur.beginPath();
+    pts.forEach((v, k) => { const p = proj(v); k ? sur.lineTo(p[0], p[1]) : sur.moveTo(p[0], p[1]); }); sur.stroke(); sur.setLineDash([]); };
+  // axes
+  ligne([[-4.4, 0, 0], [4.4, 0, 0]], "rgba(255,255,255,0.25)", 1, [4, 4]);
+  ligne([[0, -3.2, 0], [0, 3.2, 0]], "rgba(255,255,255,0.18)", 1, [4, 4]);
+  ligne([[0, 0, -3.2], [0, 0, 3.2]], "rgba(255,255,255,0.18)", 1, [4, 4]);
+  const lx = proj([4.5, 0, 0]); texte(lx[0], lx[1] - 6, "x (lumière incidente)", "#9fc6d2", "center", 11);
+  // plan de diffusion (x, n)
+  ligne([[0, 0, 0], V3.mul(n, 4.2)], "rgba(255,210,127,0.45)", 1.2, [3, 4]);
+  // onde incidente
+  const k = 2 * PI / (1.25 * P.molLam / 550);
+  for (let x = -4.2; x <= -0.7; x += 0.22) {
+    const a = Math.cos(w * t - k * x) * 0.9;
+    fleche([x, 0, 0], [x, a * ep[1], a * ep[2]], css(0.9), 2);
+  }
+  // dipôle induit p ∝ E(0,t) (domaine de Rayleigh : en phase avec E)
+  const a0 = Math.cos(w * t), p = V3.mul(ep, a0);
+  // indicatrice de rayonnement (sin²θ autour de p) en fil de fer
+  const u = ep, v1 = [1, 0, 0], v2 = V3.cross(u, v1);
+  for (let m = 0; m < 10; m++) {
+    const ph = m * PI / 10, dir = V3.add(V3.mul(v1, Math.cos(ph)), V3.mul(v2, Math.sin(ph))), pts = [];
+    for (let th = 0; th <= 2 * PI + 0.01; th += 0.08) { const r = 2.1 * Math.sin(th) * Math.sin(th); pts.push(V3.add(V3.mul(u, r * Math.cos(th)), V3.mul(dir, r * Math.sin(th)))); }
+    ligne(pts, css(0.16), 1);
+  }
+  // molécule : noyau et nuage électronique déplacé
+  const pn = proj([0, 0, 0]), pe = proj(V3.mul(p, 0.32));
+  const gr = sur.createRadialGradient(pe[0], pe[1], 2, pe[0], pe[1], ech * 0.55);
+  gr.addColorStop(0, "rgba(120,190,255,0.85)"); gr.addColorStop(1, "rgba(120,190,255,0)");
+  sur.fillStyle = gr; sur.beginPath(); sur.arc(pe[0], pe[1], ech * 0.55, 0, 2 * PI); sur.fill();
+  sur.fillStyle = "#ff6b6b"; sur.beginPath(); sur.arc(pn[0], pn[1], 4.5, 0, 2 * PI); sur.fill();
+  fleche([0, 0, 0], V3.mul(p, 1.25), "#ffe14d", 3);
+  const lp = proj(V3.mul(ep, 1.5)); texte(lp[0] + 6, lp[1], "p(t)", "#ffe14d", "left", 12);
+  // onde diffusée vers l'observateur : E ∝ composante de p perpendiculaire à n
+  const pperp = V3.sub(ep, V3.mul(n, V3.dot(ep, n)));
+  for (let r = 0.8; r <= 3.6; r += 0.2) {
+    const a = Math.cos(w * t - k * r) * 0.75, c0 = V3.mul(n, r);
+    fleche(c0, V3.add(c0, V3.mul(pperp, a)), css(0.95), 2);
+  }
+  // œil
+  const pO = proj(V3.mul(n, 4.1));
+  sur.strokeStyle = "#fff"; sur.lineWidth = 2; sur.beginPath(); sur.ellipse(pO[0], pO[1], 12, 7, 0, 0, 2 * PI); sur.stroke();
+  sur.fillStyle = "#7fe8ff"; sur.beginPath(); sur.arc(pO[0], pO[1], 3.5, 0, 2 * PI); sur.fill();
+  texte(pO[0], pO[1] - 14, `observateur (γ = ${fr(P.molGam, 0)}°)`, "#fff", "center", 12);
+  // traces de l'extrémité de E : lumière incidente / lumière diffusée vers l'observateur
+  const eI = [ep[1] * a0, ep[2] * a0];
+  const bz = [0, 0, 1], bt = V3.norm(V3.cross(bz, n));       // base ⟂ n : z et bt (dans le plan de diffusion)
+  const eD = [V3.dot(pperp, bt) * a0, V3.dot(pperp, bz) * a0];
+  MOL.traceI.push(eI); MOL.traceD.push(eD); if (MOL.traceI.length > 220) { MOL.traceI.shift(); MOL.traceD.shift(); }
+  const enc = (x0, y0, tr, titre, sous) => {
+    const R = 46; sur.fillStyle = "rgba(4,12,24,0.8)"; sur.fillRect(x0, y0, 2 * R + 76, 2 * R + 40);
+    const cx = x0 + R + 38, cy = y0 + R + 26;
+    sur.strokeStyle = "rgba(255,255,255,0.25)"; sur.beginPath(); sur.arc(cx, cy, R, 0, 2 * PI); sur.stroke();
+    tr.forEach((e, i) => { sur.fillStyle = css(0.15 + 0.85 * i / tr.length); sur.fillRect(cx + e[0] * R - 1, cy - e[1] * R - 1, 2.4, 2.4); });
+    texte(x0 + 6, y0 + 15, titre, "#fff", "left", 11.5); texte(x0 + 6, y0 + 2 * R + 36, sous, "#9fc6d2", "left", 10.5);
+  };
+  const xi = zoneMol.w > 520 ? 12 : -999;
+  if (xi > 0) {
+    enc(12, H - 300, MOL.traceI, "E incident (vu depuis x)", "axes: y horizontal, z vertical");
+    enc(12, H - 158, MOL.traceD, "E diffusé reçu par l'œil", "horizontal: dans le plan de diffusion");
+  }
+  // panneau de droite : formules et valeurs
+  if (W > 900) {
+    const x0 = zoneMol.w + 6, w0 = W - x0 - 8;
+    sur.fillStyle = "rgba(4,12,24,0.85)"; sur.fillRect(x0, 8, w0, H - 16);
+    let y = 30;
+    const tl = (s, c, t) => { texte(x0 + 10, y, s, c || "#fff", "left", t || 12.5); y += (t || 12.5) + 8; };
+    tl("Charge élastiquement liée", "#7fe8ff", 14);
+    tl("p = q²E / m(ω₀² − ω²) ≈ q²E / mω₀²");
+    tl("(ω ≪ ω₀ : domaine de Rayleigh, ω₀ dans l'UV)", "#9fc6d2", 11);
+    tl("Puissance rayonnée par le dipôle:", "#fff");
+    tl("𝒫 = μ₀ p₀² ω⁴ / 12πc  ∝  1/λ⁴", "#ffd27f", 13.5);
+    y += 4;
+    // barres 1/λ⁴
+    tl("Puissance diffusée (rouge 700 nm = 1):", "#fff", 12);
+    const lams = [400, 450, 500, 550, 600, 650, 700], bw = (w0 - 30) / lams.length, bh = 90, by0 = y + bh;
+    lams.forEach((l, i) => {
+      const r = Math.pow(700 / l, 4), hh = r / Math.pow(700 / 400, 4) * bh, c = couleurLambda(l);
+      sur.fillStyle = rgbCss(c, 1); sur.fillRect(x0 + 14 + i * bw, by0 - hh, bw - 4, hh);
+      if (Math.abs(l - P.molLam) < 25) { sur.strokeStyle = "#fff"; sur.lineWidth = 2; sur.strokeRect(x0 + 14 + i * bw - 1, by0 - hh - 1, bw - 2, hh + 2); }
+      texte(x0 + 14 + i * bw + bw / 2 - 2, by0 + 13, String(l), "#ccc", "center", 10);
+      texte(x0 + 14 + i * bw + bw / 2 - 2, by0 - hh - 4, fr(r, 1), "#fff", "center", 10);
+    });
+    y = by0 + 32;
+    tl(`À ${P.molLam} nm: ${fr(Math.pow(700 / P.molLam, 4), 1)} fois plus qu'à 700 nm`, "#ffd27f", 12);
+    y += 6;
+    const c = Math.cos(g), I = (1 + c * c) / 2, Pd = (1 - c * c) / (1 + c * c);
+    tl("Lumière incidente naturelle, angle de diffusion γ:", "#fff", 12);
+    tl(`intensité diffusée ∝ (1 + cos²γ)/2 = ${fr(I, 2)}`, "#7fe8ff", 12);
+    tl(`polarisation P = sin²γ / (1 + cos²γ) = ${fr(100 * Pd, 0)} %`, "#7fe8ff", 12);
+    // courbe P(γ)
+    const gx = x0 + 34, gw = w0 - 50, gh = 80, gy = y + 4;
+    sur.strokeStyle = "rgba(255,255,255,0.35)"; sur.lineWidth = 1; sur.strokeRect(gx, gy, gw, gh);
+    sur.strokeStyle = "#7fe8ff"; sur.lineWidth = 2; sur.beginPath();
+    for (let q = 0; q <= 180; q += 3) { const cc = Math.cos(q * DEG), X = gx + q / 180 * gw, Y = gy + gh - (1 - cc * cc) / (1 + cc * cc) * gh; q ? sur.lineTo(X, Y) : sur.moveTo(X, Y); }
+    sur.stroke();
+    sur.strokeStyle = "#ffd27f"; sur.lineWidth = 1.5; sur.setLineDash([4, 3]); sur.beginPath();
+    for (let q = 0; q <= 180; q += 3) { const cc = Math.cos(q * DEG), X = gx + q / 180 * gw, Y = gy + gh - (1 + cc * cc) / 2 * gh; q ? sur.lineTo(X, Y) : sur.moveTo(X, Y); }
+    sur.stroke(); sur.setLineDash([]);
+    const Xg = gx + P.molGam / 180 * gw; sur.strokeStyle = "#fff"; sur.beginPath(); sur.moveTo(Xg, gy); sur.lineTo(Xg, gy + gh); sur.stroke();
+    texte(gx, gy + gh + 13, "0°", "#ccc", "center", 10); texte(gx + gw / 2, gy + gh + 13, "90°", "#ccc", "center", 10); texte(gx + gw, gy + gh + 13, "180°", "#ccc", "center", 10);
+    y = gy + gh + 30;
+    tl("— P(γ)    - - intensité (1+cos²γ)/2", "#bbb", 11);
+    y += 4;
+    tl("À γ = 90°, la composante de p dirigée", "#fff", 12);
+    tl("vers l'observateur ne rayonne pas vers lui:", "#fff", 12);
+    tl("la lumière reçue est totalement polarisée,", "#fff", 12);
+    tl("E perpendiculaire au plan de diffusion.", "#fff", 12);
+  }
+  texte(12, 24, P.molLum === "naturelle" ? "Lumière naturelle: la direction de E change sans cesse, au hasard" : "Lumière incidente polarisée rectilignement", "#fff", "left", 13);
+  texte(12, 42, "Glisser pour faire tourner la scène.", "rgba(255,255,255,0.7)", "left", 11.5);
+}
+
+// ====================================================================== vue « spectres »
+const L5 = []; for (let l = 380; l <= 720; l += 5) L5.push(l);
+let M5 = null;
+function directionSpectre() {
+  const s = dirSoleil();
+  if (P.spDir === "sonde" && P.sonde) return P.sonde;
+  if (P.spDir === "90") { let a = V3.cross(s, [0, 0, 1]); if (V3.len(a) < 1e-6) a = [1, 0, 0]; a = V3.norm(a); let b = V3.norm(V3.cross(a, s)); if (b[2] < 0) b = V3.mul(b, -1); return b; }
+  if (P.spDir === "horizon") return dirVue(3, P.azSol + 180);
+  if (P.spDir === "soleil") return dirVue(Math.max(P.hSol + 6, 2), P.azSol);
+  return [0, 0, 1];
+}
+function dessinerSpectres() {
+  sur.fillStyle = "#0a1626"; sur.fillRect(0, 0, W, H);
+  M5 = M5 || matriceCouleur(L5);
+  const pl = planete(), C = coefs(L5), ro = [0, 0, pl.R + P.alt], Ts = transSoleil(ro, L5, C);
+  const E0 = C.map(c => c.E), Esol = E0.map((e, k) => e * Ts[k]);
+  const d = directionSpectre(), r = cielCPU(ro, d, L5, C, 40);
+  const marge = 14, colW = (W - 3 * marge) / 2, rowH = (H - 3 * marge) / 2;
+  const cadres = [[marge, marge], [2 * marge + colW, marge], [marge, 2 * marge + rowH], [2 * marge + colW, 2 * marge + rowH]];
+  function graphe(cad, titre, courbes, opts) {
+    const [x0, y0] = cad, w = colW, h = rowH;
+    sur.fillStyle = "rgba(255,255,255,0.04)"; sur.fillRect(x0, y0, w, h);
+    texte(x0 + 10, y0 + 18, titre, "#fff", "left", 13.5);
+    const gx = x0 + 46, gy = y0 + 30, gw = w - 60, gh = h - 74;
+    // bande arc-en-ciel
+    for (let l = 380; l < 720; l += 2) { sur.fillStyle = rgbCss(couleurLambda(l), 0.95); sur.fillRect(gx + (l - 380) / 340 * gw, gy + gh + 4, gw / 170 + 0.6, 7); }
+    sur.strokeStyle = "rgba(255,255,255,0.35)"; sur.lineWidth = 1; sur.strokeRect(gx, gy, gw, gh);
+    for (let l = 400; l <= 700; l += 50) texte(gx + (l - 380) / 340 * gw, gy + gh + 24, String(l), "#bbb", "center", 10.5);
+    texte(gx + gw, gy + gh + 37, "λ (nm)", "#bbb", "right", 10.5);
+    let ymax = opts.ymax || 0; if (!ymax) for (const c of courbes) for (const v of c.y) ymax = Math.max(ymax, v);
+    ymax = ymax || 1;
+    if (opts.axeY) texte(gx - 6, gy + 10, opts.axeY, "#bbb", "right", 10);
+    for (const c of courbes) {
+      sur.strokeStyle = c.coul; sur.lineWidth = c.lw || 2; sur.setLineDash(c.tir || []); sur.beginPath();
+      c.y.forEach((v, k) => { const X = gx + (c.x[k] - 380) / 340 * gw, Y = gy + gh - v / ymax * gh; k ? sur.lineTo(X, Y) : sur.moveTo(X, Y); });
+      sur.stroke(); sur.setLineDash([]);
+    }
+    let ly = gy + 14; for (const c of courbes) if (c.nom) { sur.fillStyle = c.coul; sur.fillRect(gx + gw - 196, ly - 8, 14, 3); texte(gx + gw - 178, ly - 3, c.nom, "#ddd", "left", 11); ly += 15; }
+    return { gx, gy, gw, gh };
+  }
+  // 1. lumière directe du Soleil
+  graphe(cadres[0], "Lumière directe du Soleil", [
+    { x: L5, y: E0, coul: "#aaa", nom: "hors atmosphère", tir: [5, 4] },
+    { x: L5, y: Esol, coul: "#ffb347", nom: "reçue au sol", lw: 2.6 }], { axeY: "W·m⁻²·nm⁻¹" });
+  // 2. lumière du ciel
+  const I = r.I, mI = Math.max(...I) || 1, ref = E0.map((e, k) => e * Math.pow(550 / L5[k], 4)), mref = Math.max(...ref);
+  graphe(cadres[1], "Lumière du ciel (direction choisie)", [
+    { x: L5, y: I.map(v => v / mI), coul: "#7fe8ff", nom: "ciel (modèle)", lw: 2.6 },
+    { x: L5, y: r.Ray.map(v => v / mI), coul: "#6aa7ff", nom: "dont Rayleigh simple", lw: 1.4 },
+    { x: L5, y: r.Mie.map(v => v / mI), coul: "#e6e6e6", nom: "dont aérosols", lw: 1.4 },
+    { x: L5, y: r.Mult.map(v => v / mI), coul: "#c58cff", nom: "dont diffusion multiple", lw: 1.4 },
+    { x: L5, y: ref.map(v => v / mref), coul: "#ffd27f", nom: "Soleil × (550/λ)⁴", tir: [5, 4] }], { ymax: 1.05, axeY: "normalisé" });
+  // 3. ce que perçoit l'œil
+  const yb = L5.map(l => cie(l, 1)), xb = L5.map(l => cie(l, 0)), zb = L5.map(l => cie(l, 2));
+  const prod = I.map((v, k) => v * yb[k]), mp = Math.max(...prod) || 1;
+  graphe(cadres[2], "Ce que perçoit l'œil", [
+    { x: L5, y: xb.map(v => v / 1.78), coul: "#ff6b6b", nom: "sensibilité x̄ (≈ rouge)", lw: 1.4 },
+    { x: L5, y: yb.map(v => v / 1.78), coul: "#6bff8a", nom: "sensibilité ȳ (≈ vert)", lw: 1.4 },
+    { x: L5, y: zb.map(v => v / 1.78), coul: "#6b8aff", nom: "sensibilité z̄ (≈ bleu)", lw: 1.4 },
+    { x: L5, y: I.map(v => v / mI), coul: "#7fe8ff", nom: "spectre du ciel", tir: [5, 4] },
+    { x: L5, y: prod.map(v => v / mp * 0.95), coul: "#fff", nom: "ciel × ȳ (luminosité)", lw: 2.4 }], { ymax: 1.05 });
+  // 4. valeurs numériques et couleurs
+  const [x0, y0] = cadres[3]; let y = y0 + 20;
+  sur.fillStyle = "rgba(255,255,255,0.04)"; sur.fillRect(x0, y0, colW, rowH);
+  const tl = (s, c, t) => { texte(x0 + 12, y, s, c || "#fff", "left", t || 12.5); y += (t || 12.5) + 7; };
+  tl("Valeurs numériques", "#fff", 13.5);
+  const cR = l => coefs([l])[0], m = masseAir();
+  const k450 = L5.indexOf(450), k650 = L5.indexOf(650);
+  if (!pl.vide) {
+    tl(`épaisseur optique verticale (Rayleigh): τ(450) = ${fr(cR(450).bR * pl.Hr, 3)}, τ(650) = ${fr(cR(650).bR * pl.Hr, 3)}`, "#7fe8ff", 12);
+    tl(`masse d'air: m = ${isFinite(m) ? fr(m, 1) : "—"};  transmission directe e^(−mτ): ${fr(100 * Ts[k450], 1)} % à 450 nm, ${fr(100 * Ts[k650], 1)} % à 650 nm`, "#7fe8ff", 12);
+    tl(`ciel: I(450)/I(650) = ${fr(I[k450] / I[k650], 2)}   (Rayleigh pur (650/450)⁴ = ${fr(Math.pow(650 / 450, 4), 2)})`, "#7fe8ff", 12);
+    const pz = polarisation(d, coefs(LB), LB, COUL8 || matriceCouleur(LB));
+    tl(`dans cette direction: γ = ${fr(pz.gam, 0)}°, polarisation P = ${fr(100 * pz.P, 0)} %`, "#7fe8ff", 12);
+  } else tl("Pas d'atmosphère: pas de lumière diffusée.", "#7fe8ff", 12);
+  y += 4;
+  const pastille = (titre, S) => {
+    const c = couleurSpectre(S, L5, M5);
+    sur.fillStyle = rgbCss(c, 1); sur.fillRect(x0 + 12, y - 11, 46, 16); sur.strokeStyle = "rgba(255,255,255,0.5)"; sur.strokeRect(x0 + 12, y - 11, 46, 16);
+    texte(x0 + 66, y + 2, titre, "#fff", "left", 12); y += 22;
+  };
+  pastille("Soleil hors atmosphère (blanc par définition)", E0);
+  pastille("Soleil vu du sol", Esol);
+  pastille("ciel dans la direction choisie", I);
+  pastille("Soleil × λ⁻⁴ (diffusion pure, sans ozone ni œil)", ref);
+  y += 2;
+  tl("Le spectre du ciel culmine dans le violet, mais l'œil y est peu", "#ddd", 11.5);
+  tl("sensible et le Soleil en émet moins: on voit du bleu.", "#ddd", 11.5);
+}
+// ====================================================================== interface
+P.spDir = "zenith";
+const VUES = [["sol", "Ciel vu du sol"], ["espace", "Vue de l'espace"], ["molecule", "Une molécule"], ["spectres", "Spectres"], ["polar", "Polarisation du ciel"]];
+const ong = document.getElementById("onglets"), boutonsVue = {};
+for (const [k, lab] of VUES) { const b = document.createElement("button"); b.textContent = lab; b.onclick = () => choisirVue(k); ong.appendChild(b); boutonsVue[k] = b; }
+function choisirVue(k) {
+  P.vue = k;
+  for (const v in boutonsVue) boutonsVue[v].classList.toggle("actif", v === k);
+  const ciel = k === "sol" || k === "espace" || k === "polar";
+  cvGL.style.display = ciel && P.qualite !== "cpu" && GL.ok? "" : "none";
+  cvCPU.style.display = ciel && (P.qualite === "cpu" || !GL.ok) ? "" : "none";
+  cvGL.style.cursor = "grab";
+  majPanneau(); demander();
+}
+const ctl = document.getElementById("controles"), MAJ = [];
+function el(tag, at, parent) {
+  const e = document.createElement(tag);
+  if (at) for (const k in at) { if (k === "text") e.textContent = at[k]; else if (k === "html") e.innerHTML = at[k]; else if (k.startsWith("on")) e.addEventListener(k.slice(2), at[k]); else e.setAttribute(k, at[k]); }
+  if (parent) parent.appendChild(e); return e;
+}
+const section = (t, cl) => { const s = el("div", { class: "section" + (cl? " " + cl : "") }, ctl); if (t) el("div", { class: "titre", html: t }, s); return s; };
+function curseur(par, lab, cle, min, max, pas, fmt, apres) {
+  const c = el("div", { class: "curseur" }, par), t = el("div", { class: "tete" }, c);
+  el("span", { html: lab }, t); const v = el("span", { class: "valeur" }, t);
+  const r = el("input", { type: "range", min, max, step: pas }, c);
+  const maj = () => { r.value = P[cle]; v.innerHTML = fmt(P[cle]); };
+  r.addEventListener("input", () => { P[cle] = parseFloat(r.value); v.innerHTML = fmt(P[cle]); if (apres) apres(); demander(); });
+  MAJ.push(maj); maj(); return r;
+}
+function caseC(par, lab, cle, apres) {
+  const l = el("label", { class: "choix" }, par), i = el("input", { type: "checkbox" }, l); el("span", { html: lab }, l);
+  i.addEventListener("change", () => { P[cle] = i.checked; if (apres) apres(); demander(); });
+  MAJ.push(() => { i.checked = P[cle]; }); i.checked = P[cle]; return i;
+}
+function radios(par, opts, cle, apres) {
+  const nom = "r" + Math.random().toString(36).slice(2), rs = [];
+  for (const [k, lab] of opts) { const l = el("label", { class: "choix" }, par), r = el("input", { type: "radio", name: nom }, l); el("span", { html: lab }, l);
+    r.addEventListener("change", () => { if (r.checked) { P[cle] = k; if (apres) apres(); demander(); } }); rs.push([k, r]); }
+  MAJ.push(() => { for (const [k, r] of rs) r.checked = P[cle] === k; }); MAJ[MAJ.length - 1]();
+}
+function choixListe(par, opts, cle, apres) {
+  const s = el("select", {}, par); for (const [k, lab] of opts) el("option", { value: k, text: lab }, s);
+  s.addEventListener("change", () => { P[cle] = s.value; if (apres) apres(); demander(); });
+  MAJ.push(() => { s.value = P[cle]; }); s.value = P[cle]; return s;
+}
+const bouton = (par, t, f, cl) => el("button", { class: "b" + (cl? " " + cl : ""), text: t, onclick: f }, par);
+function majControles() { for (const f of MAJ) f(); }
+
+// ---------------------------------------------------------------- sections
+const sV = section("Visite guidée");
+el("div", { class: "note", style: "font-style:normal", html: "Une suite d'étapes commentées qui règlent la simulation pour vous: à suivre pas à pas ou d'un seul tenant." }, sV);
+const bVis = el("div", { class: "boutons" }, sV);
+bouton(bVis, "▶ Commencer la visite guidée", () => visite(0), "pri");
+
+const sS = section("Soleil", "ciel");
+curseur(sS, "Hauteur du Soleil au-dessus de l'horizon", "hSol", -12, 90, 0.5, v => fr(v, 1) + "°");
+curseur(sS, "Azimut du Soleil (depuis le nord, vers l'est)", "azSol", 0, 359, 1, v => fr(v, 0) + "°");
+const bS = el("div", { class: "boutons" }, sS);
+const bCouch = bouton(bS, "🌇 Coucher de Soleil animé", () => { animSoleil = animSoleil? null : { de: Math.max(P.hSol, 8), a: -9 }; if (animSoleil) P.hSol = animSoleil.de; bCouch.classList.toggle("actif", !!animSoleil); });
+bouton(bS, "Regarder vers le Soleil", () => { P.camAz = P.azSol; P.camEl = clamp(P.hSol * 0.6 + 4, 2, 60); P.vue === "sol" || choisirVue("sol"); majControles(); demander(); });
+bouton(bS, "Dos au Soleil", () => { P.camAz = (P.azSol + 180) % 360; P.camEl = 14; P.vue === "sol" || choisirVue("sol"); majControles(); demander(); });
+
+const sA = section("Atmosphère", "ciel");
+choixListe(sA, [["terre", "Terre"], ["mars", "Mars (poussières en suspension)"], ["lune", "Lune (pas d'atmosphère)"]], "planete", () => { P.tauA = planete().tauA; majControles(); });
+curseur(sA, "Diffusion moléculaire en 1/λ<sup>n</sup>: exposant n", "n", 0, 6, 0.25, v => fr(v, 2) + (v === 4? " (Rayleigh)" : v === 0? " (sans dépendance en λ)" : ""));
+curseur(sA, "Aérosols (brume, poussières): épaisseur optique à 550 nm", "tauA", 0, 1.5, 0.01, v => fr(v, 2));
+caseC(sA, "Absorption par l'ozone (bande de Chappuis)", "ozone");
+caseC(sA, "Diffusion multiple (lumière diffusée plusieurs fois)", "multiple");
+caseC(sA, "Nuages (vue du sol, Terre)", "nuages");
+el("div", { class: "note", html: "Aérosols, ozone et diffusion multiple vont au-delà du modèle de Rayleigh du cours; ils sont nécessaires pour un ciel réaliste et peuvent être désactivés." }, sA);
+
+const sO = section("Observateur", "sol");
+curseur(sO, "Altitude de l'observateur", "alt", 0.002, 40, 0.1, v => v < 0.05? "niveau de la mer" : fr(v, 1) + " km");
+curseur(sO, "Champ de vision (molette)", "fov", 25, 120, 1, v => fr(v, 0) + "°");
+el("div", { class: "note", html: "Glisser dans l'image pour regarder ailleurs; clic simple pour mesurer la polarisation en un point. L'observateur est à Caen, au bord de la mer." }, sO);
+
+const sP = section("Polarisation", "pol");
+radios(sP, [["couleurs", "Couleurs réelles"], ["P", "Degré de polarisation P (fausses couleurs)"], ["angle", "Direction du champ E (fausses couleurs)"]], "aff");
+caseC(sP, "Regarder à travers un polariseur", "polOn");
+curseur(sP, "Axe du polariseur (depuis l'horizontale de l'image)", "polA", 0, 180, 1, v => fr(v, 0) + "°");
+const bP = el("div", { class: "boutons" }, sP);
+const bRot = bouton(bP, "↻ Faire tourner le polariseur", () => { rotPol = !rotPol; if (rotPol) P.polOn = true; bRot.classList.toggle("actif", rotPol); majControles(); });
+const cBat = caseC(sP, "Bâtonnets: direction de E et valeur de P", "fishPol");
+
+const sM = section("Molécule et lumière", "mol");
+radios(sM, [["naturelle", "Lumière incidente naturelle (non polarisée)"], ["y", "Lumière polarisée selon y (dans le plan de diffusion)"], ["z", "Lumière polarisée selon z (perpendiculaire)"]], "molLum", () => { MOL.traceI = []; MOL.traceD = []; });
+curseur(sM, "Angle de diffusion γ (direction de l'observateur)", "molGam", 0, 180, 1, v => fr(v, 0) + "°", () => { MOL.traceD = []; });
+curseur(sM, "Longueur d'onde λ", "molLam", 400, 700, 5, v => v + " nm");
+curseur(sM, "Vitesse de l'animation", "molVit", 0.1, 2, 0.05, v => "×" + fr(v, 2));
+
+const sSp = section("Spectres", "spec");
+el("div", { html: "Direction du ciel analysée:" }, sSp);
+choixListe(sSp, [["zenith", "zénith"], ["90", "à 90° du Soleil (vers le haut)"], ["horizon", "près de l'horizon, dos au Soleil"], ["soleil", "près du Soleil"], ["sonde", "point cliqué dans le ciel (vue du sol)"]], "spDir");
+
+const sE = section("Vue de l'espace", "esp");
+const bE = el("div", { class: "boutons" }, sE);
+bouton(bE, "Vue d'ensemble", () => { P.espCible = "centre"; P.espD = 3; P.espEl = 35; P.espAz = (P.azSol + 330) % 360; demander(); });
+bouton(bE, "Au-dessus de Caen: trajet de la lumière", () => { P.espCible = "caen"; P.espDc = 1800; P.espEl = 16; P.espAz = (P.azSol + 90) % 360; demander(); });
+bouton(bE, "Le limbe (orbite basse)", () => { P.espCible = "caen"; P.espDc = 2400; P.espEl = 1; P.espAz = (P.azSol + 180) % 360; demander(); });
+
+const sI = section("Image", "ciel");
+caseC(sI, "Exposition automatique (comme l'œil qui s'adapte)", "expoAuto");
+curseur(sI, "Correction d'exposition", "ev", -4, 4, 0.25, v => (v > 0? "+" : "") + fr(v, 2) + " IL");
+el("div", { html: "Qualité du calcul:" }, sI);
+choixListe(sI, [["haute", "haute"], ["moyenne", "moyenne"], ["basse", "basse (mode dégradé, carte graphique)"], ["cpu", "très basse (sans carte graphique)"]], "qualite", () => choisirVue(P.vue));
+const noteGL = el("div", { class: "note", html: "" }, sI);
+
+const sX = section("Ce qu'on observe");
+const explic = el("div", { class: "texte" }, sX);
+const sQ = section("Questions pour réfléchir");
+const QUESTIONS = [
+  ["Pourquoi le ciel est-il bleu et non violet?", "La puissance diffusée varie en 1/λ⁴: le violet est encore plus diffusé que le bleu. Mais le Soleil émet moins de violet que de bleu, une partie de l'ultraviolet et du violet est absorbée, et surtout l'œil est très peu sensible au violet. Le spectre du ciel, perçu par les trois types de cônes, donne un bleu (onglet « Spectres »)."],
+  ["Pourquoi le Soleil couchant est-il rouge alors que le zénith reste bleu?", "Au coucher, la lumière directe traverse une épaisseur d'air bien plus grande (masse d'air ≈ 38 à l'horizon, contre 1 au zénith). Le bleu en est presque entièrement retiré par diffusion: il ne reste que l'orange et le rouge. Le zénith, lui, est éclairé par une lumière qui n'a traversé que la haute atmosphère, encore blanche: il reste bleu, et l'ozone en renforce le bleu au crépuscule."],
+  ["Pourquoi les nuages sont-ils blancs?", "Les gouttelettes (environ 10 µm) sont bien plus grosses que λ: on n'est plus dans le domaine de Rayleigh, la diffusion ne dépend presque plus de λ. Toutes les couleurs sont diffusées de la même façon: blanc (ou gris si le nuage est épais). Au coucher, ils prennent la couleur de la lumière qui les éclaire."],
+  ["Pourquoi le ciel de la Lune est-il noir en plein jour?", "Sans atmosphère, rien ne diffuse la lumière du Soleil vers l'observateur en dehors de la direction du Soleil: le ciel est noir, les étoiles restent visibles et les ombres sont très contrastées."],
+  ["Où le ciel est-il le plus polarisé? Pourquoi pas à 100 %?", "Sur le grand cercle situé à 90° du Soleil: une molécule ne rayonne pas dans la direction de son dipôle, donc la lumière reçue à γ = 90° ne contient que la composante perpendiculaire au plan de diffusion. En pratique P plafonne vers 70 à 80 %: diffusion multiple, aérosols et lumière réfléchie par le sol ajoutent de la lumière peu polarisée."],
+  ["Pourquoi des lunettes polarisantes assombrissent-elles une bande du ciel et les reflets sur l'eau?", "Leur axe est vertical. Dans la bande à 90° du Soleil, E est perpendiculaire au plan de diffusion; quand le Soleil est bas, cette bande passe par le zénith et E y est horizontal: le polariseur l'arrête. Les reflets sur l'eau sont eux aussi polarisés horizontalement (presque totalement près de l'incidence de Brewster, 53°)."],
+  ["Combien de fois plus de bleu (450 nm) que de rouge (650 nm) est diffusé?", "(650/450)⁴ ≈ 4,4. Entre 400 nm et 700 nm le rapport atteint (700/400)⁴ ≈ 9,4."],
+  ["Pourquoi la lumière diffusée vers l'avant ou vers l'arrière n'est-elle pas polarisée?", "À γ = 0° ou 180°, l'observateur est dans la direction de propagation de l'onde incidente: les deux composantes de E incident (selon y et z) sont perpendiculaires à la direction d'observation et rayonnent toutes deux vers lui. Il reçoit, comme l'onde incidente, une lumière naturelle."],
+  ["Qu'est-ce que la bande rose au-dessus de l'horizon opposé au Soleil, au crépuscule?", "C'est la « ceinture de Vénus »: la haute atmosphère, encore éclairée par la lumière rougie du Soleil couchant, la renvoie vers nous. En dessous, une bande gris-bleu: l'ombre de la Terre projetée sur l'atmosphère."],
+];
+for (const [q, r] of QUESTIONS) { const d = el("details", { class: "q" }, sQ); el("summary", { text: q }, d); el("div", { html: r }, d); }
+
+const EXPLIC = {
+  sol: "La lumière du Soleil est diffusée par les molécules de l'air (N₂, O₂), qui se comportent comme des dipôles induits: la puissance diffusée varie en <b>1/λ⁴</b>. Le bleu est environ 4 fois plus diffusé que le rouge: le ciel est bleu. Près de l'horizon, le ciel est plus pâle: la lumière diffusée y a parcouru une grande épaisseur d'air et a été elle-même rediffusée. Au coucher, la lumière directe a perdu son bleu: le Soleil devient orange puis rouge.",
+  espace: "Vue de l'espace, l'atmosphère est une pellicule très fine (moins de 100 km pour un rayon de 6 360 km) qui forme un liseré bleu au bord de la planète (le <b>limbe</b>). Près de la limite jour-nuit (le <b>terminateur</b>), la lumière solaire traverse l'atmosphère presque tangentiellement: le trajet tracé jusqu'à Caen montre l'épaisseur d'air traversée et la couleur de la lumière restante.",
+  molecule: "Le champ électrique de l'onde incidente déplace le nuage électronique de la molécule: c'est un <b>dipôle induit</b> p(t) qui oscille à la pulsation ω de l'onde. Loin de la résonance (ω ≪ ω₀, résonance dans l'ultraviolet), p ne dépend pas de ω, et la puissance rayonnée varie en ω⁴ ∝ 1/λ⁴. Un dipôle ne rayonne pas dans sa propre direction (indicatrice en sin²θ): à γ = 90°, la lumière diffusée est polarisée rectilignement.",
+  spectres: "Les spectres sont calculés avec le même modèle que les images. La lumière directe perd surtout ses courtes longueurs d'onde; la lumière du ciel en est enrichie. Le maximum du spectre du ciel est dans le violet, mais la sensibilité de l'œil (fonctions colorimétriques x̄, ȳ, z̄) et le spectre solaire font que nous le voyons bleu.",
+  polar: "Vue de toute la voûte céleste (projection « fisheye », zénith au centre, nord en haut et est à gauche, comme quand on regarde le ciel allongé sur le dos). Les bâtonnets indiquent la direction du champ E (perpendiculaire au plan Soleil-molécule-observateur) et leur longueur le degré de polarisation. Il est maximal sur le cercle à 90° du Soleil, et nul vers le Soleil et vers le point antisolaire (dans le modèle de diffusion simple).",
+};
+function majPanneau() {
+  const v = P.vue, vis = (cl, on) => { for (const s of ctl.querySelectorAll("." + cl)) s.style.display = on? "" : "none"; };
+  vis("ciel", v === "sol" || v === "espace" || v === "polar" || v === "spectres");
+  vis("sol", v === "sol"); vis("pol", v === "sol" || v === "polar"); vis("mol", v === "molecule"); vis("spec", v === "spectres"); vis("esp", v === "espace");
+  cBat.parentNode.style.display = v === "polar" ? "" : "none";
+  explic.innerHTML = EXPLIC[v];
+  noteGL.innerHTML = GL.ok? "Le ciel est calculé par la carte graphique. Si l'image saccade, choisir une qualité plus basse." : "Carte graphique (WebGL) indisponible: calcul par le processeur, image moins fine.";
+}
+
+// ====================================================================== visite guidée
+const BASE = { planete: "terre", n: 4, tauA: 0.1, ozone: true, multiple: true, nuages: false, alt: 0.002, fov: 70, aff: "couleurs", polOn: false, polA: 0, expoAuto: true, ev: 0, sonde: null };
+const ETAPES = [
+  { t: "Le ciel de jour", vue: "sol", r: { hSol: 40, azSol: 200, camAz: 30, camEl: 18 },
+    x: "Voici le ciel au-dessus de la mer, à Caen, avec le Soleil à 40° au-dessus de l'horizon (dans notre dos). Le ciel est <b>bleu</b>, plus foncé en haut, plus pâle vers l'horizon. Cette lumière ne vient pas directement du Soleil: elle a été <b>diffusée</b> par l'air." },
+  { t: "Sans atmosphère: la Lune", vue: "sol", r: { planete: "lune", hSol: 40, azSol: 200, camAz: 30, camEl: 18 },
+    x: "Même Soleil, mais sur la Lune, sans atmosphère: le ciel est <b>noir</b> en plein jour. C'est donc bien l'air qui renvoie vers nous une partie de la lumière solaire." },
+  { t: "Une molécule dans la lumière du Soleil", vue: "molecule", r: { molLum: "naturelle", molGam: 90, molLam: 450 },
+    x: "Le champ E de l'onde incidente fait osciller le nuage électronique de la molécule: c'est un <b>dipôle induit</b> p(t), qui rayonne à son tour (modèle de la charge élastiquement liée). Son indicatrice de rayonnement est en sin²θ: rien n'est émis dans la direction de p." },
+  { t: "Bleu contre rouge: la loi en 1/λ⁴", vue: "molecule", r: { molLum: "naturelle", molGam: 90, molLam: 400 }, a: u => { P.molLam = Math.round(400 + 300 * u); },
+    x: "La résonance de la molécule est dans l'ultraviolet: ω ≪ ω₀, l'amplitude de p ne dépend presque pas de ω, et la puissance rayonnée est en <b>ω⁴ ∝ 1/λ⁴</b>. Entre 450 nm et 650 nm, le rapport vaut (650/450)⁴ ≈ <b>4,4</b>: le bleu est beaucoup plus diffusé que le rouge." },
+  { t: "Et si la diffusion ne dépendait pas de λ?", vue: "sol", r: { hSol: 40, azSol: 200, camAz: 30, camEl: 18, n: 4 }, a: u => { P.n = 4 * (1 - u); }, d: 9,
+    x: "On fait passer l'exposant n de la loi en 1/λⁿ de 4 à 0, sans changer la quantité totale de lumière diffusée. Le ciel devient <b>blanc</b>: c'est bien la dépendance en λ qui le colore (c'est aussi pourquoi les nuages, faits de grosses gouttes, sont blancs)." },
+  { t: "Le spectre du ciel: pourquoi pas violet?", vue: "spectres", r: { hSol: 40, spDir: "zenith" },
+    x: "Le spectre de la lumière du ciel (en haut à droite) culmine dans le violet. Mais le Soleil émet moins de violet que de bleu, et l'œil y est très peu sensible (en bas à gauche): la couleur perçue est un <b>bleu</b>." },
+  { t: "Le coucher de Soleil", vue: "sol", r: { hSol: 22, azSol: 250, camAz: 250, camEl: 8, fov: 75 }, a: u => { P.hSol = 22 - 23 * u; }, d: 14,
+    x: "Le Soleil descend. Sa lumière traverse une épaisseur d'air de plus en plus grande (la <b>masse d'air</b>, affichée en haut à gauche, passe de 2,7 à près de 40). Le bleu est retiré du faisceau direct au profit du ciel: le Soleil jaunit, puis devient <b>orange et rouge</b>, comme les nuages et la mer qu'il éclaire." },
+  { t: "Vu de l'espace", vue: "espace", r: { hSol: 3, azSol: 250, espCible: "caen", espDc: 1800, espEl: 16, espAz: 340 },
+    x: "Vue de l'espace avec le Soleil bas à Caen. Le trajet tracé est celui de la lumière qui arrive à l'observateur: plus de 600 km dans l'air au lieu de 8 km à la verticale. Remarquez le <b>liseré bleu</b> de l'atmosphère au bord de la Terre et le rougeoiement le long de la limite jour-nuit." },
+  { t: "Le crépuscule: zénith bleu, ombre de la Terre", vue: "sol", r: { hSol: 1, azSol: 250, camAz: 70, camEl: 12, fov: 90 }, a: u => { P.hSol = 1 - 7 * u; }, d: 12,
+    x: "On regarde à l'opposé du Soleil qui se couche. Au-dessus de l'horizon apparaît une bande rose, la <b>ceinture de Vénus</b>, puis, en dessous, une bande gris-bleu qui monte: c'est l'<b>ombre de la Terre</b> projetée sur l'atmosphère. Le zénith reste bleu, renforcé par l'absorption de l'ozone dans le jaune-orange." },
+  { t: "Brume et nuages", vue: "sol", r: { hSol: 30, azSol: 200, camAz: 175, camEl: 14, nuages: true, tauA: 0.05 }, a: u => { P.tauA = 0.05 + 0.85 * u; }, d: 11,
+    x: "On ajoute des aérosols (brume, pollution, poussières): ces particules, plus grosses que les molécules, diffusent toutes les couleurs presque de la même façon et surtout vers l'avant (diffusion de Mie). Le ciel <b>blanchit</b> et une auréole lumineuse entoure le Soleil. Les <b>nuages</b> sont blancs pour la même raison." },
+  { t: "La lumière diffusée est polarisée", vue: "molecule", r: { molLum: "naturelle", molGam: 0, molLam: 450 }, a: u => { P.molGam = Math.round(180 * u); MOL.traceD.length = Math.min(MOL.traceD.length, 40); }, d: 14,
+    x: "La lumière incidente est naturelle: la direction de E change sans cesse. Observons la lumière diffusée en faisant varier l'angle γ. À <b>γ = 90°</b>, la composante de p dirigée vers l'observateur ne lui envoie rien: il ne reçoit que la composante perpendiculaire au plan de diffusion. La lumière est <b>polarisée rectilignement</b>: P = sin²γ/(1 + cos²γ)." },
+  { t: "Carte de polarisation du ciel", vue: "polar", r: { hSol: 25, azSol: 230, aff: "P", fishPol: true },
+    x: "Toute la voûte céleste, en fausses couleurs: le degré de polarisation est <b>maximal sur le cercle à 90° du Soleil</b> (en pointillés) et faible près du Soleil et du point antisolaire. Les bâtonnets montrent la direction de E, perpendiculaire au plan de diffusion. Les abeilles s'en servent pour s'orienter." },
+  { t: "Pourquoi P n'atteint pas 100 %", vue: "polar", r: { hSol: 25, azSol: 230, aff: "P", multiple: false, tauA: 0 }, a: u => { P.multiple = u > 0.35; P.tauA = u > 0.65? 0.25 : 0; }, d: 12,
+    x: "Sans aérosols ni diffusion multiple, le modèle de Rayleigh donne P = 100 % à 90° du Soleil. On rajoute la <b>diffusion multiple</b> (lumière diffusée plusieurs fois, dans toutes les directions), puis des <b>aérosols</b>: cette lumière peu polarisée s'ajoute et P plafonne vers 70 à 80 %, comme dans le ciel réel (regardez l'encart P(γ))." },
+  { t: "À travers un polariseur", vue: "sol", r: { hSol: 18, azSol: 250, camAz: 340, camEl: 10, fov: 100, polOn: true, polA: 0 }, a: u => { P.polA = (360 * u) % 180; }, d: 14,
+    x: "On regarde à 90° du Soleil à travers un polariseur qu'on fait tourner. Le ciel s'assombrit fortement quand l'axe est perpendiculaire à E: c'est l'effet des <b>filtres polarisants</b> des photographes et des lunettes polarisantes. Les <b>reflets sur la mer</b> s'éteignent aussi: la réflexion sur l'eau polarise la lumière (incidence de Brewster)." },
+  { t: "Sur Mars", vue: "sol", r: { planete: "mars", hSol: 30, azSol: 250, camAz: 250, camEl: 15, fov: 90 }, a: u => { P.hSol = 30 - 29 * u; }, d: 12,
+    x: "Sur Mars, l'atmosphère est 160 fois moins dense: la diffusion moléculaire est faible. Ce sont les <b>poussières</b> en suspension qui colorent le ciel en ocre. Au coucher, c'est l'inverse de la Terre: le Soleil est entouré d'un <b>halo bleuté</b>, car ces poussières diffusent davantage le bleu vers l'avant." },
+];
+const vBox = document.getElementById("visite"), vTitre = document.getElementById("vTitre"), vCorps = document.getElementById("vCorps"), vNum = document.getElementById("vNum"), vProg = document.getElementById("vProg");
+let VIS = null;            // { i, t0, auto }
+function visite(i) {
+  if (i < 0 || i >= ETAPES.length) { finVisite(); return; }
+  const e = ETAPES[i];
+  Object.assign(P, BASE, e.r);
+  VIS = { i, t: 0, auto: VIS? VIS.auto : false };
+  animSoleil = null; rotPol = false; bCouch.classList.remove("actif"); bRot.classList.remove("actif");
+  if (e.a) e.a(0);
+  MOL.traceI = []; MOL.traceD = [];
+  vBox.style.display = "block"; vTitre.textContent = (i + 1) + ". " + e.t; vCorps.innerHTML = e.x; vNum.textContent = `étape ${i + 1} sur ${ETAPES.length}`;
+  document.getElementById("vPrec").disabled = i === 0;
+  document.getElementById("vTout").classList.toggle("actif", VIS.auto);
+  choisirVue(e.vue); majControles(); demander();
+}
+function finVisite() { VIS = null; vBox.style.display = "none"; vProg.style.width = "0"; }
+document.getElementById("vPrec").onclick = () => VIS && visite(VIS.i - 1);
+document.getElementById("vSuiv").onclick = () => VIS && (VIS.i + 1 < ETAPES.length? visite(VIS.i + 1) : finVisite());
+document.getElementById("vFin").onclick = finVisite;
+document.getElementById("vTout").onclick = () => { if (!VIS) return; VIS.auto = !VIS.auto; document.getElementById("vTout").classList.toggle("actif", VIS.auto); if (VIS.auto && VIS.t > dureeEtape(ETAPES[VIS.i])) visite(VIS.i + 1); };
+function dureeEtape(e) { return e.d || 10; }
+function avancerVisite(dt) {
+  if (!VIS) return;
+  const e = ETAPES[VIS.i], D = dureeEtape(e);
+  VIS.t += dt;
+  const u = clamp(VIS.t / D, 0, 1);
+  if (e.a && VIS.t <= D + dt) { e.a(u); majControles(); demander(); }
+  vProg.style.width = (100 * u) + "%";
+  // en mode « tout enchaîner », on laisse le temps de lire après l'animation
+  if (VIS.auto && VIS.t > D + 6) { if (VIS.i + 1 < ETAPES.length) visite(VIS.i + 1); else { VIS.auto = false; document.getElementById("vTout").classList.remove("actif"); } }
+}
+
+// ====================================================================== interactions
+let animSoleil = null, rotPol = false, glisse = null;
+zone.addEventListener("pointerdown", e => {
+  if (e.target.closest("#visite")) return;
+  const r = zone.getBoundingClientRect();
+  glisse = { x: e.clientX, y: e.clientY, x0: e.clientX - r.left, y0: e.clientY - r.top, bouge: false };
+  zone.setPointerCapture(e.pointerId); cvGL.style.cursor = "grabbing";
+});
+zone.addEventListener("pointermove", e => {
+  if (!glisse) return;
+  const dx = e.clientX - glisse.x, dy = e.clientY - glisse.y;
+  if (Math.abs(dx) + Math.abs(dy) > 3) glisse.bouge = true;
+  if (!glisse.bouge) return;
+  glisse.x = e.clientX; glisse.y = e.clientY;
+  if (P.vue === "sol") { const k = P.fov / H; P.camAz = (P.camAz - dx * k + 360) % 360; P.camEl = clamp(P.camEl + dy * k, -30, 89); demander(); }
+  else if (P.vue === "espace") { P.espAz = (P.espAz - dx * 0.3 + 360) % 360; P.espEl = clamp(P.espEl + dy * 0.3, P.espCible === "caen" ? 2 : -85, 85); demander(); }
+  else if (P.vue === "molecule") { MOL.yaw += dx * 0.01; MOL.pitch = clamp(MOL.pitch + dy * 0.01, -1.3, 1.3); }
+});
+const finGlisse = () => {
+  if (!glisse) return;
+  if (!glisse.bouge && (P.vue === "sol" || P.vue === "polar")) {
+    const d = dirDepuisEcran(glisse.x0, glisse.y0);
+    if (d && d[2] > -0.02) { P.sonde = d; if (P.spDir !== "sonde" && P.vue === "sol") P.spDir = "sonde"; majControles(); demander(); }
+  }
+  glisse = null; cvGL.style.cursor = "grab";
+};
+zone.addEventListener("pointerup", finGlisse); zone.addEventListener("pointercancel", finGlisse);
+zone.addEventListener("wheel", e => {
+  if (P.vue === "sol") { P.fov = clamp(P.fov * Math.exp(e.deltaY * 0.001), 25, 120); majControles(); demander(); e.preventDefault(); }
+  else if (P.vue === "espace") { if (P.espCible === "caen") P.espDc = clamp(P.espDc * Math.exp(e.deltaY * 0.0012), 200, 12000); else P.espD = clamp(1 + (P.espD - 1) * Math.exp(e.deltaY * 0.0012), 1.03, 8); demander(); e.preventDefault(); }
+}, { passive: false });
+window.addEventListener("keydown", e => {
+  if (e.target.tagName === "SELECT" || (e.target.tagName === "INPUT" && !/range|radio|checkbox/.test(e.target.type))) return;
+  if (VIS && e.key === "ArrowRight") document.getElementById("vSuiv").click();
+  if (VIS && e.key === "ArrowLeft") document.getElementById("vPrec").click();
+  if (e.key === "Escape") finVisite();
+  if (e.key === "f" || e.key === "F") { if (document.fullscreenElement) document.exitFullscreen(); else zone.requestFullscreen && zone.requestFullscreen(); }
+});
+
+// ====================================================================== boucle principale
+let tPrec = performance.now(), tRendu = 0;
+function boucle(t) {
+  const dt = Math.min((t - tPrec) / 1000, 0.1); tPrec = t;
+  avancerVisite(dt);
+  if (animSoleil) { P.hSol -= dt * 1.6; if (P.hSol <= animSoleil.a) { P.hSol = animSoleil.a; animSoleil = null; bCouch.classList.remove("actif"); } majControles(); demander(); }
+  if (rotPol) { P.polA = (P.polA + dt * 30) % 180; majControles(); demander(); }
+  if (P.vue === "molecule") { dessinerMolecule(dt); majHud(); }
+  else if (besoin) {
+    besoin = false;
+    sur.clearRect(0, 0, W, H);
+    if (P.vue === "spectres") { cvGL.style.display = "none"; cvCPU.style.display = "none"; dessinerSpectres(); attente.style.display = "none"; }
+    else {
+      rendreCiel();
+      if (P.vue === "sol") surSol(); else if (P.vue === "polar") surPolar(); else surEspace();
+    }
+    majHud();
+  }
+  requestAnimationFrame(boucle);
+}
+// ---------------------------------------------------------------- démarrage
+GL.ok = initGL();
+if (!GL.ok) P.qualite = "cpu";
+dims(); choisirVue("sol"); majControles();
+requestAnimationFrame(boucle);
+</script>
+<script src="mobile.js"></script>
+</body>
+</html>
