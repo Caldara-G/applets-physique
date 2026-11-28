@@ -65,7 +65,8 @@ header a:hover{text-decoration:underline}
 #hl,#ed{position:absolute;inset:0;margin:0;padding:6px 10px;font:13.5px/20px var(--mono);tab-size:4;white-space:pre;overflow:auto;border:0;letter-spacing:0}
 #hl{pointer-events:none;color:var(--ed-fg);overflow:hidden}
 #ed{background:transparent;color:transparent;caret-color:#111;resize:none;outline:none;z-index:1}
-#ed::selection{background:var(--sel)}
+#ed::selection{background:rgba(59,111,182,.30);color:transparent}
+#ed::-moz-selection{background:rgba(59,111,182,.30);color:transparent}
 .k{color:#0033b3;font-weight:600}.bi{color:#7a3e9d}.s{color:#067d17}.c{color:#8c8c8c;font-style:italic}.n{color:#1750eb}.d{color:#9e880d}.f{color:#00627a;font-weight:600}.cn{color:#0033b3}
 .cellsep{display:inline-block;width:100%;border-top:1px dashed #9bb5dc}
 /* panneaux de droite */
